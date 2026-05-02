@@ -1,0 +1,20 @@
+# mctrader-hub CODEOWNERS
+# 현재 단일 developer (mclayer org team 미생성). 추후 team 생성 시 @mccho8865 → @mclayer/<team> 으로 일괄 치환.
+
+# 설계 결정 (도메인 ADR) — architect 의무 review
+docs/adr/**                                   @mccho8865
+
+# 변경 계획 (Change Plan)
+docs/change-plans/**                          @mccho8865
+
+# Story 페이지 — Phase 1 PR 자동 결재 (CFP-45 § Story flow workflows 도입 시 활용)
+docs/stories/**                               @mccho8865
+
+# Domain Knowledge
+docs/domain-knowledge/**                      @mccho8865
+
+# GitHub Workflow 변경 — security-sensitive
+.github/workflows/**                          @mccho8865
+
+# Plugin overlay 설정
+.claude/_overlay/**                           @mccho8865

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: codeforge plugin issue (debut audit finding)
+    url: https://github.com/mclayer/plugin-codeforge/issues/new
+    about: codeforge plugin 자체 개선점 발견 시 plugin repo 에 등록 (label audit:from-mctrader-debut)

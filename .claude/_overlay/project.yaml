@@ -1,0 +1,42 @@
+# .claude/_overlay/project.yaml — mctrader-hub SSOT 상수
+# Schema: https://github.com/mclayer/plugin-codeforge/blob/main/docs/project-config-schema.md
+
+project:
+  name: mctrader
+
+github:
+  org: mclayer
+  repo: mctrader-hub
+  default_branch: main
+
+  pr_title_prefix_template: "[{key}] {title}"
+
+  # 단일 KEY prefix. mctrader 6 repo 전체가 본 hub 의 MCT-N 으로 cross-repo Story 추적.
+  story_key_prefix: MCT
+
+  codeowners:
+    # mclayer org 에 team 미생성 (single-developer 단계). 향후 team 생성 시 갱신.
+    architect_team: "@mccho8865"
+    domain_expert_team: "@mccho8865"
+
+  discussions:
+    domain_kb_category: "Domain Q&A"
+
+  milestone:
+    epic_naming_pattern: "Epic-{key}-{slug}"
+
+labels:
+  components:
+    # 6 repo (cross-repo Story labeling)
+    - hub
+    - market
+    - market-bithumb
+    - data
+    - engine
+    - web
+    # Cross-cutting domain areas
+    - contracts          # inter-repo schemas (Candle / Order / OrderBook / OHLCV)
+    - risk               # kill switch / drawdown limit / max exposure
+    - backtest           # backtest engine + slippage/fee/lookahead 모델
+    - paper              # paper trading mode (실전가상)
+    - live               # live trading mode + secret 관리
