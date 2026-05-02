@@ -108,45 +108,85 @@ primary trigger = 시간 기반 자연 확장. 보조 trigger:
 - Sandbox / testnet / dry-run 친화성 — 부재 시 mock replay + shadow mode 의무
 - 거래소별 사고 / 영업정지 history (regulatory 안에 sub-가중치로 흡수) — activation 직전 시점 정보 재확인
 
-### 7.2 Score matrix (1-5 scale, Codex baseline + 주문 실행 semantics 추가)
+### 7.2 Score matrix (1-5 scale, 5 거래소 모두 포함)
 
 cell 표기: `점수 / Confidence (H/M/L)`
 
-| Dimension | Weight | Upbit | Coinone | Korbit | Gopax |
-|---|---:|---|---|---|---|
-| REST API 품질 | 15 | 5/H | 4/M | 3/M | 2/L |
-| WebSocket realtime | 15 | 5/H | 4/M | 3/M | 2/L |
-| Rate limit | 10 | 4/H | 3/M | 3/L | 2/L |
-| 주문 실행 semantics | 10 | 4/M | 3/M | 3/L | 2/L |
-| OHLCV depth | 8 | 5/H | 4/M | 3/M | 2/L |
-| 유동성 | 15 | 5/H | 3/M | 2/M | 1/M |
-| 종목 수 | 5 | 5/H | 4/M | 2/M | 2/M |
-| 수수료 | 7 | 4/M | 3/M | 3/M | 3/L |
-| Regulatory | 10 | 5/H | 5/H | 5/H | 3/M |
-| 입출금 | 5 | 4/M | 4/M | 4/M | 2/L |
+| Dimension | Weight | Bithumb | Upbit | Coinone | Korbit | Gopax |
+|---|---:|---|---|---|---|---|
+| REST API 품질 | 15 | 4/M | 5/H | 4/M | 3/M | 2/L |
+| WebSocket realtime | 15 | 4/M | 5/H | 4/M | 3/M | 2/L |
+| Rate limit | 10 | 4/M | 4/H | 3/M | 3/L | 2/L |
+| 주문 실행 semantics | 10 | 4/M | 4/M | 3/M | 3/L | 2/L |
+| OHLCV depth | 8 | 4/M | 5/H | 4/M | 3/M | 2/L |
+| 유동성 | 15 | 4/M | 5/H | 3/M | 2/M | 1/M |
+| 종목 수 | 5 | 4/M | 5/H | 4/M | 2/M | 2/M |
+| 수수료 | 7 | 5/H | 4/M | 3/M | 3/M | 3/L |
+| Regulatory | 10 | 5/H | 5/H | 5/H | 5/H | 3/M |
+| 입출금 | 5 | 4/M | 4/M | 4/M | 4/M | 2/L |
+
+Bithumb 점수 추가 근거 (Codex baseline 외부 보완):
+- REST/WS = 4/M — 운영 성숙하나 Upbit 대비 약간 낮은 통설
+- 유동성 = 4/M — 한국 거래량 #2 (Upbit 압도적 #1 다음)
+- 종목 수 = 4/M — KRW pair 다수, Upbit 보다 약간 적음
+- 수수료 = **5/H — 0.04% taker (Upbit 0.05% 보다 낮음)** ← Bithumb 의 framework 내 distinguishing strength
+- Regulatory = 5/H — FIU + NH농협 실명계좌
+- 입출금 = 4/M — 안정적
 
 **Weighted score 계산** (`Σ(점수 × weight) / 5` → 100점 만점):
 
 | Exchange | Σ(점수 × weight) | Score / 100 |
 |---|---:|---:|
 | Upbit | 75+75+40+40+40+75+25+28+50+20 = **468** | **93.6** |
+| **Bithumb** | 60+60+40+40+32+60+20+35+50+20 = **417** | **83.4** |
 | Coinone | 60+60+30+30+32+45+20+21+50+20 = **368** | **73.6** |
 | Korbit | 45+45+30+30+24+30+10+21+50+20 = **305** | **61.0** |
 | Gopax | 30+30+20+20+16+15+10+21+30+10 = **202** | **40.4** |
 
-### 7.3 Ranking 결정
+### 7.3 Framework ranking vs Implementation sequence (분리 명시)
 
-| 순위 | 거래소 | Score | 격차 |
+Bithumb 점수 (83.4) 가 Upbit (93.6) 보다 10.2점 낮으므로, **순수 framework ranking 기준 #1 = Upbit**. 그러나 **사용자 사전 결정 implementation sequence = Bithumb → Upbit** ("upbit, bithumb 이렇게 가자" + 첫 거래소 = Bithumb 명시). 두 ordering 은 별개 의미 — 충돌 아님.
+
+**Framework ranking** (객관 점수 순):
+
+| 순위 | 거래소 | Score |
+|---:|---|---:|
+| 1 | Upbit | 93.6 |
+| 2 | Bithumb | 83.4 |
+| 3 | Coinone | 73.6 |
+| 4 | Korbit | 61.0 |
+| 5 | Gopax | 40.4 |
+
+**Implementation sequence** (사용자 사전 결정 build 순):
+
+| build 순 | 거래소 | Score | repo |
 |---:|---|---:|---|
-| 1 | **Bithumb** (사전 결정) | — | — |
-| 2 | **Upbit** | 93.6 | +20.0 vs #3 |
-| 3 | Coinone | 73.6 | +12.6 vs #4 |
-| 4 | Korbit | 61.0 | +20.6 vs #5 |
-| 5 | Gopax | 40.4 | — |
+| 1 | **Bithumb** | 83.4 | `mctrader-market-bithumb` (MCT-14) |
+| 2 | **Upbit** | 93.6 | `mctrader-market-upbit` (future) |
+| 3 | Coinone | 73.6 | (future) |
+| 4 | Korbit | 61.0 | (future, low priority) |
+| 5 | Gopax | 40.4 | (watchlist, regulatory 시점 의존) |
 
-**#2 = Upbit 결정.** 사용자 명시 ("upbit, bithumb 이렇게 가자"). sensitivity 견고 (격차 20점 → 단일 low-confidence cell 1점 변화로 ranking 역전 안 됨).
+### 7.4 Bithumb-first implementation 근거 (out-of-framework, 추정 + 사용자 보강 대상)
 
-### 7.4 Activation 시 empirical re-validation checklist
+framework score 가 Upbit 우위인데도 사용자가 Bithumb 을 implementation #1 으로 결정한 근거 추정 (사용자 본인 actual rationale 추후 보강 가능):
+
+1. **수수료 우위** — Bithumb 0.04% taker vs Upbit 0.05% — 자동매매 회전 시 cumulative cost 차이 (framework 내 5/H vs 4/M 로 부분 반영)
+2. **은행 친숙도** — NH농협 실명계좌 (사용자 기존 농협 account 활용 추정) — framework 외 personal-banking factor
+3. **구현 단순성** — Bithumb signature 방식이 Upbit JWT 인증 보다 first-impl 학습 곡선 낮음 (framework 외 onboarding cost factor)
+4. **Smaller-scale matched** — 개인 자동매매 first-impl 단계에서 거래량 폭주 / rate limit risk 가 Bithumb 이 Upbit 보다 낮을 수 있음 (framework 내 rate limit 4 vs 4 동률)
+5. **단일 거래소 sufficient liquidity** — KRW BTC/ETH 등 main pair 의 Bithumb 유동성은 single-exchange 자동매매 운영 임계점 모두 충족 (framework 내 4/M)
+
+Sensitivity: Bithumb 와 Upbit 격차 10.2점이라 framework 외 위 5개 factor 합산 영향이 10.2점 이상이면 Bithumb-first 가 합리적. 1번 (cumulative fee) 만으로도 long-run 자동매매 손익 측면에서 substantial — implementation sequence 정당화 가능.
+
+### 7.5 #2 결정 (Upbit) 견고성
+
+Bithumb 다음 추가할 #2 거래소 = **Upbit** (사용자 명시 + framework score 동의):
+- Bithumb (83.4) → Upbit (93.6) 격차 +10.2점 (framework 측 next-strongest)
+- Upbit → Coinone 격차 -20.0점 (다음 후보 차이 더 큼)
+- Sensitivity 견고: 단일 low-confidence cell 1점 변화로 #2 ordering 역전 안 됨
+
+### 7.6 Activation 시 empirical re-validation checklist
 
 실제 #2 (Upbit) adapter build 직전에 본 checklist 수행 의무. ADR-001 §Consequences 에 박제.
 
@@ -158,7 +198,7 @@ cell 표기: `점수 / Confidence (H/M/L)`
 - [ ] **Sandbox/testnet 부재 시** — mock replay + shadow mode 를 adapter acceptance criteria 에 포함
 - [ ] **Regulatory 시점 확인** — FIU 신고 상태 / 은행 실명계좌 연동 / 사고 history / 영업정지 여부 재조회
 
-### 7.5 Codex 의견 적용 결과
+### 7.7 Codex 의견 적용 결과
 
 Codex (codex-rescue, gpt-5.5 high) 가 Sonnet decider protocol (CFP-59 / ADR-019) 의 second-opinion 으로 dispatch 됨. 4 strong push-back:
 
@@ -169,7 +209,7 @@ Codex (codex-rescue, gpt-5.5 high) 가 Sonnet decider protocol (CFP-59 / ADR-019
 | API key / sandbox / 사고 history dimension 추가 | ✗ framework 미반영 (P3=B) — activation re-validation checklist 로 분리 |
 | KRW-only scope 의 trade-off ADR consequences 명시 | ✓ 적용 (P4=A) — ADR-001 §Consequences 에 박제 |
 
-Codex 의 ranking 결과 (Upbit 95 > Coinone 75 > Korbit 60 > Gopax 41) 와 본 Story 의 최종 결과 (93.6 / 73.6 / 61.0 / 40.4) 가 ordering 일치, 격차 비슷 — sensitivity 견고. **#2 = Upbit** 양 결과 모두 권장. 사용자도 명시 ("upbit, bithumb 이렇게 가자").
+Codex 의 ranking 결과 (Upbit 95 > Coinone 75 > Korbit 60 > Gopax 41, Bithumb 미평가) 와 본 Story 의 framework ranking (Upbit 93.6 > Bithumb 83.4 > Coinone 73.6 > Korbit 61.0 > Gopax 40.4) 이 4 거래소 ordering 일치, 격차 비슷. Bithumb (83.4) 은 Codex 가 평가 대상으로 받지 않은 거래소 — 본 Story 후속 보강에서 추가됨. **Implementation sequence #1 = Bithumb (사용자 사전 결정), #2 = Upbit** 양 결과 모두 권장.
 
 ## 8. 개발 서사
 

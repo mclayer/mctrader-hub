@@ -32,19 +32,37 @@ Scope = **한국 KRW 거래소 only**. 글로벌 (Binance/OKX/Bybit 등 USDT pai
 
 ## Decision
 
-### D1. Ranked list (한국 5 거래소)
+### D1. Framework ranking vs Implementation sequence (분리)
+
+본 ADR 은 두 ordering 을 분리 명시:
+
+**Framework ranking** (10-dim API-first weighted score, 객관):
 
 | 순위 | 거래소 | Score / 100 | 격차 |
 |---:|---|---:|---|
-| 1 | **Bithumb** (사전 결정) | — | — |
-| 2 | **Upbit** | 93.6 | +20.0 vs #3 |
-| 3 | Coinone | 73.6 | +12.6 vs #4 |
-| 4 | Korbit | 61.0 | +20.6 vs #5 |
-| 5 | Gopax | 40.4 | — |
+| 1 | **Upbit** | **93.6** | — |
+| 2 | **Bithumb** | **83.4** | -10.2 vs #1 |
+| 3 | Coinone | 73.6 | -9.8 vs #2 |
+| 4 | Korbit | 61.0 | -12.6 vs #3 |
+| 5 | Gopax | 40.4 | -20.6 vs #4 |
 
-**핵심 결정: 자연 확장 시 #2 = Upbit.** 사용자 명시 ("upbit, bithumb 이렇게 가자"). 격차 20점 (1-100 scale) → sensitivity 견고. 단일 low-confidence cell 1점 변화로 ranking 역전 안 됨.
+**Implementation sequence** (사용자 사전 결정 build 순):
 
-### D2. Evaluation framework — 10 dimension API-first
+| build 순 | 거래소 | repo | Phase 의존 |
+|---:|---|---|---|
+| 1 | **Bithumb** | `mctrader-market-bithumb` (MCT-14) | Epic MCT-12 first end-to-end |
+| 2 | **Upbit** | `mctrader-market-upbit` (future Story) | Bithumb 안정 운영 후 자연 확장 (D-trigger) |
+| 3 | Coinone | future | activation 시점 framework re-validate |
+| 4 | Korbit | future, low priority | 종목/유동성 약점 |
+| 5 | Gopax | watchlist | regulatory 시점 의존 |
+
+### D2. 핵심 결정
+
+1. **Implementation #1 = Bithumb.** 사용자 사전 결정. framework 외 factors (lower fee 0.04%, NH농협 실명계좌, 구현 단순성, smaller-scale matched first-impl) 의 의식적 선택. §C5 "Bithumb-first 근거" 박제.
+2. **Implementation #2 = Upbit.** framework score #1 (93.6) + 사용자 명시 ("upbit, bithumb 이렇게 가자") 양쪽 동의. Bithumb 안정 운영 후 자연 확장 trigger 발동 시 Upbit adapter build.
+3. **#3 이후 = Coinone → Korbit → Gopax** (framework score 순). 단 activation 시점 framework re-validate 의무 (§C3).
+
+### D3. Evaluation framework — 10 dimension API-first
 
 자동매매 platform critical-path 가중. 사용자 framework A 결정 + Codex (codex-rescue, gpt-5.5 high) push-back 4 건 중 3 건 적용 후 최종 weights:
 
@@ -62,7 +80,7 @@ Scope = **한국 KRW 거래소 only**. 글로벌 (Binance/OKX/Bybit 등 USDT pai
 | 출금/입금 안정성 | 5% | 자동매매 단계 비중 낮음 |
 | **Total** | **100%** | |
 
-### D3. Out-of-framework (activation re-validation checklist 로 분리)
+### D4. Out-of-framework (activation re-validation checklist 로 분리)
 
 - API key 운영 난이도 (발급 UX / IP whitelist / 권한 scope / rotation)
 - Sandbox / testnet / dry-run 친화성
@@ -70,22 +88,24 @@ Scope = **한국 KRW 거래소 only**. 글로벌 (Binance/OKX/Bybit 등 USDT pai
 
 → 본 ADR 의 baseline ranking 에는 미반영. **실제 #2 (Upbit) adapter build 직전 empirical re-test 의무**.
 
-### D4. Score matrix (1-5 scale, Confidence H/M/L)
+### D5. Score matrix (1-5 scale, Confidence H/M/L, 5 거래소 모두)
 
-| Dimension | Weight | Upbit | Coinone | Korbit | Gopax |
-|---|---:|---|---|---|---|
-| REST API 품질 | 15 | 5/H | 4/M | 3/M | 2/L |
-| WebSocket realtime | 15 | 5/H | 4/M | 3/M | 2/L |
-| Rate limit | 10 | 4/H | 3/M | 3/L | 2/L |
-| 주문 실행 semantics | 10 | 4/M | 3/M | 3/L | 2/L |
-| OHLCV depth | 8 | 5/H | 4/M | 3/M | 2/L |
-| 유동성 | 15 | 5/H | 3/M | 2/M | 1/M |
-| 종목 수 | 5 | 5/H | 4/M | 2/M | 2/M |
-| 수수료 | 7 | 4/M | 3/M | 3/M | 3/L |
-| Regulatory | 10 | 5/H | 5/H | 5/H | 3/M |
-| 입출금 | 5 | 4/M | 4/M | 4/M | 2/L |
-| **Σ(점수×weight)** | | **468** | **368** | **305** | **202** |
-| **Score / 100** | | **93.6** | **73.6** | **61.0** | **40.4** |
+| Dimension | Weight | Bithumb | Upbit | Coinone | Korbit | Gopax |
+|---|---:|---|---|---|---|---|
+| REST API 품질 | 15 | 4/M | 5/H | 4/M | 3/M | 2/L |
+| WebSocket realtime | 15 | 4/M | 5/H | 4/M | 3/M | 2/L |
+| Rate limit | 10 | 4/M | 4/H | 3/M | 3/L | 2/L |
+| 주문 실행 semantics | 10 | 4/M | 4/M | 3/M | 3/L | 2/L |
+| OHLCV depth | 8 | 4/M | 5/H | 4/M | 3/M | 2/L |
+| 유동성 | 15 | 4/M | 5/H | 3/M | 2/M | 1/M |
+| 종목 수 | 5 | 4/M | 5/H | 4/M | 2/M | 2/M |
+| **수수료** | 7 | **5/H** | 4/M | 3/M | 3/M | 3/L |
+| Regulatory | 10 | 5/H | 5/H | 5/H | 5/H | 3/M |
+| 입출금 | 5 | 4/M | 4/M | 4/M | 4/M | 2/L |
+| **Σ(점수×weight)** | | **417** | **468** | **368** | **305** | **202** |
+| **Score / 100** | | **83.4** | **93.6** | **73.6** | **61.0** | **40.4** |
+
+Bithumb 의 framework 내 distinguishing strength = 수수료 5/H (0.04% taker, Upbit 0.05% 보다 낮음). 그 외 dimension 은 Upbit 대비 -1점 (REST/WS/유동성/종목수/OHLCV) 또는 동률.
 
 ## Alternatives Considered
 
@@ -101,21 +121,26 @@ Scope = **한국 KRW 거래소 only**. 글로벌 (Binance/OKX/Bybit 등 USDT pai
 - 거래소 추가 trigger condition 만 정의, 실제 ranking 은 trigger 발생 시 별도 Story
 - **기각 사유**: 사용자 의도 ("향후 추가 순서" — Q1 옵션 C 선택) 와 불일치. trigger 발생 시 ranking 새로 시작하면 시점 압박 하에 평가 → 의사결정 품질 저하.
 
-### A4. 글로벌 거래소 포함 (Q2 옵션 B/C)
+### A4. Framework score 만으로 implementation sequence 결정 (Bithumb-first 사용자 사전 결정 무시)
+- Upbit #1 → Bithumb #2 → Coinone → Korbit → Gopax (순수 framework score 순)
+- **기각 사유**: 사용자 사전 결정 ("첫 거래소 = Bithumb" + "upbit, bithumb 이렇게 가자") 는 framework 외 factors (lower fee / NH농협 친숙도 / 구현 단순성 / smaller-scale matched first-impl) 의 의식적 선택. framework score 는 ranking 도구이지 사용자 의사결정의 sole basis 아님. framework 와 사용자 결정 충돌 시 양 ordering 모두 명시 (D1 분리) 가 정직함.
+- 격차 10.2점이라 framework 외 factor 합산 영향이 그 이상이면 Bithumb-first 정당화 가능 — §C5 박제.
+
+### A5. 글로벌 거래소 포함 (Q2 옵션 B/C)
 - 한국 5 + 글로벌 (Binance/OKX/Bybit 등 USDT pair) 1-3
 - **기각 사유**: base currency 확장 (KRW → KRW+USDT) 은 자금 관리 / OHLCV 스키마 / Executor 모두 영향. 본 ADR 의 단순 ranking decision 외 architectural 변경 동반 → 별도 future Story 가치 (Q2 옵션 D 선택).
 - Trade-off 는 §Consequences C2 에 명시.
 
-### A5. Framework 에 9 dimension 유지 (Codex P1 reject)
+### A6. Framework 에 9 dimension 유지 (Codex P1 reject)
 - 주문 실행 semantics 를 REST API 품질 안에 sub-가중치로 흡수
 - **기각 사유**: Codex 가 정확히 지적 — "REST/WebSocket 점수가 높은 거래소가 자동매매 outcome 측면에서 과대평가될 위험". 주문 실행 semantics (idempotency / partial fill / cancel race) 는 시세 수집 layer 와 별개의 risk surface. 분리 필수.
 
-### A6. Codex 의 full rebalance (P2 reject — partial 만 적용)
+### A7. Codex 의 full rebalance (P2 reject — partial 만 적용)
 - REST 13% / WS 13% / Rate limit 9% / 주문실행 10% / OHLCV 7% / 유동성 16% / 종목수 5% / 수수료 7% / Regulatory 15% / 출금 5%
 - **부분 기각 사유**: Regulatory 15% 권장은 Codex 본인이 "점수보다 gate 에 가깝다" 라고 인정한 항목과 모순. 한국 5 거래소가 모두 FIU 신고 + 은행 실명계좌 보유 사업자 (Bitsonic 등 minor 거래소는 처음부터 후보 제외) → regulatory 가 ranking 에서 차이를 만드는 dimension 이 아님 (Gopax 만 -2 점). 10% 유지가 적절.
 - 종목수 5% / 수수료 7% / OHLCV 8% (10→8 partial) 는 강한 근거로 적용.
 
-### A7. API key / sandbox / 사고 history 를 별도 dimension 추가 (Codex P3 reject — checklist 로 이관)
+### A8. API key / sandbox / 사고 history 를 별도 dimension 추가 (Codex P3 reject — checklist 로 이관)
 - framework 12-dim 으로 확장
 - **기각 사유**: 본 ADR 단계 = public-knowledge baseline. 운영 난이도 / sandbox 가용성 / 시점 민감 사고 history 는 cell 별 confidence L 가 다수 → framework 안 점수가 오히려 noise 도입. activation 시 empirical re-test 책임으로 이전 (D3) 이 더 정직.
 
@@ -159,9 +184,27 @@ Scope = **한국 KRW 거래소 only**. 글로벌 (Binance/OKX/Bybit 등 USDT pai
 3. **신규 한국 거래소 등장 또는 minor 거래소 메이저 진입**: 후보 set 변경
 4. **사용자 strategy 변경**: arb / hedge / derivatives 가 mctrader scope 에 추가 (글로벌 venue ADR 트리거)
 
-### C5. Bithumb 자체에 미치는 영향
+### C5. Bithumb-first implementation 근거 (out-of-framework, 추정 + 사용자 보강 대상)
 
-없음. Bithumb #1 결정은 사용자 사전 결정 (본 ADR scope 외) — 본 ranking 은 Bithumb 외 4 거래소 대상.
+framework score 기준 #1 = Upbit (93.6), Bithumb (83.4) 은 #2. 그러나 사용자 사전 결정 implementation sequence 는 Bithumb → Upbit. 격차 10.2점이라 framework 외 factor 가 합산 영향 ≥10.2점이면 Bithumb-first 합리적.
+
+추정 Bithumb-first 근거 (사용자 본인 actual rationale 추후 보강 가능):
+
+1. **수수료 cumulative 우위** — Bithumb 0.04% taker vs Upbit 0.05% — 자동매매 회전 시 long-run 손익 차이 substantial. framework 5/H vs 4/M 부분 반영했으나 자동매매 회전율 가정에 따라 cumulative impact 가 framework 점수보다 클 수 있음.
+2. **은행 친숙도** — NH농협 실명계좌 (사용자 기존 농협 account 활용 추정). framework 외 personal-banking onboarding factor.
+3. **구현 단순성** — Bithumb signature 인증 vs Upbit JWT — first-impl 학습 곡선 차이. framework 외 onboarding cost factor.
+4. **Smaller-scale matched** — 개인 자동매매 first-impl 단계의 거래량 폭주 / rate limit risk 가 Bithumb 이 Upbit 보다 낮을 수 있음.
+5. **Single-exchange sufficient liquidity** — KRW BTC/ETH main pair 의 Bithumb 유동성은 single-exchange 자동매매 임계점 충족.
+
+본 추정 근거는 사용자 본인이 추후 정정/보강 가능. 정정 시 본 ADR amend (Status: Accepted → Amended).
+
+### C6. Framework re-validate trigger (Bithumb 한정)
+
+Bithumb adapter (mctrader-market-bithumb, MCT-14) build 후 다음 발생 시 framework score (현재 83.4) 재산출 + 본 ADR amend:
+
+- empirical operation 6 개월+ 결과로 cell 점수 1점 이상 변동 (특히 confidence M cell)
+- 거래소 정책 변경 (수수료 / rate limit / KRW pair / regulatory)
+- mctrader 의 strategy 가 Bithumb 의 framework 약점 (e.g. 유동성, OHLCV depth) 에 의존도 증가
 
 ## Cross-references
 
