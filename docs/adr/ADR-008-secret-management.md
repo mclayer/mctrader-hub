@@ -185,3 +185,42 @@ Upbit JWT 서명 = adapter 내부 only. raw secret 외부 전파 미금지.
 - ADR-002 D9 / ADR-007 D9
 - MCT-12 Epic — Bithumb 첫 Live 진입 시 본 ADR 적용
 - ADR-013 (예정, mctrader-market interface) — ExchangeCredential 의 adapter 측 사용
+
+## Incident-only fallback exception process (D8 — Amendment 1, 2026-05-04, MCT-42)
+
+ADR-012 §D6 에서 Sonnet decider Phase 1 D8 pick=A — 1Password CLI default + **incident-only fallback exception process**. 본 amendment 가 fallback 절차 명시.
+
+### D12. Fallback trigger (5 종, 모두 1Password 일시 unavailable 한정)
+
+1. 1Password Cloud outage (status.1password.com 확인)
+2. macOS keychain corruption (1Password sign-in 불가)
+3. Network isolation (live trading 환경 = 1Password sync 불가, 단 incident response 필요)
+4. Session expiration + 즉시 갱신 불가 (vault unlock 1h+ 소요)
+5. Disaster recovery (primary 1Password account 접근 불가, age-encrypted backup 사용)
+
+### D13. Fallback 절차 (5-step audit trail 의무)
+
+```
+1. ADR-008 D8 critical_stop 발동 (incident 분류)
+2. 1Password unavailable 증거 capture (screenshot / status URL / log)
+3. age-encrypted backup decrypt OR env var 임시 주입 (incident response only)
+4. OperationEvent 기록: action="fallback_secret_access" + reason + duration_estimate
+5. Live restored 후 즉시 fallback secret revoke + 신규 1Password vault item 생성 + rotation 의무 적용
+```
+
+### D14. Fallback 시 추가 제약
+
+- env var 사용 시 즉시 process 종료 후 env unset 의무 — 영구 저장 절대 금지
+- shell history 즉시 clear (`history -c` + 파일 직접 삭제)
+- Docker / container layer 에 env 노출 금지 (build-arg / image layer 절대 미포함)
+- CI 에서 fallback path 활성화 절대 금지 (`MCTRADER_INCIDENT_FALLBACK=1` 환경변수 = local-only)
+
+### D15. fallback Audit cycle
+
+- 매 fallback 사용 = ADR-008 D7 rotation cycle 즉시 발동 (정기 반기 cycle 무관)
+- 분기 점검 시 fallback usage count 검토 — usage > 0 = 1Password 운영 안정성 review trigger
+
+### D16. cross-ref
+
+- ADR-012 §D6 (Live Rollout Policy 의 secret enforcement subsection)
+- MCT-42 (carrier ADR-012)

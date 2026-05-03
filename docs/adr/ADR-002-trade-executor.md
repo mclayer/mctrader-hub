@@ -340,3 +340,41 @@ mctrader-engine/src/mctrader/executor/
 ## 데뷔작 audit pre-Story note
 
 본 Story (MCT-2) 진행 중 codeforge plugin 추가 install-time finding 발견 안 됨 (기존 5 finding #115~#118 + #122 외). MCT-1 의 finding 후보 (\"Codex agent 직접 file write\") = 본 task 에서 명시적으로 \"docs/ 직접 작성 금지\" 추가 후 그대로 준수 — agent 행동 변경 가능 확인.
+
+## Live Mode Kill Switch (D4 engine-enforced — Amendment 1, 2026-05-04, MCT-42)
+
+ADR-012 §D4 에서 Sonnet decider Phase 1 D4 pick=A — kill switch enforcement = **`mctrader-engine`** 측 (LiveExecutor 가 source). UI/web/monitoring = trigger only.
+
+### D11.1 components/kill_switch.py 신설
+
+```
+mctrader-engine/src/mctrader/executor/components/
+└── kill_switch.py    # NEW (Amendment 1) — engine-enforced kill switch
+```
+
+`KillSwitch` class. LiveExecutor 가 모든 order call site 직전 본 class verify — bypass 불가능.
+
+### D11.2 자동 trigger 5종 (engine 내)
+
+- ADR-007 D1 critical_stop (drawdown limit)
+- ADR-007 D2 max_exposure violation
+- ADR-007 D4 rate limit hard violation (order block, MCT-32 sliding window)
+- ADR-012 D2 KRW cap violation (Stage 3 tiny-live 10,000 KRW 초과)
+- KRW position reconciliation drift ≥ 1 KRW (MCT-45 invariant)
+
+### D11.3 Manual trigger interface (operator-action-v1 consumer)
+
+UI/CLI/incident response → `operator-action-v1` event (kill / resume / acknowledge) → engine `KillSwitch.consume_action()` → enforcement.
+
+UI 장애 시에도 CLI / direct API call 로 kill 가능 — engine = enforcement source 보장.
+
+### D11.4 Bypass 차단
+
+- Strategy code 가 `LiveExecutor` instance 우회 불가 (ADR-002 D8 mode-agnostic strategy)
+- 모든 order call = `KillSwitch.check()` 통과 의무 — call site enforcement
+
+### D11.5 cross-ref
+
+- MCT-42 (carrier ADR-012)
+- MCT-46 (engine impl)
+- ADR-008 D8 (incident response 7-step)
