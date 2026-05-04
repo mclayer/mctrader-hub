@@ -25,6 +25,8 @@ CLI ↔ FastAPI separation 이유: ADR-011 branch protection F5 mitigation 의 C
 
 **Single active session enforcement (host-wide)**: CLI standalone 과 FastAPI service 가 동시에 다른 paper run 을 spawn 하지 못하도록 host-wide lock file `~/.mctrader/paper.lock` (JSON: `{run_id, pid, started_ts}`) 사용. 양쪽 entry point (CLI MCT-49 + FastAPI MCT-50) 가 startup 시 lock 확인 — 존재 + pid alive → refuse. 정상 종료 시 lock 삭제. stale lock (pid dead) → 자동 cleanup.
 
+**Signal handler ownership (Codex push-back, AC)**: uvicorn 이 process-wide SIGTERM/SIGINT 소유. `PaperRunner` 가 hosted 환경에서 signal handler register 시 uvicorn shutdown 깨짐. **MCT-50 의 LifecycleManager 는 `PaperRunner(register_signal_handlers=False)` 호출 의무**. MCT-49 amendment (PaperRunner constructor flag, default True) 가 prerequisite — `mctrader-engine#10` PR amendment 로 적용됨.
+
 ## 3. 관련 ADR
 
 - ADR-002 D2 (run_id namespace), D9 (Live only — 본 Story 미적용)
@@ -56,12 +58,12 @@ mctrader-web/src/mctrader_web/
 1. `mctrader-web-api` 명령 = uvicorn 127.0.0.1:7821 bind. 외부 IP bind 시 startup error.
 2. `~/.mctrader/local_token` 자동 생성 (file mode 700, `secrets.token_urlsafe(32)`). 매 startup 시 존재하지 않으면 생성, 있으면 reuse.
 3. Endpoint:
-   - `POST /runs` (body: RunRequest = strategy/symbol/tf/fast/slow/capital/duration). 1 active session 이미 존재 시 409 Conflict.
-   - `DELETE /runs/{run_id}` = graceful stop (cancellation token + 최대 30초 wait, 미응답 시 SIGTERM).
-   - `GET /runs/{run_id}` = RunStatus (lifecycle / current_equity / open_orders / risk_state).
-   - `GET /status` = service-level (active_run_id or null / version / uptime).
+   - `POST /runs` (body: RunRequest = strategy/symbol/tf/fast/slow/capital/duration). 1 active session 이미 존재 시 409 Conflict. Validation 실패 = 422 (Pydantic v2 strict).
+   - `DELETE /runs/{run_id}` = graceful stop (cancellation token + 최대 30초 wait, 미응답 시 task force-cancel — `forced=true` 표기). unknown run_id = 404.
+   - `GET /runs/{run_id}` = **RunStatus minimal v1** (Codex 권고): `run_id / lifecycle (starting|running|stopping|stopped|error) / started_at / finished_at / shutdown_reason / error_kind / error_message`. **equity / open_orders / risk_state 는 MCT-51 event store wire 후 별도 Story 에서 추가** — MCT-50 v1 이 expose 하지 않음. unknown run_id = 404.
+   - `GET /status` = service-level (active_run_id or null / version / uptime_seconds / operator="local-user").
    - `GET /health` = liveness (no auth).
-   - `GET /runs/{run_id}/events?since={seq}` = stub returning empty list (MCT-51 implementation 시 wire).
+   - `GET /runs/{run_id}/events?since={seq}` = stub returning `{run_id, since_seq, events: [], next_seq}` (MCT-51 implementation 시 wire).
 4. Auth: 모든 endpoint (except `/health`) 가 `Authorization: Bearer <token>` 의무. token mismatch = 401.
 5. Concurrency: 1 active session enforce. POST 시 active 있으면 reject. DELETE 후 active 해제 까지 wait.
 6. Graceful shutdown: uvicorn SIGTERM → in-flight DELETE wait → service exit.
