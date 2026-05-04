@@ -209,3 +209,74 @@ manifest schema validate / split registry freeze validate / audit log invariant 
 
 - ADR-002 D7 / ADR-003 H8 / ADR-005 path (d)
 - MCT-7 (risk gate) / MCT-9 (OHLCV schema)
+
+---
+
+## Amendment §D7 — Paper Promotion Evidence Bundle (MCT-48, 2026-05-04)
+
+**Trigger**: MCT-48 (Paper Runtime Operations + Web Management) 가 Paper 의 product 목적을 명시 — "B→P→L 승격 evidence 생성". MCT-23 의 Calibration metric (`build_calibration_metrics`) 이 dashboard 표시 만 되었던 약점 정정 — calibration 결과가 promotion gate 의 mandatory input 으로 격상.
+
+### D7. Paper Promotion Evidence Bundle 정의
+
+Paper run 종료 시 또는 명령 시 (`mctrader-cli paper evidence --run-id {id}`) 생성되는 단일 JSON deliverable. P→L 승격 평가의 **유일한 authoritative input**.
+
+#### Bundle schema (canonical)
+
+```json
+{
+  "run_id": "string",
+  "evaluation_window": {
+    "start_ts": "ISO8601 UTC",
+    "end_ts": "ISO8601 UTC",
+    "duration_days": "Decimal"
+  },
+  "trade_count": "int",
+  "violation_count": "int",
+  "calibration": {
+    "fill_price_deviation_p95_bps": "Decimal",
+    "realized_slippage_p95_bps": "Decimal",
+    "decision_to_fill_delay_p95_ms": "int",
+    "market_data_latency_p95_ms": "int",
+    "trade_count_delta_pct": "Decimal",
+    "max_drawdown_delta_abs": "Decimal"
+  },
+  "risk_policy_hash": "string (sha256)",
+  "promotable": "bool",
+  "blocking_reasons": "list[string]"
+}
+```
+
+#### Promotability threshold (AND)
+
+| Threshold | 값 | source |
+|---|---|---|
+| `duration_days >= 30` OR `trade_count >= 100` | min sample | ADR-006 D2 (1h profile baseline) |
+| `violation_count == 0` | RiskDecisionEvent severity in {hard, critical} = 0 | ADR-007 D1 |
+| `calibration.fill_price_deviation_p95_bps < 20` | bps | MCT-32 v1 baseline |
+| `calibration.realized_slippage_p95_bps < 15` | bps | ADR-004 D5 |
+| `calibration.decision_to_fill_delay_p95_ms < 1000` | ms | ADR-008 latency naming |
+| `calibration.market_data_latency_p95_ms < 3000` | ms | ADR-008 latency naming |
+| `calibration.trade_count_delta_pct <= 0.10` | ratio (Paper vs Backtest replay) | MCT-23 C4 |
+| `calibration.max_drawdown_delta_abs <= 0.02` | abs | MCT-23 C5 |
+
+모든 threshold AND → `promotable: true`. 하나라도 fail → `promotable: false` + `blocking_reasons` list 명시.
+
+#### Risk policy hash 고정 의무
+
+평가 window 내 모든 RiskDecisionEvent 의 `risk_policy_hash` 가 동일해야 함. 변경 발견 시:
+- `promotable: false`
+- `blocking_reasons += ["risk_policy_hash_changed_during_window"]`
+
+이 의무 = ADR-007 D9 RiskPolicy versioning 의 P→L 승격 측 강제.
+
+### D8. Bundle 의 정책적 위치
+
+- **Bundle 부재 = 승격 불가**. dashboard 표시 / CLI summary 등 derivative 표시는 bundle 의 input 또는 view 일 뿐, 승격 결정의 authoritative source 아님.
+- **Bundle 의 `promotable: false` = 승격 불가**. operator override 절대 금지 (ADR-007 D7 manual ack 와 별개 — ack 는 RiskGate 재개, 승격 ≠ ack).
+- **Bundle 재생성 가능**. event store (ADR-002 D6 SQLite append-only) 가 source-of-truth → 동일 input → 동일 output (deterministic).
+
+### Cross-reference
+
+- MCT-48 (Epic) / MCT-54 (Promotion Evidence Bundle 구현) — 본 amendment 의 검증 deliverable
+- ADR-002 D6 (SQLite event store) — bundle 의 input source
+- ADR-007 D9 (RiskPolicy hash) — bundle 의 hash 고정 dependency
