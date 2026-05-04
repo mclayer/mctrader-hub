@@ -280,3 +280,92 @@ Paper run 종료 시 또는 명령 시 (`mctrader-cli paper evidence --run-id {i
 - MCT-48 (Epic) / MCT-54 (Promotion Evidence Bundle 구현) — 본 amendment 의 검증 deliverable
 - ADR-002 D6 (SQLite event store) — bundle 의 input source
 - ADR-007 D9 (RiskPolicy hash) — bundle 의 hash 고정 dependency
+
+---
+
+## Amendment §D5 — SplitRegistry content-addressable storage 위치 freeze (MCT-55, 2026-05-04)
+
+**Trigger**: MCT-55 (WFO Execution Epic) Phase 1 brainstorm 에서 Codex 7-area review push-back 채택. D5 의 SplitRegistry 가 immutable + audit hash 정합 의무이지만 ADR 본문 D5 에 저장 위치 freeze 부재 → 구현 별 분산 위험.
+
+### 결정
+
+`SplitRegistry` JSON 저장 위치 = **content-addressable hash directory**:
+
+```
+~/.mctrader/wfo/decision_groups/{registry_hash}/
+├── registry.json           (SplitRegistry frozen Pydantic v2 model_dump_json)
+├── audit_log.jsonl         (AuditEvent 8종 append-only)
+├── manifests/              (per-run RunManifest JSON)
+├── candidates/             (per-trial candidate metric snapshots)
+├── fold_report.json        (MCT-58, D11 canonical 6 field)
+├── correction_report.json  (MCT-59, deflated Sharpe + bootstrap reality)
+└── promotion_decision.json (MCT-62, I2 manual ack 결과)
+```
+
+`registry_hash` = `sha256(canonical_json(SplitRegistry.model_dump_json + sort_keys + compact separators))`.
+
+### 의무
+
+- 동일 registry content → 동일 hash → 동일 directory (content-addressable 정합)
+- registry 변경 = 새 hash = 새 directory = 새 decision_group (immutable enforce)
+- 파일 권한 = 700 (`~/.mctrader/` family policy 일관, MCT-48 align)
+- `~/.mctrader/wfo/` directory 미존재 시 첫 `wfo decision-group create` 진입 시 mode 0700 으로 자동 생성
+
+### Cross-reference
+
+- MCT-55 (Epic) / MCT-56 (Foundation Story) — 본 amendment 의 검증 deliverable
+
+---
+
+## Amendment §D10 — `promotion_gate_version` default value freeze (MCT-55, 2026-05-04)
+
+**Trigger**: MCT-55 Phase 1 Codex push-back 채택. D10 run manifest 31-field 중 `promotion_gate_version` field 가 default value 없으면 promotion gate 변경 시 비교 불가 → "다른 gate 로 평가된 결과를 같은 metric 으로 비교" hazard.
+
+### 결정
+
+`promotion_gate_version` field default = **`"v1.0"`** (frozen).
+
+### 의무
+
+- 신규 RunManifest 작성 시 `promotion_gate_version` 명시 안 하면 default `"v1.0"` 적용
+- D6 (B→P) gate threshold 변경 시 → 새 version (예: `"v1.1"`) 채택. 비교 시 동일 version 만 valid
+- `promotion_decision.json` 에도 동일 field 기록 (MCT-62 PromotionDecision Pydantic v2)
+- `v1.0` = ADR-006 D6 표 (12-metric AND, 2026-05-02 Accepted) snapshot. 이 표 변경 = 새 version
+
+### Cross-reference
+
+- MCT-55 (Epic) / MCT-58 (gate D6 evaluator) / MCT-62 (promotion CLI) — 본 amendment 의 검증 deliverable
+
+---
+
+## Amendment §D11 — `fold_report.json` canonical schema 6 field freeze (MCT-55, 2026-05-04)
+
+**Trigger**: MCT-55 Phase 1 Codex push-back 채택. D11 본문 = "median + IQR + worst + recent N + probability of loss + CI" 권고. 그러나 canonical schema field name freeze 부재 → 구현 별 다른 field name 으로 보고 시 reproducibility 손상.
+
+### 결정
+
+`fold_report.json` canonical schema = **6 mandatory field per metric**:
+
+```json
+{
+  "decision_group_hash": "string",
+  "metric_name": "string",
+  "median": "Decimal",
+  "iqr": {"q1": "Decimal", "q3": "Decimal"},
+  "worst": "Decimal",
+  "recent_n": {"n": "int", "values": ["Decimal"]},
+  "probability_of_loss": "Decimal",
+  "confidence_interval": {"lower": "Decimal", "upper": "Decimal", "method": "newey_west"|"block_bootstrap"}
+}
+```
+
+### 의무
+
+- 6 field 모두 populated (null 금지). 한 metric 이라도 missing 시 schema validation fail.
+- Mean-only 보고 = 코드 가드 함수에서 명시 거부 (MCT-58 code).
+- `confidence_interval.method` = `"newey_west"` (primary) OR `"block_bootstrap"` (secondary), 양쪽 모두 보고 권장 (MCT-58 E3-lite Sharpe CI).
+- D11 본문 "평균 단독 보고 금지" 의 코드 enforce.
+
+### Cross-reference
+
+- MCT-55 (Epic) / MCT-58 (fold report writer) — 본 amendment 의 검증 deliverable
