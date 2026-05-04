@@ -56,14 +56,20 @@ mctrader-data/src/mctrader_data/
 
 ## 5-6. 요구사항
 
-1. SQLite per run: `{output_dir}/{run_id}/event_store.sqlite`. 11 table + `schema_version` table (1 row).
-2. Append-only: writer = singleton per run, 모든 event INSERT only. UPDATE/DELETE 절대 금지 (CHECK constraint or trigger).
-3. Sequence: 모든 event = monotonic `seq` (autoincrement) + `event_uuid` (uuid4) + `timestamp_utc`.
+1. SQLite per run: `{output_dir}/{run_id}/event_store.sqlite`. **Master `events` table + 11 detail (Codex push-back)** + `schema_version` table (1 row, `paper_event_store.v1`). Master 가 global monotonic `seq` autoincrement 보장.
+2. Append-only: writer = singleton per run, 모든 event INSERT only. **UPDATE/DELETE 절대 금지 — writer 메서드 제한 + SQL trigger (`events_block_update` / `events_block_delete`) 양쪽 enforce (D3)**.
+3. Sequence: 모든 event = monotonic `seq` (master autoincrement) + `event_uuid` (uuid4) + `timestamp_utc`.
 4. Pydantic v2 strict: 모든 event 의 `model_validate_json` strict mode pass. Decimal38_18 / UTCDateTime annotated 재사용.
 5. Status reconstruction: `EventStoreReader.reconstruct_status(run_id) -> RunStatus` = LifecycleEvent latest + EquitySnapshotEvent latest + open OrderEvent set + active RiskDecisionEvent severity. Process restart 후 정확 reconstruction.
 6. Tail query: `events_since(run_id, seq) -> list[Event]` for FastAPI `/runs/{id}/events?since=N` (MCT-50 stub 의 wire 완성).
 7. NDJSON export: finalization 시 `event_store.sqlite` → `events.ndjson` (gzip optional). 기존 ExecutionReport.json 은 derivative summary 로 격하 (MCT-54 evidence bundle 의 input).
 8. Test: 11 event 각 round-trip / strict reject / replay status reconstruction / append-only enforcement / single-writer enforcement.
+
+### Codex push-back amendments (Phase 3 implementation 시 채택)
+
+- **`MarketDataFreshnessEvent` producer** 는 본 Story 에서 **schema + writer-acceptance 만 제공**. Bithumb WebSocket stream 에 freshness 노출이 없으므로 actual emitter (wrapper / observer) 는 별도 후속 small Story (MCT-50/MCT-53 freshness 표시 시점) 로 deferred.
+- **`ClosedBarEvent.source_hash`** 는 timestamp proxy 금지. `closed_bar_source_hash(symbol, timeframe, open_ts, close_ts, OHLCV)` 의 SHA-256 deterministic helper 제공 — 가짜 hash 가 audit 의 false confidence 야기 회피.
+- **mctrader-data dependency**: Phase 3 에서는 engine-only. data 측 read 경로는 MCT-54 evidence bundle 시점에 추가 (premature dep 회피).
 
 ## 7. 보안 설계 / 11. 데이터 영향
 
