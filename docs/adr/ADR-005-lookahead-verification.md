@@ -184,3 +184,26 @@ Live bias source: vendor timestamp ↔ local receipt 차이 / clock skew / late-
 - ADR-002 H4 / ADR-003 H2 / ADR-004 D5 — baseline
 - MCT-6 — OOS governance (path d enforcement)
 - ADR-009 (예정) — feature lineage metadata schema
+
+---
+
+## Amendment §D5 — UI partial bar diagnostic label (MCT-48, 2026-05-04)
+
+**Trigger**: MCT-48 (Paper Runtime Operations + Web Management) 의 Streamlit Paper control panel (MCT-53) 가 realtime WebSocket feed 를 표시. 사용자가 진행 중인 partial bar 를 strategy decision 과 동일 visual context 에서 보면 lookahead 인식 trap 발생 — "현재 candle 의 high 가 보인다 = strategy 가 그것에 반응할 수 있다" 잘못된 mental model 정착 위험.
+
+### D5. Web/Streamlit UI partial bar 표시 의무
+
+- **Closed bar only** in strategy / equity / fill / risk decision panels. partial bar 는 절대 strategy panel 과 mix 금지.
+- **Partial bar = "diagnostic feed state"** 별도 panel 분리 (예: Streamlit `st.expander("Diagnostic feed state")` 이내). label = `"Diagnostic only — not strategy input"` visible.
+- **Strategy decision plot** 의 x-axis 마지막 point = closed bar close_ts. 진행 중인 bar 는 plot 에 포함 금지.
+- **WebSocket message timestamp + staleness ms** = diagnostic panel 에 표시 의무 (ADR-005 L3 invariant 와 align — `observed_until_ts` 표시 = strategy 가 본 마지막 closed bar).
+
+### L4 Diagnostic feed fixture (확장)
+
+- `known_bias_partial_bar_ui_leak` 신규 fixture (MCT-48 Phase 2~5 시점 추가) — partial bar 가 strategy panel 에 mix 된 mock UI 가 lint 거부 또는 reviewer escalation trigger.
+- 단, libcst L1 lint 의 자연 detection 영역 아님 (UI render code 는 strategy runtime path 와 별도 module). reviewer / governance gate 책임.
+
+### Cross-reference
+
+- MCT-48 (Epic) / MCT-53 (Streamlit Paper panel) — 본 amendment 의 검증 deliverable
+- ADR-005 L2 visible_window strict — UI 가 partial bar 를 strategy 처럼 보여주는 trap 의 reverse mirror
