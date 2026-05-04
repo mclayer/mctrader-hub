@@ -123,7 +123,7 @@ class Candle(Protocol):
 
 Reader: `scan_candles(exchange, symbol, timeframe, start_ts, end_ts, snapshot_id) -> Iterable[Candle]` — `ts_utc` ASC, end exclusive, forward-fill 금지.
 
-### D9. Orderbook snapshot v1 (예약, ADR-004 D2 L3 future)
+### D9. Orderbook snapshot v1 — L3 depth-ladder (예약, 미구현)
 
 ```
 schema_version=orderbook_snapshot.v1
@@ -133,6 +133,108 @@ source_ingested_at / data_snapshot_id / data_hash
 ```
 
 Lists = LIST<DECIMAL(38,18)>. Upbit `orderbook_units` ↔ 자연 매핑.
+
+**§D9 = L3 depth-ladder 형식 reservation (ADR-004 D2 L3 future).** 미구현. §D11 (L2 event stream) 와 별개 schema. Bithumb public WS 는 L2 만 제공 → §D11 이 v1 구현분.
+
+### D10. Tick stream v1 (NEW, MCT-63 Epic Phase 1, 2026-05-04 amendment)
+
+forward-only T2 (tick) market data partition. mctrader-data PR #4 (commit 9f51fa0, MCT-65 retroactive seal) 가 구현 완료.
+
+#### D10.1 Schema (8 column)
+
+| Column | Type | Nullable | 의미 |
+|---|---|---|---|
+| ts_utc | timestamp[ns, UTC] | no | 거래소 발생 시각 (Bithumb WS event_time) |
+| received_at | timestamp[ns, UTC] | no | collector server-side 도착 시각 (= **available_from_ts**) |
+| exchange | string | no | "bithumb" v1 only |
+| symbol | string | no | canonical "{quote}-{base}" (e.g. "KRW-BTC") |
+| price | decimal128(38, 18) | no | trade price |
+| quantity | decimal128(38, 18) | no | trade quantity |
+| side | string | no | "buy" / "sell" |
+| raw_json | string | yes | original WS frame (debug, optional) |
+
+#### D10.2 Hive partition layout
+
+```
+market/ticks/schema_version=tick.v1/exchange={ex}/symbol={sym}/date={YYYY-MM-DD}/part-{collector_run_id}.parquet
+```
+
+Physical partition = UTC date. KST daily 도 `ts_utc` 의 UTC date 로 저장 (§D2 동일 규칙).
+
+#### D10.3 partition_id ↔ collector_run_id 매핑
+
+`partition_id` (parquet filename suffix) ↔ `collector_run_id` (lineage source) **1:1 매핑** (v1). data_hash 부재 (forward-only stream = source 자체 — 거래소 WS 에 동일 stream 재요청 불가). lineage record 는 §D6 schema 와 다른 collector-specific schema 사용 (MCT-65 의 `collector_run_id` + `started_at_utc` + `selected_symbols` manifest).
+
+#### D10.4 Forward-only invariant + lookahead 방어
+
+**`available_from_ts := received_at`**. Backtest reader (MCT-66 `scan_ticks`) 는 caller 의 `simulated_clock` 주입 시 `received_at <= simulated_clock` event 만 yield. ADR-005 lookahead 방어 정합 (§D6 candle 의 `available_from_ts` 와 다른 mechanism — candle 은 feature lineage table 별도, tick 은 row 자체 column).
+
+#### D10.5 결정적 sort key
+
+`(ts_utc ASC, received_at ASC, file_offset ASC)`. 동일 ts_utc 다중 event = received_at 순 → file_offset 순. backtest 결정성 의무.
+
+#### D10.6 Missing / duplicate / out-of-order
+
+- Forward-fill = N/A (tick = 본질적으로 이벤트 시계열).
+- Halt: schema mismatch / 음수 price / 음수 quantity / unknown side.
+- Duplicate detection: 미적용 v1 (Bithumb WS = at-most-once 가정). 동일 (ts_utc, price, quantity, side) row = idempotent 통과.
+- Out-of-order = 허용 (sort 시점에 정렬, MCT-66 enforcement).
+- Gap detection (collector reconnect 등) = MCT-66 `tier_coverage` API 의 책임 (threshold = 5분 default).
+
+### D11. Orderbook event stream v1 (NEW, MCT-63 Epic Phase 1, 2026-05-04 amendment)
+
+forward-only T3 (orderbook) market data partition. **L2 event stream — §D9 L3 depth-ladder 와 별개 schema**. snapshot + delta event 가 동일 table 에 flat 으로 저장 (per-level row).
+
+#### D11.1 Schema (10 column)
+
+| Column | Type | Nullable | 의미 |
+|---|---|---|---|
+| ts_utc | timestamp[ns, UTC] | no | 거래소 발생 시각 |
+| received_at | timestamp[ns, UTC] | no | collector server-side 도착 시각 (= **available_from_ts**) |
+| exchange | string | no | "bithumb" v1 only |
+| symbol | string | no | canonical |
+| event_type | string | no | "snapshot" / "delta" |
+| side | string | no | "bid" / "ask" |
+| level | int32 | no | snapshot: 0..N-1 (top-of-book = 0) / delta: -1 |
+| price | decimal128(38, 18) | no | level price |
+| quantity | decimal128(38, 18) | no | level quantity (delta `0` = remove level) |
+| raw_json | string | yes | original WS frame (optional) |
+
+#### D11.2 Hive partition layout
+
+```
+market/orderbook/schema_version=orderbook.v1/exchange={ex}/symbol={sym}/date={YYYY-MM-DD}/part-{collector_run_id}.parquet
+```
+
+#### D11.3 Reconstruction read API contract (MCT-66)
+
+- **`scan_orderbook_events(symbol, start, end, *, snapshot_id=None) -> Iterable[OrderbookEventRecord]`** — half-open `[start, end)`, sort key §D11.5.
+- **`get_orderbook_at(symbol, ts_utc) -> OrderbookSnapshot`** — start-of-day baseline (해당 일 첫 `event_type="snapshot"` event 다발) → fold delta forward → ts 시점 state.
+- **`tier_coverage(symbol, "orderbook", start, end) -> CoverageReport`** — gap / `collector_run_ids` / symbol manifest 참조.
+
+#### D11.4 Forward-only invariant + lookahead 방어
+
+**`available_from_ts := received_at`**. §D10.4 동일 mechanism.
+
+#### D11.5 결정적 sort key
+
+`(ts_utc ASC, received_at ASC, file_offset ASC)`. §D10.5 동일.
+
+#### D11.6 Fail-closed reconstruction error mode (MCT-66)
+
+다음 cases halt + emit `GapDetectedEvent` / `ReconstructionError`:
+
+- gap > threshold (collector reconnect 등) — default 5분
+- non-monotonic ts (스트림 내 sort key 역순)
+- duplicate event with different hash (동일 hash = idempotent skip)
+- missing baseline (해당 일 첫 snapshot event 부재)
+- schema mismatch
+
+silent skip 거부 (research-grade reproducibility 우선).
+
+#### D11.7 L2 vs L3 분리
+
+§D9 (L3 depth-ladder snapshot, 예약 미구현) 와 본 §D11 (L2 event stream, v1 구현) 는 **별개 schema**. Bithumb public WS = L2 only → v1 = §D11. L3 가 필요한 strategy 는 §D9 미구현 = unsupported. 후속 Epic 에서 §D9 구현 시 L2 + L3 양립 가능.
 
 ## Alternatives Considered
 

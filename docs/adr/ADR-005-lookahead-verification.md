@@ -207,3 +207,26 @@ Live bias source: vendor timestamp ↔ local receipt 차이 / clock skew / late-
 
 - MCT-48 (Epic) / MCT-53 (Streamlit Paper panel) — 본 amendment 의 검증 deliverable
 - ADR-005 L2 visible_window strict — UI 가 partial bar 를 strategy 처럼 보여주는 trap 의 reverse mirror
+
+
+## Amendment §D6 — Forward-only T2/T3 lookahead = received_at (MCT-63, 2026-05-04)
+
+**Trigger**: MCT-63 (Tick + Orderbook Backtest) Epic Phase 1 의 §D10 (tick.v1) + §D11 (orderbook.v1) schema 도입. T2/T3 forward-only event stream 은 §D6 candle feature lineage 의 `available_from_ts` mechanism 과 다른 enforcement point 필요.
+
+### D6. T2/T3 lookahead 방어 = received_at column
+
+- **`available_from_ts := received_at`** for tick.v1 / orderbook.v1 partition. row 자체 column (별도 lineage table 아님, candle 의 §D6 mechanism 과 다름).
+- **Backtest reader 의무**: caller (e.g. MCT-67 TickReplayExecutor) 가 `simulated_clock` 주입 → `received_at <= simulated_clock` event 만 yield.
+- **MCT-66 enforcement point**: `scan_ticks` / `scan_orderbook_events` / `get_orderbook_at` 모두 `simulated_clock` 인자 받고 filter 의무.
+- **Rationale**: T2/T3 = 거래소 WS 도착 즉시 strategy 사용 가능 (변환 지연 무시). collector 가 row 작성 시각이 strategy 가 본질적으로 알 수 있는 가장 빠른 시각.
+- **단, simulated_clock 미주입 = filter off** (default): research 목적 read 허용. backtest 진입 path (MCT-67) 가 의무 주입.
+
+### L4 Diagnostic feed fixture (확장)
+
+- `known_bias_t2t3_lookahead_simulated_clock_missing` 신규 fixture (MCT-67 Phase 4 시점 추가) — backtest path 에서 `simulated_clock` 미주입 + `received_at > simulated_clock` event dispatch 시 lint / runtime audit 거부.
+- L1 libcst 자연 detection 영역 아님 (caller-side argument). L4 fixture + runtime audit 으로 enforce.
+
+### Cross-reference
+
+- ADR-009 §D10 / §D11 — T2/T3 schema 정의 (`received_at` column)
+- MCT-63 Epic / MCT-66 reconstruction / MCT-67 executor — 본 amendment 의 검증 deliverable
