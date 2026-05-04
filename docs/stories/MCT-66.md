@@ -1,6 +1,6 @@
 ---
 story_key: MCT-66
-status: phase:요구사항
+status: phase:완료
 component: data
 type: brainstorm
 parent_epic: MCT-63
