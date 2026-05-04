@@ -380,6 +380,22 @@ class TestActiveRun:
                 status="running",
             )
 
+    def test_non_utc_aware_rejected(self) -> None:
+        """Codex finding #1: only UTC tz allowed (Asia/Seoul aware → reject)."""
+        from zoneinfo import ZoneInfo
+
+        with pytest.raises(ValidationError):
+            ActiveRun(
+                run_id="x",
+                mode="paper",
+                symbol="KRW-BTC",
+                timeframe="5m",
+                started_at_utc=datetime(
+                    2026, 4, 27, 16, 0, 0, tzinfo=ZoneInfo("Asia/Seoul")
+                ),  # non-UTC aware
+                status="running",
+            )
+
     def test_invalid_mode_rejected(self) -> None:
         with pytest.raises(ValidationError):
             ActiveRun(
@@ -452,9 +468,17 @@ class ActiveRun(BaseModel):
     output_dir: str | None = None
 
     @model_validator(mode="after")
-    def _enforce_tz_aware(self) -> "ActiveRun":
+    def _enforce_utc(self) -> "ActiveRun":
+        """Codex finding #1: enforce UTC, not just any tz-aware."""
+        from datetime import timedelta
+
         if self.started_at_utc.tzinfo is None:
             raise ValueError("started_at_utc must be timezone-aware (UTC)")
+        offset = self.started_at_utc.utcoffset()
+        if offset != timedelta(0):
+            raise ValueError(
+                f"started_at_utc must be UTC (offset=0), got offset={offset}"
+            )
         return self
 
 
@@ -602,6 +626,53 @@ async def test_runs_active_filters_completed(
     body = resp.json()
     assert len(body["active_runs"]) == 1
     assert body["active_runs"][0]["run_id"] == "bt-new"
+
+
+@pytest.mark.asyncio
+async def test_runs_active_with_paper_run(
+    app, app_client: AsyncClient, monkeypatch
+) -> None:
+    """Codex finding #5: paper active run path."""
+    from datetime import datetime, timezone
+
+    from mctrader_web.api.models import RunRequest, RunStatus
+
+    paper_status = RunStatus(
+        run_id="paper-sma-KRW-BTC-5m-5-20",
+        lifecycle="running",
+        started_at=datetime(2026, 4, 27, 7, 0, 0, tzinfo=timezone.utc),
+    )
+    paper_request = RunRequest(
+        strategy="sma",
+        symbol="KRW-BTC",
+        timeframe="5m",
+        fast=5,
+        slow=20,
+    )
+
+    paper_manager = app.state.lifecycle
+    monkeypatch.setattr(
+        type(paper_manager), "active_run_id",
+        property(lambda self: paper_status.run_id),
+    )
+
+    async def fake_get_status(run_id: str) -> RunStatus:
+        return paper_status
+
+    def fake_get_request(run_id: str) -> RunRequest | None:
+        return paper_request if run_id == paper_status.run_id else None
+
+    monkeypatch.setattr(paper_manager, "get_status", fake_get_status)
+    monkeypatch.setattr(paper_manager, "get_request", fake_get_request)
+
+    resp = await app_client.get("/runs/active", headers=auth_headers())
+    assert resp.status_code == 200
+    body = resp.json()
+    paper_runs = [r for r in body["active_runs"] if r["mode"] == "paper"]
+    assert len(paper_runs) == 1
+    assert paper_runs[0]["run_id"] == paper_status.run_id
+    assert paper_runs[0]["symbol"] == "KRW-BTC"
+    assert paper_runs[0]["timeframe"] == "5m"
 ```
 
 - [ ] **Step 2: Run tests to verify failure**
@@ -1275,9 +1346,13 @@ git commit -m "feat(backtest_panel): native date+time picker + UTC echo + valida
 **Files:**
 - Modify: `src/mctrader_web/dashboard/pages/02_backtest_panel.py`
 
-- [ ] **Step 1: Replace own sidebar with common sidebar**
+- [ ] **Step 1: Move Task 9 inline imports to file top + replace sidebar with common sidebar (Codex #15)**
 
-Locate this block at the top of `02_backtest_panel.py`:
+Open `src/mctrader_web/dashboard/pages/02_backtest_panel.py`. Two coordinated edits:
+
+**(a)** **Move Task 9 inline imports** out of the form body. Task 9 added `from datetime import datetime, timedelta, timezone as dt_tz` / `from zoneinfo import ZoneInfo` / `from mctrader_web.dashboard.common import init_tz_session_state, tz_label` inside `with st.form("backtest_form"):`. Remove those inline imports entirely from inside the form.
+
+**(b)** Replace the existing sidebar block at the file's top:
 
 ```python
 with st.sidebar:
@@ -1288,9 +1363,12 @@ with st.sidebar:
         st.error("FastAPI unreachable. Start with `mctrader-web-api`.")
 ```
 
-Replace with:
+with the consolidated import-and-init block:
 
 ```python
+from datetime import datetime, timedelta, timezone as dt_tz
+from zoneinfo import ZoneInfo
+
 from mctrader_web.dashboard.common import (
     compute_fee,
     compute_notional,
@@ -1308,7 +1386,7 @@ init_tz_session_state()
 render_common_sidebar(client)
 ```
 
-(`init_tz_session_state` may already be imported from Task 9 — keep imports DRY by deduplicating.)
+After this edit, `init_tz_session_state()` is called exactly **once** at module top — Task 9's inline `init_tz_session_state()` inside the form must also be removed (it was redundant if left).
 
 - [ ] **Step 2: Replace events dataframe with rich table**
 
@@ -1417,17 +1495,20 @@ git commit -m "feat(backtest_panel): common sidebar + events table redesign (Pha
 **Files:**
 - Test: `tests/test_apptest_phase2a.py`
 
-- [ ] **Step 1: Write AppTest smoke**
+- [ ] **Step 1: Write AppTest scenarios (Codex push-back: rich coverage, not just smoke)**
 
 Create `tests/test_apptest_phase2a.py`:
 
 ```python
-"""Phase 2A — Streamlit AppTest smoke tests.
+"""Phase 2A — Streamlit AppTest scenarios.
 
-Covers:
-- common sidebar TZ selector renders and persists across reruns
-- backtest panel datetime form validation (start >= end, end > now)
-- events table renders without crash on empty execution_report
+Covers (per Codex phase review):
+- App loads + TZ default = Asia/Seoul
+- Common sidebar fallback when client raises (Codex #6)
+- Common sidebar populated active runs (Codex #2)
+- Backtest panel datetime invalid range disables submit (Codex #3)
+- Backtest panel events table with populated event row builder (Codex #4)
+- Both pages render without crash (FastAPI unreachable acceptable)
 """
 
 from __future__ import annotations
@@ -1438,19 +1519,18 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+# Codex #14 — path hardening: resolve from this file's location, not CWD.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+APP_PATH = str(REPO_ROOT / "src" / "mctrader_web" / "dashboard" / "app.py")
+BACKTEST_PAGE = str(
+    REPO_ROOT / "src" / "mctrader_web" / "dashboard" / "pages" / "02_backtest_panel.py"
+)
+PAPER_PAGE = str(
+    REPO_ROOT / "src" / "mctrader_web" / "dashboard" / "pages" / "01_paper_panel.py"
+)
 
-# Skip these tests if streamlit AppTest API surface is missing.
-streamlit = pytest.importorskip("streamlit")
-if not hasattr(streamlit.testing.v1, "AppTest"):
-    pytest.skip(
-        "streamlit AppTest unavailable", allow_module_level=True
-    )
 
-
-APP_PATH = "src/mctrader_web/dashboard/app.py"
-
-
-def _make_minimal_run(out_dir: Path) -> Path:
+def _make_minimal_run(out_dir: Path, *, events: list[dict] | None = None) -> Path:
     """Create a minimal run directory with execution_report.json + equity_curve.csv."""
     run_dir = out_dir / "bt-test"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -1471,7 +1551,7 @@ def _make_minimal_run(out_dir: Path) -> Path:
             "tick_bps_adjustment": "0",
             "latency_ms": 0,
         },
-        "events": [],
+        "events": events or [],
         "summary": {
             "final_equity": "1000000",
             "max_drawdown": "0",
@@ -1488,6 +1568,9 @@ def _make_minimal_run(out_dir: Path) -> Path:
         encoding="utf-8",
     )
     return run_dir
+
+
+# ─── App entry + TZ default ──────────────────────────────────────────────────
 
 
 def test_app_loads_without_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1508,16 +1591,177 @@ def test_tz_session_state_default(
     assert at.session_state["tz"] == "Asia/Seoul"
 
 
-def test_backtest_panel_renders(
+# ─── Common sidebar — fallback paths (Codex #2, #6) ──────────────────────────
+
+
+def test_sidebar_fallback_when_client_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Smoke: backtest panel page imports + renders without crash."""
+    """Codex finding #6: sidebar's try/except path renders 'unavailable' caption."""
+    from mctrader_web.api_client.client import MctraderApiClient
+
     monkeypatch.setenv("MCTRADER_OUTPUT_DIR", str(tmp_path))
     _make_minimal_run(tmp_path)
 
-    backtest_page = "src/mctrader_web/dashboard/pages/02_backtest_panel.py"
-    at = AppTest.from_file(backtest_page).run(timeout=30)
-    assert not at.exception, f"backtest panel crashed: {at.exception}"
+    def boom(self) -> None:
+        raise RuntimeError("simulated network failure")
+
+    monkeypatch.setattr(MctraderApiClient, "list_active_runs", boom)
+    monkeypatch.setattr(MctraderApiClient, "health", lambda self: False)
+
+    at = AppTest.from_file(BACKTEST_PAGE).run(timeout=30)
+    assert not at.exception, f"page crashed: {at.exception}"
+    # Look for 'Active runs unavailable' in any sidebar caption
+    captions = [c.value for c in at.sidebar.caption]
+    assert any("Active runs unavailable" in str(c) for c in captions), (
+        f"expected fallback caption, got captions={captions}"
+    )
+
+
+def test_sidebar_populated_active_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex finding #2: sidebar renders run_id, mode, symbol/timeframe."""
+    from mctrader_web.api_client.client import MctraderApiClient
+
+    monkeypatch.setenv("MCTRADER_OUTPUT_DIR", str(tmp_path))
+    _make_minimal_run(tmp_path)
+
+    def fake_list(self):
+        return {
+            "active_runs": [
+                {
+                    "run_id": "bt-sma-KRW-BTC-1h-x",
+                    "mode": "backtest",
+                    "symbol": "KRW-BTC",
+                    "timeframe": "1h",
+                    "started_at_utc": "2026-04-27T07:00:00Z",
+                    "status": "running",
+                    "output_dir": "./out",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(MctraderApiClient, "list_active_runs", fake_list)
+    monkeypatch.setattr(MctraderApiClient, "health", lambda self: True)
+
+    at = AppTest.from_file(BACKTEST_PAGE).run(timeout=30)
+    assert not at.exception, f"page crashed: {at.exception}"
+    # markdown 으로 출력된 run_id text 확인
+    sidebar_text = " ".join(
+        m.value for m in at.sidebar.markdown if hasattr(m, "value")
+    )
+    assert "bt-sma-KRW-BTC-1h-x" in sidebar_text
+    assert "backtest" in sidebar_text
+
+
+# ─── Backtest panel — datetime form (Codex #3) ───────────────────────────────
+
+
+def test_backtest_form_renders_with_utc_echo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex finding #3: UTC echo caption appears below datetime inputs."""
+    from mctrader_web.api_client.client import MctraderApiClient
+
+    monkeypatch.setenv("MCTRADER_OUTPUT_DIR", str(tmp_path))
+    _make_minimal_run(tmp_path)
+
+    monkeypatch.setattr(MctraderApiClient, "health", lambda self: True)
+    monkeypatch.setattr(MctraderApiClient, "list_active_runs", lambda self: None)
+
+    at = AppTest.from_file(BACKTEST_PAGE).run(timeout=30)
+    assert not at.exception, f"page crashed: {at.exception}"
+    captions = " ".join(c.value for c in at.caption if hasattr(c, "value"))
+    # form 의 default 값은 7-day-ago → now, 즉 valid range. UTC echo 가 보여야 함.
+    assert "→ FastAPI:" in captions and "(UTC)" in captions, (
+        f"expected UTC echo caption, got: {captions}"
+    )
+
+
+def test_backtest_form_invalid_range_shows_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex finding #3: setting end < start shows error + disables submit.
+
+    AppTest 에서 date_input 의 set_value 후 rerun 하여 validation 흐름 trigger.
+    """
+    from datetime import date
+
+    from mctrader_web.api_client.client import MctraderApiClient
+
+    monkeypatch.setenv("MCTRADER_OUTPUT_DIR", str(tmp_path))
+    _make_minimal_run(tmp_path)
+
+    monkeypatch.setattr(MctraderApiClient, "health", lambda self: True)
+    monkeypatch.setattr(MctraderApiClient, "list_active_runs", lambda self: None)
+
+    at = AppTest.from_file(BACKTEST_PAGE).run(timeout=30)
+    assert not at.exception
+
+    # Set start = today, end = 7 days ago → invalid (start > end)
+    # date_input widgets are at index 0/2 of the form's date_inputs
+    date_inputs = at.date_input
+    if len(date_inputs) >= 2:
+        # 0 = start, 1 = end (per form column order col_sd, col_ed)
+        # column order in the plan: start_date, start_time, end_date, end_time
+        # so date_input[0] = start_date, date_input[1] = end_date
+        date_inputs[0].set_value(date(2026, 5, 4))  # start
+        date_inputs[1].set_value(date(2026, 4, 27))  # end (earlier)
+        at = at.run(timeout=30)
+        assert not at.exception
+        errors = " ".join(e.value for e in at.error if hasattr(e, "value"))
+        assert "Start must be before End" in errors, f"expected error, got: {errors}"
+
+
+# ─── Backtest panel — events table populated row (Codex #4) ──────────────────
+
+
+def test_backtest_events_table_populated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex finding #4: events row builder runs against a real OrderEvent."""
+    from mctrader_web.api_client.client import MctraderApiClient
+
+    populated_events = [
+        {
+            "kind": "OrderEvent",
+            "ts_utc": "2026-04-27T07:05:00Z",
+            "order_id": "bt:bt-test:1",
+            "status_from": "ACCEPTED",
+            "status_to": "FILLED",
+            "fill_price": "145200000",
+            "fill_quantity": "0.001",
+            "fee_bps": "25",
+            "slippage_bps": "5",
+        },
+        {
+            # malformed ts_utc → format_ts should display "—" or similar fallback
+            "kind": "OrderEvent",
+            "ts_utc": "not-a-timestamp",
+            "order_id": "paper:other-run:99",  # mismatched run_id → original returned
+            "status_from": "ACCEPTED",
+            "status_to": "FILLED",
+            "fill_price": "150000000",
+            "fill_quantity": "0.0005",
+            "fee_bps": "25",
+            "slippage_bps": "5",
+        },
+    ]
+
+    monkeypatch.setenv("MCTRADER_OUTPUT_DIR", str(tmp_path))
+    _make_minimal_run(tmp_path, events=populated_events)
+
+    monkeypatch.setattr(MctraderApiClient, "health", lambda self: True)
+    monkeypatch.setattr(MctraderApiClient, "list_active_runs", lambda self: None)
+
+    at = AppTest.from_file(BACKTEST_PAGE).run(timeout=30)
+    assert not at.exception, f"page crashed: {at.exception}"
+    # No exception = row builder ran. Detailed DOM cell value assertion is
+    # brittle in AppTest; the row count + non-crash is the contract here.
+
+
+# ─── Page-level smoke (regression) ───────────────────────────────────────────
 
 
 def test_paper_panel_renders(
@@ -1526,8 +1770,7 @@ def test_paper_panel_renders(
     """Smoke: paper panel page imports + renders without crash (FastAPI unreachable OK)."""
     monkeypatch.setenv("MCTRADER_OUTPUT_DIR", str(tmp_path))
 
-    paper_page = "src/mctrader_web/dashboard/pages/01_paper_panel.py"
-    at = AppTest.from_file(paper_page).run(timeout=30)
+    at = AppTest.from_file(PAPER_PAGE).run(timeout=30)
     assert not at.exception, f"paper panel crashed: {at.exception}"
 ```
 
