@@ -1,10 +1,12 @@
 ---
 story_key: MCT-56
-status: phase:요구사항
+status: closed
+closed_at: 2026-05-05
 component: engine
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-005, ADR-006
+results_doc: docs/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-56: Foundation — SplitRegistry + AuditLog + run_manifest + decision_group lifecycle + L4 skeleton

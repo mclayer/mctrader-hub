@@ -1,10 +1,12 @@
 ---
 story_key: MCT-61
-status: phase:요구사항
+status: closed
+closed_at: 2026-05-05
 component: web
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-002, ADR-006
+results_doc: docs/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-61: WFO Web Integration — FastAPI endpoints + Streamlit panel + 1 active session lock 확장

@@ -1,10 +1,12 @@
 ---
 story_key: MCT-57
-status: phase:요구사항
+status: closed
+closed_at: 2026-05-05
 component: engine
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-006
+results_doc: docs/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-57: Search engine + correction interface — Random 100 + Top-K rank consensus + deflated Sharpe ranking

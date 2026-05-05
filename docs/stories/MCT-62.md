@@ -1,10 +1,12 @@
 ---
 story_key: MCT-62
-status: phase:요구사항
+status: closed
+closed_at: 2026-05-05
 component: engine
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-006
+results_doc: docs/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-62: Promotion CLI + Epic close — `mctrader-cli wfo promote` + EPIC-RESULTS-MCT-55
