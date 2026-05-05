@@ -70,6 +70,11 @@ market/ohlcv/schema_version=ohlcv.v1/exchange=.../symbol=.../timeframe=.../
 - file name = `{collector_run_id}-{batch_seq}.parquet`
 - DuckDB Hive partition pruning 으로 특정 node 의 데이터만 scan 가능 (lineage / debugging)
 - 단일 node 운영 시 `node=DEFAULT` (또는 hostname) 적용 — backward compat (legacy single-host migration 무관)
+- **Mixed legacy partition layout 지원 (영구)**: Read API (`scan_candles` / `scan_ticks` / `scan_orderbook_events`) 는 다음 두 layout 이 같은 root 안에 공존하는 mixed scan 을 지원해야 한다:
+  - **Pre-HA partition** (`node=` level 없음, 본 amendment 도입 전 기존 mctrader-data 가 쓴 데이터) → reader 가 `node=DEFAULT` 로 취급하고 partition pruning 적용
+  - **Post-HA partition** (`node=NODE_A` / `node=NODE_B` 등 explicit) → 그대로 read
+  - caller 변경 0 (engine / web / WFO 측 transparent — 기존 scan API signature 유지)
+  - 영구 지원 (Sonnet decider 결정 — legacy partition 폐기는 별도 migration Epic 의 scope)
 
 **Active-Active dedup contract** (T1/T2/T3 공통, 본 amendment 의 anchor 절):
 

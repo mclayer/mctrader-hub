@@ -55,9 +55,26 @@ mctrader 10번째 implementation Epic (MCT-12 ~ MCT-87 의 후속). 직전 Epic 
 
 16/16 escalation 0건. 사용자 사전 승인 4회 ("ok" trigger).
 
-### Codex 7-area review
+### Codex 7-area review (2026-05-05, codex:rescue / gpt-5.4)
 
-(Task 5 완료 후 본 절 채움 — Phase 1 PR 머지 직전 codex:rescue dispatch)
+**6/7 ADOPT-AS-IS, 1 PUSH-BACK 적용** (Sonnet decider 일괄 채택, escalation 0/7).
+
+| Area | Finding | Verdict | Sonnet decider 응답 |
+|---|---|---|---|
+| F-1 Spec coverage | Story §3 의 16-row decision table + ADR §D2.1/§D10.7/§D11.8 + heartbeat contract 가 spec 의 16 결정 stack 모두 cover | ADOPT-AS-IS | — |
+| F-2 ADR amendment correctness | additive only (D1-D11 변경 0), `node=DEFAULT` legacy 명시, T1 late correction vs T2/T3 quarantine 분기 분명 | ADOPT-AS-IS | — |
+| F-3 Dedup contract clarity | Case C grounding 정확 (mctrader-market-bithumb `ws_mapping.py` TransactionEvent / Orderbook events 검증), fallback tuple 6/8-tuple 일치 | ADOPT-AS-IS | — |
+| F-4 Heartbeat schema completeness | atomic write + freshness/lag threshold + v1→v2 compat 명확 | ADOPT-AS-IS | — |
+| **F-5 Backward compat (file-level)** | existing pre-HA partition (no `node=` level) 의 read 정책 미명시 | **PUSH-BACK** | **fix 적용**: ADR §D2.1 에 "Mixed legacy partition layout 지원 (영구)" bullet 추가 — pre-HA partition 은 `node=DEFAULT` 로 취급, mixed scan transparent, 영구 지원 |
+| F-6 Out-of-scope clarity | spec §6.4 deferred Epic 명시 + dual-node packet loss 가 backfill 위임 분명 | ADOPT-AS-IS | — |
+| F-7 Phase 2 readiness | X2~X7 decomposition + spec §5.2 12 module/test surface 가 Phase 분배 가능 | ADOPT-AS-IS | — |
+
+**Escalation list (Phase 1 scope 외로 분리)**:
+1. Mixed legacy 지원 기간 (영구 vs migration window) → **Sonnet decider 채택: 영구 지원** (legacy partition 폐기는 별도 migration Epic)
+2. MCT-X2/X3 final issue 번호 → Phase 2 진입 시 결정
+3. received_at ms-tolerance final value (default ±100ms) → MCT-X3 Calibration AC 의 task
+
+**Overall verdict**: Codex needs-fix → Sonnet decider fix 적용 후 mergeable.
 
 ## 4. Child Story decomposition
 
