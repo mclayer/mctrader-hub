@@ -797,8 +797,20 @@ Modify `src/mctrader_engine/executor/backtest.py`. Add `from pathlib import Path
 
         Indicators are computed only if strategy implements ``IndicatorProvider``;
         otherwise indicators.csv is header-only.
+
+        **Decimal serialization** (Codex #3): use fixed-point ``format(v, 'f')``
+        to avoid scientific notation (``str(Decimal('1E+6')) == '1E+6'`` is
+        not parseable by pandas without coercion).
+
+        **IndicatorProvider validation** (Codex #2): runtime_checkable Protocol
+        only verifies method name presence, not signatures or return shape.
+        Validate explicitly here before serialization.
         """
         from mctrader_engine.strategy.indicators import IndicatorProvider
+
+        def _fmt(v: Decimal) -> str:
+            """Fixed-point Decimal serialization — no scientific notation."""
+            return format(v, "f")
 
         # candles.csv
         candles_file = run_dir / "candles.csv"
@@ -807,13 +819,36 @@ Modify `src/mctrader_engine/executor/backtest.py`. Add `from pathlib import Path
             for c in self._candles:
                 f.write(
                     f"{c.ts_utc.strftime('%Y-%m-%dT%H:%M:%SZ')},"
-                    f"{c.open},{c.high},{c.low},{c.close},{c.volume}\n"
+                    f"{_fmt(c.open)},{_fmt(c.high)},{_fmt(c.low)},"
+                    f"{_fmt(c.close)},{_fmt(c.volume)}\n"
                 )
 
         # indicators.csv
         indicators_file = run_dir / "indicators.csv"
         if isinstance(self._strategy, IndicatorProvider):
             indicators = self._strategy.compute_indicators(self._candles)
+            # Codex #2 validation: explicit shape check
+            n = len(self._candles)
+            if not isinstance(indicators, dict):
+                raise ValueError(
+                    f"compute_indicators must return dict, got {type(indicators).__name__}"
+                )
+            for name, series in indicators.items():
+                if not isinstance(series, list):
+                    raise ValueError(
+                        f"indicator '{name}' must be list, got {type(series).__name__}"
+                    )
+                if len(series) != n:
+                    raise ValueError(
+                        f"indicator '{name}' length {len(series)} != candles length {n}"
+                    )
+                for v in series:
+                    if v is not None and not isinstance(v, Decimal):
+                        raise ValueError(
+                            f"indicator '{name}' values must be Decimal | None, "
+                            f"got {type(v).__name__}"
+                        )
+
             indicator_names = sorted(indicators.keys())
             with indicators_file.open("w", encoding="utf-8", newline="") as f:
                 f.write("ts_utc," + ",".join(indicator_names) + "\n")
@@ -821,7 +856,7 @@ Modify `src/mctrader_engine/executor/backtest.py`. Add `from pathlib import Path
                     row = [c.ts_utc.strftime("%Y-%m-%dT%H:%M:%SZ")]
                     for name in indicator_names:
                         v = indicators[name][i]
-                        row.append(str(v) if v is not None else "")
+                        row.append(_fmt(v) if v is not None else "")
                     f.write(",".join(row) + "\n")
         else:
             # Header-only file (ts_utc column reserves the schema)
@@ -956,7 +991,23 @@ git pull origin main
 git checkout -b feat/phase-2b-candlestick-chart
 ```
 
-- [ ] **Step 2: Force-reinstall mctrader-engine to pick up Phase 2B engine changes**
+- [ ] **Step 2: Refresh `uv.lock` to pull Phase 2B engine commit (Codex #12 — CRITICAL)**
+
+`uv.lock` pins `mctrader-engine` to a specific commit hash. CI (`uv sync --all-extras`) uses the lockfile, NOT `pyproject.toml @main`. Without this step, web CI installs the OLD engine and B2 fails with "BacktestExecutor has no attribute 'write_artifacts'".
+
+```
+uv lock --upgrade-package mctrader-engine
+```
+
+Expected: `uv.lock` updated with new mctrader-engine commit hash (the merge commit from Engine PR `feat/phase-2b-engine-artifacts`).
+
+```
+git diff uv.lock | grep -A 2 mctrader-engine | head -10
+```
+
+Confirm `rev=` field shows the new commit hash.
+
+- [ ] **Step 3: Force-reinstall locally to pick up Phase 2B engine changes**
 
 ```
 .venv/Scripts/python -m pip install -e .[dev] --force-reinstall --no-deps mctrader-engine
@@ -964,7 +1015,7 @@ git checkout -b feat/phase-2b-candlestick-chart
 
 Expected: pip pulls latest main commit including Phase 2B engine merge.
 
-- [ ] **Step 3: Sanity check engine import**
+- [ ] **Step 4: Sanity check engine import**
 
 ```
 .venv/Scripts/python -c "from mctrader_engine.report.schema import OrderEvent; ev = OrderEvent.model_fields; print('side' in ev, 'notional' in ev, 'fee' in ev)"
@@ -978,9 +1029,14 @@ Expected: `True True True`.
 
 Expected: `True`.
 
-- [ ] **Step 4: Commit nothing — env-only step**
+- [ ] **Step 5: Commit `uv.lock` refresh**
 
-(No commit needed; this task is environment preparation. Continue to B2.)
+```bash
+git add uv.lock
+git commit -m "chore(deps): refresh mctrader-engine pin for Phase 2B (Task B1)"
+```
+
+(Other steps in B1 are env-only and need no commit.)
 
 ---
 
@@ -1451,11 +1507,18 @@ def build_candlestick_chart(
             # fall back: nearest candle close
             mask = candle_ts == ts_local
             y = float(candles.loc[mask, "close"].iloc[0]) if mask.any() else 0
+        # Codex #7: hover text uses central KRW formatter for consistency
+        from decimal import Decimal as _Dec
+
+        from mctrader_web.dashboard.common import format_krw, format_qty
+        price_dec = _Dec(e["fill_price"]) if e.get("fill_price") else None
+        qty_dec = _Dec(e["fill_quantity"]) if e.get("fill_quantity") else None
+        fee_dec = _Dec(e["fee"]) if e.get("fee") else None
         text = (
             f"{e['side']} #{e.get('order_id', '?')} · "
-            f"price={e.get('fill_price', '?')} · "
-            f"qty={e.get('fill_quantity', '?')} · "
-            f"fee={e.get('fee', '?')}"
+            f"price={format_krw(price_dec)} · "
+            f"qty={format_qty(qty_dec)} · "
+            f"fee={format_krw(fee_dec)}"
         )
         if e["side"] == "BUY":
             buy_x.append(ts_local)
@@ -1555,8 +1618,10 @@ Add the following BELOW that line (still inside the same `try:` block):
                     use_container_width=True,
                 )
             except Exception as exc:  # noqa: BLE001 - graceful fallback per spec §5
+                # Codex #10: clarify that equity chart remains authoritative
                 st.warning(
-                    f"Candlestick chart unavailable: {type(exc).__name__}: {exc}"
+                    f"Candlestick chart unavailable: {type(exc).__name__}: {exc}. "
+                    f"Equity chart above remains the authoritative view."
                 )
         else:
             st.caption("OHLCV chart unavailable for legacy runs (no candles.csv).")
@@ -1619,7 +1684,29 @@ Replace with:
                     )
 ```
 
-(NOTE: Streamlit's default dataframe rendering does not apply CSS color styling. The text prefix `▲ BUY` / `▼ SELL` provides the visual differentiation per Codex finding #20 — color via `st.markdown` with HTML span is non-trivial inside a `st.dataframe`. This is acceptable for Phase 2B — full red/blue coloring would require a custom HTML table. The candlestick chart's red/blue markers ARE colored.)
+- [ ] **Step 2b: Apply pandas Styler for Side color (Codex #9)**
+
+The user's original requirement is "Buy 빨간 글자 Sell 파란 글자". Streamlit's `st.dataframe` accepts a `pandas.Styler` and renders CSS styles per cell. Find the existing `st.dataframe(rows, use_container_width=True, hide_index=True)` line at the bottom of the events table block and replace with:
+
+```python
+                import pandas as pd
+
+                df = pd.DataFrame(rows)
+
+                def _color_side(val: str) -> str:
+                    if "BUY" in val:
+                        return "color: red; font-weight: bold"
+                    if "SELL" in val:
+                        return "color: blue; font-weight: bold"
+                    return ""
+
+                styled = df.style.map(_color_side, subset=["Side"])
+                st.dataframe(styled, use_container_width=True, hide_index=True)
+```
+
+(`Styler.map` was renamed from `Styler.applymap` in pandas 2.1+. mctrader-web 의 pandas pin = `>=2.2,<3` 이라 OK.)
+
+The triangle prefixes (▲ BUY / ▼ SELL) provide redundant visual encoding (Codex #20 colorblind accessibility) on top of the color.
 
 - [ ] **Step 3: Sanity-check syntax**
 
