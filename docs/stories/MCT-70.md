@@ -1,6 +1,6 @@
 ---
 story_key: MCT-70
-status: phase:요구사항
+status: phase:완료
 component: epic
 type: epic
 parent_epic: null
