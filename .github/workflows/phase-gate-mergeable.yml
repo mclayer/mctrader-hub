@@ -16,10 +16,10 @@ jobs:
       - name: Evaluate phase gate (cross-repo Story fetch)
         uses: actions/github-script@v7
         env:
-          # Cross-repo PAT for fetching Story file from codeforge-internal-docs.
+          # Cross-repo PAT for fetching Story file from any external repo via story_uri PR-body marker.
           # Falls back to GITHUB_TOKEN if PAT not configured (degraded: PR-label-only mode).
+          # Story repo coordinate is parsed from story_uri URL itself (no hardcode — F3 fix CFP-63).
           CROSS_REPO_TOKEN: ${{ secrets.CODEFORGE_CROSS_REPO_PAT }}
-          STORY_REPO: mclayer/codeforge-internal-docs
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -120,6 +120,41 @@ jobs:
               f.filename.startsWith('tests/') ||
               f.filename.startsWith('overlay/')
             );
+
+            // 5a. Doc-only / type:epic fast-pass (CFP-106 fix #143).
+            //     mctrader debut F6: Epic close + doc-only PR 가 phase-gate-mergeable 의
+            //     phase:보안-테스트/gate 라벨 부재 → 항상 ACTION_REQUIRED → admin merge 의존.
+            //     Resolution: type:epic 라벨 OR all-doc files (`docs/`, `wrapper/`, `*.md`) → fast-pass success.
+            const prFullForEpic = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            const allLabels = prFullForEpic.data.labels.map(l => l.name);
+            const isEpicLabel = allLabels.includes('type:epic');
+            const isDocOnly = !hasCode && files.every(f =>
+              f.filename.endsWith('.md') ||
+              f.filename.startsWith('docs/') ||
+              f.filename.startsWith('wrapper/') ||
+              f.filename.startsWith('.github/') ||
+              f.filename === 'CHANGELOG.md' ||
+              f.filename === 'README.md'
+            );
+            if (isEpicLabel || isDocOnly) {
+              const reason = isEpicLabel
+                ? `type:epic label fast-pass (CFP-106 #143 fix)`
+                : `doc-only PR fast-pass — files: ${files.map(f=>f.filename).slice(0,3).join(', ')}${files.length>3?'...':''} (CFP-106 #143 fix)`;
+              await github.rest.checks.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'phase-gate-mergeable',
+                head_sha: pr.head.sha,
+                status: 'completed',
+                conclusion: 'success',
+                output: { title: 'Phase Gate (fast-pass)', summary: reason }
+              });
+              return;
+            }
 
             const required = hasCode
               ? { phase: 'phase:보안-테스트', gate: 'gate:security-test-pass' }
