@@ -3,13 +3,13 @@ story_key: MCT-93
 story_issues:
   - repo: mclayer/mctrader-hub
     number: 101
-status: phase:요구사항
+status: phase:완료
 ---
 
 # MCT-93: Collector HA — Status CLI + Coverage Node Breakdown + Heartbeat Sink Adapter (X4 of MCT-89)
 
 - **Issue**: #101
-- **Status**: phase:요구사항
+- **Status**: phase:완료
 
 ## 1. 사용자 요구사항 (verbatim)
 
@@ -242,11 +242,59 @@ architecture diagram + step-by-step TDD plan 모두 plan doc 참조:
 
 ## 8. 개발 서사
 
-*(DeveloperPL 작성 예정 — Phase 4 PR 에서)*
+### 8.1 구현 PR
+
+- **mctrader-data PR #10** (MERGED, 2026-05-06) — `[MCT-93] feat(ha): Status CLI + Coverage Node Breakdown + Heartbeat Sink Adapter (X4 of MCT-89, mctrader-data 0.8.0)`
+- **mctrader-hub PR #102** (MERGED, 2026-05-06) — Story §1-7 + Phase 4 plan + heartbeat-schema.v1.md `§Related Manifest Artifacts` amendment
+
+### 8.2 mctrader-data 0.7.0 → 0.8.0 변경 surface
+
+| Module | 변경 | LOC |
+|---|---|---|
+| `dedup.py` | `persist_quarantine_records` helper + `_serialize_value` (atomic O_EXCL seq + per-writer unique temp + Decimal/datetime str fallback) | +75 |
+| `heartbeat.py` | `HeartbeatCounterSink` class (composition + threading.Lock) | +25 |
+| `orderbook_replay.py` | `NodeCoverage` Pydantic submodel + `CoverageReport.node_coverage` field + `tier_coverage` per-node ts envelope | +60 |
+| `diagnostic.py` (NEW) | `classify_gap` + `GapCause` (StrEnum, conservative current-state-only) | +57 |
+| `cli.py` | `status` subcommand (`--format human\|json` + threshold flags + exit code 0/1/2) | +110 |
+| Tests (5 new) | persist_quarantine (8) / heartbeat_sink (5) / diagnostic (6) / cli_status (10) / node_coverage (5) = 34 new | +650 |
+
+### 8.3 Codex 2-tier review (Phase 4 design + implementation)
+
+#### Phase 4 design review (6/6 ADOPT, escalation 0)
+
+| F | Verdict | Sonnet decider |
+|---|---|---|
+| F-1 status CLI surface | SUGGEST | 채택 (modified, dedup ratio omit X4) |
+| F-2 tier_coverage breakdown | SUGGEST | 채택 (NodeCoverage Pydantic + default_factory=dict) |
+| F-3 heartbeat-aware gap | PUSH-BACK | conservative current-state-only fix (history ring-buffer 후속) |
+| F-4 sink adapter | SUGGEST | 채택 (Option B composition + threading.Lock) |
+| F-5 quarantine persist | ADOPT-AS-IS | 채택 (persist_quarantine_records helper) |
+| F-6 contract amendment | SUGGEST | 채택 (heartbeat-schema.v1.md §Related Manifest Artifacts) |
+
+#### Implementation review (5/6 ADOPT, 1 PUSH-BACK fix 적용)
+
+| F | Verdict | Sonnet decider |
+|---|---|---|
+| F-1 code quality | SUGGEST | 채택 — exception narrowing (OSError / json.JSONDecodeError / pa.ArrowException) |
+| F-2 contract enforcement | ADOPT-AS-IS | — |
+| F-3 test coverage | SUGGEST | 채택 — concurrent / no_temp_residue / lag_yellow / malformed_json / direct_construction tests 추가 |
+| F-4 backward compat | ADOPT-AS-IS | — |
+| **F-5 cross-thread safety** | **PUSH-BACK** | **fix 적용** — atomic O_EXCL seq allocation + per-writer unique temp suffix (pid + tid + monotonic_ns) |
+| F-6 scope creep | ADOPT-AS-IS | — |
+
+총 escalation 0 (디자인 + 구현 12/12 in-Phase 채택). 후속 minor: heartbeat history ring-buffer / `HeartbeatMetrics.events_total` cumulative.
 
 ## 9. 품질 게이트 이력
 
-*(Review/Test PL 작성 예정 — Phase 4 PR 에서)*
+| Gate | Result | Evidence |
+|---|---|---|
+| Codex Phase 4 design 6/6 review | ADOPT 합 (escalation 0) | Story §3 Codex review summary table + plan §0 |
+| Codex implementation 6/6 review | ADOPT 5 + PUSH-BACK 1 fix 적용 | F-5 atomic O_EXCL fix + concurrent test 채택 |
+| 신규 contract amendment | heartbeat-schema.v1.md `§Related Manifest Artifacts` (PR #102) | additive only, schema_version unchanged |
+| pytest mctrader-data | **182 PASS** (148 prior + 34 new) | regression 0 vs 0.7.0 |
+| ruff lint | clean | F-1 narrow exception 적용 후 |
+| Backward compatibility | 100% | CoverageReport 기존 7 field + dedup public API + heartbeat schema field 모두 보존 |
+| Concurrent shared-storage safety | proven | test_persist_quarantine_records_concurrent_no_collision (10-thread × 1 record = 10 distinct artifacts, 0 .tmp residue) |
 
 ## 10. FIX Ledger
 
@@ -257,4 +305,28 @@ architecture diagram + step-by-step TDD plan 모두 plan doc 참조:
 
 ## 11. 회고
 
-*(PMOAgent 작성 예정 — Story 완료 시)*
+### 11.1 Phase 4 종료 marker (2026-05-06)
+
+X4 deliverable 5개 (status CLI + node_coverage + classify_gap + HeartbeatCounterSink + persist_quarantine_records) 모두 main merged. 사용자 원래 요구사항 ("코드 수정사항 배포 + 2개 이상 Active Node 관리 + 데이터 순단을 줄이고자") 의 *diagnostic surface* 가 노출되어, 양 node 의 freshness/lag/dedup metric 이 CLI 한 줄 (`mctrader-data status`) 로 관찰 가능.
+
+### 11.2 X4 기술 부채 surface (후속 Phase 또는 minor)
+
+- **heartbeat history ring-buffer**: `classify_gap` 이 `LIKELY_BITHUMB_OUTAGE` 분류를 활성화하려면 양 node의 ws_reconnect_count delta 비교 필요 — 현재 single sample 구조에서 불가. 후속 minor에서 `<root>/market/manifest/heartbeat-{node_id}-history.jsonl` append-only 1h window 추가 검토.
+- **`HeartbeatMetrics.events_total` cumulative**: dedup ratio denominator 부재. collector daemon hot path 에 `_handle_event` counter increment 추가 필요. 후속 minor.
+- **Streamlit 00_status panel** (X6): `mctrader-data status --format json` output 을 consume 하는 web UI. mctrader-web 측 별도 PR 예정.
+
+### 11.3 Epic MCT-89 진행도 (X4 종료 시점)
+
+| Phase | Story | 상태 |
+|---|---|---|
+| 1 | MCT-89 (Epic) | CLOSED ✅ |
+| 2 | MCT-91 (X2) | MERGED ✅ |
+| 3 | MCT-92 (X3) | MERGED ✅ |
+| **4** | **MCT-93 (X4)** | **MERGED ✅ (이번 Phase)** |
+| 5 | (X5 mctrader-hub `scripts/ha/`) | PENDING |
+| 6 | (X6 mctrader-web `00_status` panel) | PENDING |
+| 7 | (X7 Calibration C1/C2 + 양 node 30분 E2E demo) | PENDING |
+
+### 11.4 X4 의 단일 가치 한 줄
+
+X4 = X3 가 freeze 한 measurable hook 의 **사용자 visible surface** 도입. 데이터 순단 0 의 *발생 여부* 를 사용자가 처음으로 능동 확인 가능하게 됨. (active-active mismatch quarantine artifact 도 root manifest tree 에 appendix 형태로 누적)
