@@ -396,7 +396,44 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 
 ## 8. 개발 서사
 
-*(DeveloperPL 작성 예정 — Phase 2 PR에서. §7.G 6 phase 분할 기반)*
+*(§7.G 6 phase 분할 기반 — DeveloperPL P1 완료, P2+ 진행 예정)*
+
+### §8.5 Impl Manifest — P1
+
+| Phase | scope | PR | 완료일 | 변경 파일 |
+|-------|-------|----|--------|-----------|
+| P1 | skeleton | [mctrader-web#16](https://github.com/mclayer/mctrader-web/pull/16) | 2026-05-06 | production 10 / test 3 (합계 13 file, 25 test green) |
+
+**P1 production 파일 (DeveloperAgent)**
+
+| 파일 경로 | Change Plan 매핑 |
+|-----------|-----------------|
+| `src/mctrader_web/api/admin/__init__.py` | §4 P1 — admin sub-router 2개 mount (control/status ADR-014) |
+| `src/mctrader_web/api/admin/health.py` | §4 P1 — GET /admin/health 200 + version |
+| `src/mctrader_web/api/admin/control.py` | §3.2 module layout — P3+ skeleton |
+| `src/mctrader_web/api/admin/status.py` | §3.2 module layout — P2+ skeleton |
+| `src/mctrader_web/api/admin/audit.py` | §3.2 module layout — P4+ skeleton |
+| `src/mctrader_web/api/admin/control_adapter.py` | §3.2 + §7.D hybrid adapter — P3+ skeleton |
+| `src/mctrader_web/api/admin/state_machine.py` | ADR-015 SM constants — P3+ skeleton |
+| `src/mctrader_web/api/admin/tokens.py` | §7.B MultiTokenAuth — P4+ skeleton |
+| `src/mctrader_web/api/admin/audit_db.py` | ADR-016 WAL DB path helper — P4+ skeleton |
+| `src/mctrader_web/api/admin/idempotency.py` | §8.3 Idempotency-Key cache — P3+ skeleton |
+| `src/mctrader_web/api/app.py` *(modified)* | /admin/* router mount 추가 |
+| `src/mctrader_web/dashboard/pages/10_admin_overview.py` | §7.A P1 placeholder |
+| `src/mctrader_web/dashboard/pages/11_admin_control.py` | §7.A P1 placeholder |
+| `src/mctrader_web/dashboard/pages/12_admin_audit.py` | §7.A P1 placeholder |
+| `src/mctrader_web/dashboard/pages/13_admin_rbac.py` | §7.A P1 placeholder |
+| `data/.gitkeep` | ADR-016 §11.1 data/ 신규 디렉토리 |
+| `data/runtime/.gitkeep` | §7.D PID 영속화 디렉토리 |
+| `.gitignore` *(modified)* | ADR-016 SQLite + WAL + pid gitignore 항목 추가 |
+
+**P1 test 파일 (QADeveloperAgent)**
+
+| 파일 경로 | Test Contract 매핑 |
+|-----------|--------------------|
+| `tests/api/test_admin_health.py` (6 test) | §8.1 P1 import smoke — GET /admin/health 200 + version field + no-auth EC |
+| `tests/api/test_admin_routing.py` (10 test) | §8.1 P1 — /admin/control + /admin/status sub-router mount 확인 |
+| `tests/dashboard/test_admin_pages_smoke.py` (9 test) | §8.4 P1 — 4 placeholder page import-only smoke (AC-7 cross-platform) |
 
 ## 9. 품질 게이트 이력
 
