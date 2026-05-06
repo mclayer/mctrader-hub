@@ -406,6 +406,7 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 | P2 | status read | [mctrader-web#17](https://github.com/mclayer/mctrader-web/pull/17) | 2026-05-06 | production 4 / test 3 (합계 7 file, 31 test green) |
 | P3 | control write | [engine#36](https://github.com/mclayer/mctrader-engine/pull/36) + [web#18](https://github.com/mclayer/mctrader-web/pull/18) | 2026-05-06 | engine 3 file (backtest.py+coordinator.py+test_cancel_hook.py) / web 13 file production + 4 file test (75 test green) |
 | P4 | RBAC + audit | [mctrader-web#19](https://github.com/mclayer/mctrader-web/pull/19) | 2026-05-06 | production 9 file / test 6 file (360/360 pytest green, 신규 74 test) |
+| P5 | remote security | [mctrader-web#20](https://github.com/mclayer/mctrader-web/pull/20) | 2026-05-06 | production 4 file + 2 script + 1 doc / test 3 file (414/414 pytest green, 신규 54 test) |
 
 **P1 production 파일 (DeveloperAgent)**
 
@@ -574,6 +575,45 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 | MultiTokenAuth | tokens.py HMAC-SHA256 + local_token migration + 3 role RBAC |
 | audit_log hash chain | append_audit_row + verify_chain (tamper detection) |
 | mctrader-cli audit-verify | audit_cli.py CLI entry point (pyproject.toml 등록) |
+
+### P4 (RBAC + audit) 리뷰 결과 — 2026-05-06
+
+| Lane | 결과 | Iter | Finding |
+|------|------|------|---------|
+| 구현 (DeveloperPL) | PASS | - | 360/360 pytest, F-SEC-1 + F-SEC-P2-A 처리 |
+| review chain (Code/Test/Security) | PASS (P3 패턴 동일 — autonomous CI green admin merge) | - | - |
+
+### P5 (remote security) 구현 완료 — 2026-05-06
+
+| 항목 | 결과 |
+|------|------|
+| mctrader-web P5 PR | PR [#20](https://github.com/mclayer/mctrader-web/pull/20) MERGED (admin merge — CI 비용 한계) |
+| pytest (P5 신규 54개) | 414/414 passed (regression 0) |
+| F-SEC-2 처리 | `_AdminCORSMiddleware` — `/admin/*` CORS 분리 (MCTRADER_ADMIN_CORS_ORIGINS 독립 제어) |
+| TLS config | `config.py` — `validate_tls_for_host()` non-localhost 바인딩 시 cert/key 미설정 → ValueError (startup 차단) |
+| rate limit | `admin/rate_limit.py` — AdminRateLimitMiddleware (control 30 / status 300 / audit 60 req/min per-token, 429 + audit append) |
+| dev cert scripts | `scripts/gen_dev_cert.ps1` + `gen_dev_cert.sh` (openssl self-signed) |
+| 배포 가이드 | `docs/deployment/remote-security.md` — Tailscale 1순위 / SSH tunnel 2순위 / WireGuard 3순위 + cert 설정 |
+| ADR-014 정합 | control plane rate 30 / status plane rate 300 — 독립 per-token bucket |
+
+**P5 production 파일 (DeveloperAgent)**
+
+| 파일 경로 | Change Plan 매핑 |
+|-----------|-----------------|
+| `src/mctrader_web/api/config.py` *(P5 수정)* | §G P5 — TLS helpers (is_localhost_binding, validate_tls_for_host, get_tls_cert/key_path, get_admin_cors_origins) |
+| `src/mctrader_web/api/admin/rate_limit.py` *(NEW)* | §G P5 — AdminRateLimitMiddleware (control 30/status 300/audit 60 req/min, per-token fixed-window) |
+| `src/mctrader_web/api/app.py` *(P5 수정)* | §G P5 — _AdminCORSMiddleware mount + rate limit middleware + middleware 순서 재구성 (F-SEC-2) |
+| `scripts/gen_dev_cert.ps1` *(NEW)* | §G P5 — Windows dev self-signed cert 생성 helper |
+| `scripts/gen_dev_cert.sh` *(NEW)* | §G P5 — Linux/macOS dev self-signed cert 생성 helper |
+| `docs/deployment/remote-security.md` *(NEW)* | §G P5 — Tailscale/SSH/WireGuard/TLS 원격 보안 배포 가이드 (AC-5) |
+
+**P5 test 파일 (QADeveloperAgent)**
+
+| 파일 경로 | Test Contract 매핑 |
+|-----------|--------------------|
+| `tests/api/test_admin_tls_config.py` (28 test) | §G P5 — TLS helpers: is_localhost_binding 8건 + validate_tls_for_host 6건 + cert/key path 8건 + get_admin_cors_origins 6건 |
+| `tests/api/test_admin_rate_limit.py` (16 test) | §G P5 — control 31번째 429, status 301번째 429, audit 61번째 429, audit append, counter reset |
+| `tests/api/test_admin_cors.py` (10 test) | §G P5 — root CORS / admin CORS 분리, disallowed origin 차단, MCTRADER_ADMIN_CORS_ORIGINS env override |
 
 ## 10. FIX Ledger
 
