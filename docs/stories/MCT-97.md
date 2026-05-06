@@ -404,6 +404,7 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 |-------|-------|----|--------|-----------|
 | P1 | skeleton | [mctrader-web#16](https://github.com/mclayer/mctrader-web/pull/16) | 2026-05-06 | production 10 / test 3 (합계 13 file, 25 test green) |
 | P2 | status read | [mctrader-web#17](https://github.com/mclayer/mctrader-web/pull/17) | 2026-05-06 | production 4 / test 3 (합계 7 file, 31 test green) |
+| P3 | control write | [engine#36](https://github.com/mclayer/mctrader-engine/pull/36) + [web#18](https://github.com/mclayer/mctrader-web/pull/18) | 2026-05-06 | engine 3 file (backtest.py+coordinator.py+test_cancel_hook.py) / web 13 file production + 4 file test (75 test green) |
 
 **P1 production 파일 (DeveloperAgent)**
 
@@ -453,6 +454,42 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 | `tests/dashboard/test_admin_overview.py` (11 test) | §8.2 P2 — isolated import smoke + fetcher unit (200/non-200/OSError/no-token) |
 | `tests/dashboard/test_admin_pages_smoke.py` *(modified)* | §8.4 P2 — stub 확장 (st.rerun/columns/expander + fetcher stub + sleep stub) |
 
+**P3 production 파일 (mctrader-engine)**
+
+| 파일 경로 | Change Plan 매핑 |
+|-----------|-----------------|
+| `src/mctrader_engine/executor/backtest.py` *(modified)* | §6.2 — `run(cancel_token: threading.Event | None = None)` per-bar loop cancel check |
+| `src/mctrader_engine/wfo/search/coordinator.py` *(modified)* | §6.2 — `run_search(..., cancel_token=None)` trial loop cancel check |
+
+**P3 test 파일 (mctrader-engine)**
+
+| 파일 경로 | Test Contract 매핑 |
+|-----------|--------------------|
+| `tests/test_cancel_hook.py` (7 test) | §8.1 P3 — cancel_token compat, pre-set, thread-safe, WFO signature validation |
+
+**P3 production 파일 (mctrader-web)**
+
+| 파일 경로 | Change Plan 매핑 |
+|-----------|-----------------|
+| `src/mctrader_web/api/admin/control.py` *(P3 실구현)* | §4 P3 — POST 5 verb, Idempotency-Key, SM guard, auth |
+| `src/mctrader_web/api/admin/control_adapter.py` *(P3 실구현)* | §7.D hybrid adapter — systemd/subprocess/in-process, PID persistence |
+| `src/mctrader_web/api/admin/state_machine.py` *(P3 실구현)* | ADR-015 — validate_transition(), SMViolation, full daemon+oneshot table |
+| `src/mctrader_web/api/admin/idempotency.py` *(P3 실구현)* | ADR-016 — idempotency_cache table, 24h dedupe, INSERT OR IGNORE |
+| `src/mctrader_web/api/admin/audit_db.py` *(P3 수정)* | ADR-016 — idempotency_cache DDL 주석 |
+| `src/mctrader_web/api/admin/__init__.py` *(P3 수정)* | §4 P3 — control router mount |
+| `src/mctrader_web/api/admin/status.py` *(P2 boundary 수정)* | P1-1 cancelling state 추가, P1-2 node_id regex 검증 |
+| `src/mctrader_web/dashboard/pages/11_admin_control.py` *(P3 실구현)* | §7.A P3 — 5 engine class verb buttons, in-flight indicator |
+
+**P3 test 파일 (QADeveloperAgent, mctrader-web)**
+
+| 파일 경로 | Test Contract 매핑 |
+|-----------|--------------------|
+| `tests/api/test_admin_control.py` (20 test) | §8.1 P3 — auth, idempotency key format, SM violation 409, daemon/oneshot happy path, dedupe |
+| `tests/api/test_admin_idempotency.py` (13 test) | §8.1 P3 — key validation, check/store/cleanup, TTL, INSERT OR IGNORE, 409 cached |
+| `tests/api/test_admin_state_machine.py` (39 test) | §8.1 P3 — daemon/oneshot all valid+invalid transitions, market_gw, SMViolation attrs |
+| `tests/dashboard/test_admin_control_page.py` (3 test) | §8.4 P3 — page import smoke, ENGINE_DEFS structure, _send_control callable |
+| `tests/dashboard/test_admin_pages_smoke.py` *(modified)* | §8.4 P3 — st stub P3 확장 (success/stop/button/session_state/json/spinner) |
+
 ## 9. 품질 게이트 이력
 
 ### P1 (skeleton) 리뷰 결과 — 2026-05-06
@@ -470,16 +507,29 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 - **F-SEC-2 (P2-LOW)** — `app.py:55-61` /admin/* 가 root API 와 동일 CORS 정책 → P5 원격 보안에서 별도 origin 화이트리스트
 - **F-GOV-1 (P3-INFO)** — mctrader-web repo CodeQL 미설정 + Secret Scanning disabled → governance backlog (P5 진입 전 활성화 권고)
 
-### P2 (status read) 구현 완료 — 2026-05-06
+### P2 (status read) 리뷰 결과 — 2026-05-06
+
+| Lane | 결과 | Iter | Finding |
+|------|------|------|---------|
+| 구현 리뷰 (CodeReviewPL) | PASS | 1/3 | 5 non-blocking (P1-1/P1-2 boundary → P3 처리, P2-1~3 comment-only) |
+| 구현 테스트 (TestAgent) | PASS | - | 211/211, status.py 80% / dashboard 78% coverage. perf wrapper 부재로 §8.5 baseline 측정 SKIP |
+| 보안 테스트 (SecurityTestPL) | PASS | 1/3 | 0 blocker, 1 advisory non-blocking (status.py:96 OSError path leak, defer P3+ RBAC) |
+
+### Defer findings 누적 (P2 종료 시점)
+
+- **F-SEC-1 (P4)**: audit_db path sanitize
+- **F-SEC-2 (P5)**: /admin/* CORS 분리
+- **F-GOV-1 (governance)**: mctrader-web CodeQL/Secret Scanning
+- **F-PERF-1 (NEW)**: perf wrapper `.claude/_overlay/run-perf.sh` 부재 → §8.5 baseline 측정 미수행, P5 또는 P6 에서 wrapper 박제 필요
+- **F-SEC-P2-A (NEW, advisory)**: status.py:96 OSError path leak → P3+ RBAC viewer role 도입 시 path-stripped error message
+
+### P3 (control write) 구현 진행 — 2026-05-06
 
 | 항목 | 결과 |
 |------|------|
-| pytest (P2 신규) | 31/31 passed |
-| 회귀 (api/ + dashboard/) | 121/122 passed (1 pre-existing tzdata failure) |
-| PR | [mctrader-web#17](https://github.com/mclayer/mctrader-web/pull/17) |
-| exit criteria | 6/6 충족 |
-
-*(CodeReviewPL + TestAgent + SecurityTestPL P2 review 결과 — PR CI 통과 후 업데이트 예정)*
+| mctrader-engine cancel hook | PR [#36](https://github.com/mclayer/mctrader-engine/pull/36) MERGED |
+| mctrader-web P3 PR | PR [#18](https://github.com/mclayer/mctrader-web/pull/18) — review chain 대기 중 |
+| pytest (P3 신규 75개) | 286/286 passed (regression 0) |
 
 ## 10. FIX Ledger
 
