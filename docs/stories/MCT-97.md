@@ -70,18 +70,21 @@ heartbeat schema (`docs/domain-knowledge/contracts/heartbeat-schema.v1.md`) 의 
 
 기존 `docs/adr/` 검색: control plane / panel / RBAC 관련 ADR 부재.
 
-**신규 ADR 박제 의무 (3건, P1 시작 전 ArchitectAgent 작성)**:
+**신규 ADR 박제 (codeforge-design lane, 2026-05-06)**:
 
 | ADR | 제목 | 위치 |
 |-----|------|------|
-| ADR-NEW-1 | Control plane vs data plane separation | `docs/adr/ADR-NNN-control-plane-separation.md` |
-| ADR-NEW-2 | Engine state machine (daemon + one-shot) | `docs/adr/ADR-NNN-engine-state-machine.md` |
-| ADR-NEW-3 | Audit log append-only + hash chain | `docs/adr/ADR-NNN-audit-log-immutability.md` |
+| ADR-014 | Control plane vs data plane separation | [`docs/adr/ADR-014-control-plane-separation.md`](../adr/ADR-014-control-plane-separation.md) |
+| ADR-015 | Engine state machine (daemon + one-shot) | [`docs/adr/ADR-015-engine-state-machine.md`](../adr/ADR-015-engine-state-machine.md) |
+| ADR-016 | Audit log append-only + hash chain | [`docs/adr/ADR-016-audit-log-immutability.md`](../adr/ADR-016-audit-log-immutability.md) |
 
-번호는 PMOAgent 가 `docs/adr/` 최신 +1 부터 발번.
+발번: `docs/adr/` 최신 (ADR-013) + 1 = 014부터 순서대로 부여.
 
 **신규 domain-knowledge 박제**:
-- `docs/domain-knowledge/contracts/engine-id-naming.v1.md` (heartbeat node_id ↔ control engine_id SSOT)
+- [`docs/domain-knowledge/contracts/engine-id-naming.v1.md`](../domain-knowledge/contracts/engine-id-naming.v1.md) — heartbeat `node_id` ↔ control `engine_id` SSOT, regex `^(collector|paper_runner|backtest|wfo|market_gw)-[a-z0-9_-]{1,64}$`
+
+**관련 Change Plan**:
+- [`docs/change-plans/MCT-97-change-plan.md`](../change-plans/MCT-97-change-plan.md) — 6 phase 분할 + module layout + Test Contract
 
 ## 4. 관련 코드 경로
 
@@ -244,9 +247,15 @@ mctrader-web/src/mctrader_web/
 
 ## 7. 설계 서사
 
-> **codeforge-design lane (ArchitectAgent) 작성 예정** — 현재 codeforge-design plugin 미설치 (cache 0.3.0 보유). 활성화 후 §11 Q1-Q4 grep 해소 + ADR-NEW-1/2/3 박제 + §D adapter 인터페이스 설계.
+> **codeforge-design lane 통합 산출 (2026-05-06)** — ArchitectPLAgent + 6 deputy (CodebaseMapper / Refactor / SecurityArchitect / TestContractArchitect / DataMigrationArchitect / OperationalRiskArchitect) + ArchitectAgent (chief). codeforge-requirements lane 의 §7.A-§7.J 사전 채택 결정 모두 검증 통과. 상세 narrative 는 [`docs/change-plans/MCT-97-change-plan.md`](../change-plans/MCT-97-change-plan.md) 참조 (본 §7 은 결정 SSOT, Change Plan 이 구현 매핑).
 >
-> **사전 채택 결정 (codeforge-requirements lane 자율, Architect 검증 대기)** — 사용자 directive (codex / Sonnet decider 제외, codeforge 의무) 로 본 lane 에서 8 결정점 박제:
+> **검증 결과 요약** (deputy 별):
+> - **CodebaseMapper** (§2.1-§2.4): mctrader-web 자산 + mctrader-engine cancel hook 분포 + mctrader-market(-bithumb) library only 확정
+> - **RefactorAgent** (§3.2 module layout): `api/admin/` 7 module + `dashboard/pages/10-13_admin_*.py` 4 page + `data/` 신규 디렉토리
+> - **SecurityArchitect** (§7.B 검증): Bearer + role + HMAC 결정 유지, `MultiTokenAuth` 신설로 기존 `TokenAuth` 호환
+> - **OperationalRiskArchitect** (§7.D 검증): hybrid adapter 결정 유지, systemd unavailable detection (`shutil.which("systemctl") is None or os.name=="nt"`) 부팅 시 1회 캐시
+> - **DataMigrationArchitect** (§7.F 검증): SQLite WAL + hash chain 결정 유지, `idempotency_cache` table 분리 (audit 영구성과 격리)
+> - **TestContractArchitect** (AC-7 검증): cross-platform smoke 컨트랙트 + UC-1~UC-8 E2E 시나리오 8개 모두 testable
 
 ### 7.A Streamlit admin section 구현 패턴 → **(a1) numeric prefix 확장**
 
@@ -260,7 +269,9 @@ mctrader-web/src/mctrader_web/
 
 `Authorization: Bearer <token>` header. token 은 SQLite `tokens` table row 참조 (role column). signed (HMAC-SHA256, secret in env). 만료/취소 가능.
 
-**선행**: Architect 가 `mctrader-web/src/mctrader_web/api/auth.py` 현 scheme grep 후 호환 layer.
+**Token 형식 (SecurityArchitect 변호)**: `<token_id>.<HMAC_SHA256(token_id || role || created_at, secret)>`. `token_id` 만 DB lookup (정수 PK), HMAC 가 위조 차단. secret 환경변수 `MCTRADER_ADMIN_TOKEN_SECRET`. revoke 메커니즘: `tokens.revoked_at IS NOT NULL` 체크 (DB-backed, 즉시 효력) + `expires_at` (TTL 자연 만료).
+
+**기존 `TokenAuth` 호환 (Q1 결과 반영)**: P3 까지는 기존 `~/.mctrader/local_token` file fallback 유지. P4 에서 신규 `MultiTokenAuth` (DB-backed) 가 `tokens` table 검증 + 기존 token 을 row 1개로 자동 import (id=`local-default`, role=`admin`). FastAPI Header dependency interface 동일 유지로 호출자 영향 0. P6 에서 file 자동 삭제.
 
 **근거**: viewer/operator/admin 3 role claim 1개 충분, DB-backed revoke, signed 위변조 차단, FastAPI dependency injection 호환.
 
@@ -288,6 +299,11 @@ mctrader-web 가 모든 engine 의 단일 control gateway. engine repo 추가 en
 
 **근거**: collector 가 이미 systemd (MCT-94), backtest/WFO in-process 자연, adapter 한 군데 분기로 AC-7 충족, 의존성 0.
 
+**OperationalRiskArchitect 변호 (failure mode + 추적 안정성)**:
+- **systemd unit failure mode**: `systemctl --user start <unit>` 실패 시 stdout/stderr capture + `systemctl --user status` 로 last exit code 조회. failure 는 SM `[crashed]` 전이. lingering enable 미설정 시 user logout 으로 unit 종료 — Story §7.J Risk + P5 docs 에서 `loginctl enable-linger <user>` 명시.
+- **subprocess 추적 안정성 (Windows dev)**: `subprocess.Popen` PID + return code polling (1 sec interval). orphan 회피 — mctrader-web 종료 시 SIGTERM (Linux) / `terminate()` (Windows) 후 30s graceful timeout, 이후 SIGKILL / `kill()`. PID 영속화: `data/runtime/<engine_id>.pid` 파일 (재시작 후 reattach 시도).
+- **OS detection 1회 캐시**: `shutil.which("systemctl") is None or os.name == "nt"` → subprocess 분기. 부팅 시 1회 결정, runtime 변경 가정 안 함.
+
 **Reject**: (d1) systemd 통일 backtest unit 부담 + Windows 불가. (d2) HTTP 통일 §7.C 중복. (d3) supervisord Windows 미지원.
 
 ### 7.E 실시간 metric/event 채널 → **(e1) polling 5s + (e4) heartbeat sink 재활용**
@@ -303,6 +319,13 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 ### 7.F Audit log scheme → **(f2) SQLite (single file, WAL, hash chain)**
 
 `mctrader-web/data/admin_audit.sqlite` (WAL mode). schema §2.2.3. hash chain (`prev_hash` + `row_hash`) tamper detection. 일일 백업 cron 권장.
+
+**DataMigrationArchitect 변호 (백업/복구 + retention 전략)** — ADR-016 SSOT, 본 §7.F 는 요약:
+- **두 table 분리**: `audit_log` (영구, hash chain) + `idempotency_cache` (24h cleanup, dedupe 전용). 24h cleanup 이 audit chain 영향 0 (별도 table).
+- **Backup**: 일일 cron — POSIX `cron` (Linux) / Windows Task Scheduler. SQLite `VACUUM INTO` 로 consistent snapshot. backup 직후 `mctrader-web admin audit verify` 자동 실행 — verify FAIL 시 backup 롤백 + alert.
+- **Retention**: 90일 default (env override `MCTRADER_AUDIT_RETENTION_DAYS`). pruning 미강제 (solo dev 환경 1년 < 100MB 추정). pruning 도입 시 archive DB 로 export + chain genesis 재설정 (chain continuation 보존).
+- **Cross-platform**: WAL 은 local fs 만 가정 — NFS/SMB placement 금지 (fsync 보장 부재).
+- **Concurrent access**: WAL = 다중 reader + 단일 writer 자연 지원, panel polling 중 control append 안전.
 
 **근거**: 단일 파일 backup 단순, WAL concurrent read 중 write, hash chain forensic, mctrader-engine event_store 와 책임 경계 명확.
 
@@ -323,6 +346,14 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 
 **Reject**: (g2) Epic + 7 sub ceremony 7배. (g3) Epic + 2 인위적 분리.
 
+**TestContractArchitect 변호 (AC-7 cross-platform smoke 컨트랙트)**:
+- **Phase 1**: import-only smoke (7 신규 module + 4 신규 page) — Windows + Linux 모두 동일.
+- **Phase 3**: `control_adapter` 분기별 contract test:
+  - Linux CI: `systemd` 가용 시 systemd 분기 (mock `systemctl --user`) + 미가용 시 subprocess 분기 (실제 `python -m` 호출 + cleanup) 두 path 모두 실행
+  - Windows CI: `os.name == "nt"` 분기에서 in-process / subprocess 두 path 실행 (systemd 분기 skip)
+- **Phase 6**: UC-1 ~ UC-8 8 시나리오 자동화 — Windows + Linux GitHub Actions matrix.
+- **Performance baseline (Phase 6)**: status overview p95 < 500ms, control endpoint p95 < 1s, audit verify CLI 100k row < 10s.
+
 ### 7.H Cross-repo 영향 + 순서 → **mctrader-web 단일 repo 작업**
 
 §7.C + §7.D 결정으로 mctrader-web 외 PR **0건** 목표.
@@ -338,24 +369,29 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 3. (조건부) mctrader-engine cancel hook PR — P3 진입 직전
 4. (조건부) mctrader-market process control PR — §11 Q2 결과 후
 
-### 7.I Open Questions (Architect 진입 전 grep 으로 해소)
+### 7.I Open Questions (codeforge-design lane grep 해소, 2026-05-06)
 
-| # | Question | Owner |
-|---|----------|-------|
-| Q1 | `mctrader-web/api/auth.py` 현 scheme? (§7.B 호환 layer 필요?) | Architect grep |
-| Q2 | mctrader-market(-bithumb) 별도 process 유무? (§AS-4) | Architect grep |
-| Q3 | mctrader-engine paper_runner / BacktestExecutor / WFO cooperative cancel hook 존재? | Architect grep |
-| Q4 | mctrader-web `data/` 디렉토리 convention? (audit SQLite 위치) | Architect grep |
+| # | Question | 해소 결과 |
+|---|----------|-----------|
+| Q1 | `mctrader-web/api/auth.py` 현 scheme? | **단일 static token** (MCT-50, `~/.mctrader/local_token`, `secrets.token_urlsafe(32)`, file mode 600). `TokenAuth` FastAPI dependency 가 `Authorization: Bearer <token>` 검증. → §7.B 호환 layer 는 **`MultiTokenAuth` (DB-backed) 신설 + 기존 single token 을 P4 에서 admin role row 1개로 import** (Change Plan §5.2). 인터페이스 (FastAPI Header dependency) 동일 유지로 P3 까지 호환. |
+| Q2 | mctrader-market(-bithumb) 별도 process 유무? (§AS-4) | **library only**. `mctrader_market` (candle/lifecycle/order/orderbook/providers/types) + `mctrader_market_bithumb` (adapter/client/ws_client/rest_throttle) 모두 라이브러리 module — `if __name__ == "__main__"` / `console_scripts` / `entry_points` grep **0건**. → §AS-4 가정 확정, market gateway 는 status read 전용 (`market_gw-<exchange>-<env>` engine_id). control 명령 대상 외. mctrader-market(-bithumb) repo PR **0건**. |
+| Q3 | mctrader-engine cooperative cancel hook 존재? | **부분 존재**. ① `runtime.paper_runner.PaperRunner.cancel()` async + `_on_shutdown` 콜백 + `executor.cancel()` 보유 (asyncio.Event). ② `executor.paper.PaperExecutor._cancel_event` 보유. ③ `executor.backtest.BacktestExecutor.run()` 은 synchronous per-bar loop, **cancel hook 부재**. ④ `wfo.search.coordinator` 도 **부재** (fail-fast 분기만). → P3 진입 직전 mctrader-engine PR 1건 필요 (BacktestExecutor + WFO coordinator 에 `cancel_token: threading.Event` 인자 추가, default None 으로 호환 유지). ADR-015 §"Cooperative cancel hook 요구" 참조. |
+| Q4 | mctrader-web `data/` 디렉토리 convention? | **미존재**. `mctrader-web/` 직접 자식 디렉토리 grep 결과 `data/` 없음 (`.venv/Lib/site-packages/...` 만 검색됨). → ADR-016 가 신규 디렉토리 `mctrader-web/data/` 생성 + `.gitignore` 항목 추가 + 환경변수 override `MCTRADER_ADMIN_AUDIT_PATH` 지원. audit SQLite 위치 = `mctrader-web/data/admin_audit.sqlite`. |
 
 ### 7.J Risk + Mitigation
 
 | Risk | Mitigation |
 |------|-----------|
-| §AS-4 (market gateway 구조) 미확인 | P1 진입 전 Architect grep, library 면 spec 그대로, process 면 P3 scope 추가 |
-| systemd 권한 (sudo 없이 user unit) | `systemctl --user` + lingering enable docs |
-| Windows dev systemd 부재 | §7.D adapter 분기로 subprocess fallback |
+| §AS-4 (market gateway 구조) 미확인 | **해소 완료** (§11 Q2): library only 확정, mctrader-market(-bithumb) PR 0건 |
+| BacktestExecutor / WFO cancel hook 부재 | **해소 완료** (§11 Q3): P3 진입 직전 mctrader-engine PR 1건 — `cancel_token: threading.Event` 인자 추가 (default None 호환) |
+| systemd 권한 (sudo 없이 user unit) | `systemctl --user` + `loginctl enable-linger <user>` docs (P5) |
+| Windows dev systemd 부재 | §7.D adapter 분기로 subprocess fallback, OS detection 부팅 시 1회 캐시 |
+| subprocess orphan (Windows mctrader-web 종료 후) | PID 영속화 `data/runtime/<engine_id>.pid` + 재시작 시 reattach 시도 + 30s graceful timeout 후 kill |
 | Tailscale 미설치 | docs 에 SSH local forward fallback 명시 |
-| audit hash chain 검증 비용 | 검증 CLI on-demand, panel runtime 검증 안 함 |
+| audit hash chain 검증 비용 | 검증 CLI on-demand, panel runtime 검증 안 함, 일일 backup 후 자동 verify |
+| audit DB pruning 미강제 | solo dev 환경 1년 < 100MB 추정, P6 retention cron 만 (90일 default), pruning 도입 시 archive export + chain genesis 재설정 |
+| DR (모든 engine 동시 down, UC-8) | 자동 boot 미제공, admin manual "Boot sequence" — dependency order: market_gw library load → collector → paper_runner |
+| heartbeat sink stall 시 control 차단 | ADR-014 plane 분리 — data plane 장애 control plane 영향 0, last-known cache + "stale since X" UI |
 | codeforge workflow 신규 (debut) bug | plugin-codeforge upstream issue (consumer workaround 금지) |
 
 ## 8. 개발 서사
