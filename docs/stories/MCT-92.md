@@ -73,6 +73,8 @@ X3 의 contract 진입 prerequisite 는 부모 Epic Phase 1 에서 freeze 됨 (P
 
 ### 3.1 강한 관련 (직접 제약)
 
+> ⚠️ **Spec ↔ ADR supersedence note** (Codex F-1 escalation 1): parent spec doc `docs/superpowers/specs/2026-05-05-collector-ha-active-active-design.md` §3.2 line 134 의 "T1 conflict = quarantine + node priority" 표현은 ADR-009 §D2.1 / §D5 의 "T1 = late correction + no quarantine" 으로 **superseded**. ADR amendment 가 freeze 된 contract — Spec doc 의 해당 line 은 outdated. 본 Story 의 §3.1 / §3.2 / §5.2 / §6.4 모두 ADR 본문 기준 작성.
+
 #### ADR-009 §D2.1 — Mixed legacy partition 영구 지원 + Active-Active dedup contract anchor
 
 **X3 enforcement scope** (writer X2 가 path level 만 enforce 했고, **read-side mixed scan transparent + dedup 알고리즘 자체 = X3 책임**):
@@ -154,6 +156,7 @@ X2 의 §3 / §4 에는 quarantine reason 신규가 X3 책임이라 명시 됨. 
 - **Bithumb API 가 unique tx_id / sequence_id 제공 시**: §D10.7 / §D11.8 minor amendment (logical key primary key 채택, fallback 보조). X3 의 `dedup.py` module signature 만 확장 — backward compat.
 - **Mixed legacy migration Epic** (별도): pre-HA partition 폐기 시점은 별도 migration Epic. X3 가 영구 backward compat 책임을 짊어진 것은 §D2.1 freeze.
 - **ms-tolerance threshold final value**: X7 Calibration C2 의 task. X3 는 default ±100ms + configurable parameter 노출까지.
+- **T2 → T1 candle aggregation ordering** (Codex F-3 escalation 3, **explicit out-of-scope**): backtest engine 또는 collector 측 candle close 가 T2 tick 을 aggregate 해 T1 candle 을 구성하는 path — 본 X3 의 scope 외. X3 는 *각 tier 의 read-side dedup* 만, cross-tier aggregation 은 별도 lane (mctrader-engine candle aggregation 또는 backtest engine 의 candle close 로직) 의 의무. 본 amendment 를 explicit 하게 명시함으로써 caller (engine / WFO) 가 X3 dedup 후 결과를 입력으로 받아 candle aggregation 시 ordering / dedup 책임 분리 명확.
 
 ## 4. 관련 코드 경로
 
@@ -221,7 +224,7 @@ Epic Story §6.3 의 8 blocking AC 중 **X3 child 가 enforce 가능한 4 entry*
 - B7 web banner — X6 책임 (X3 는 quarantine artifact 생성까지)
 - B8 (Streamlit `00_status` page) — X6
 - C1 (write throughput per node) — X7 Calibration
-- C2 (scan + dedup latency overhead) — X7 Calibration (X3 는 dedup 알고리즘 implementation 만, 측정은 X7)
+- C2 (scan + dedup latency overhead) — X7 Calibration (X3 는 dedup 알고리즘 implementation **+ measurable hooks** (dup_skip_count / quarantine_count counter API + dedup latency timer hook) 까지, 실측은 X7). **X3 implementation must be measurable for C2** (Codex F-4 NIT) — dedup 알고리즘이 single-pass / 메모리 bounded / latency profileable 의무.
 
 ### 5.3 Edge cases 식별
 
@@ -248,7 +251,16 @@ Epic Story §6.3 의 8 blocking AC 중 **X3 child 가 enforce 가능한 4 entry*
 
 9. **NODE_A / NODE_B / NODE_DEFAULT 의 alphabetical 순서 의도성 검증**: ASCII order = `A < B < DEFAULT` (uppercase ASCII 가 다음 letter 보다 앞, 하지만 D 는 A/B 다음). **결과**: legacy DEFAULT 가 alphabetical 로 NODE_A 보다 *뒤* → NODE_A win (post-HA 가 우선). 이는 §D2.1 의 의도 (post-HA partition 우선)와 정합. 단 `NODE_DEFAULT` 가 아니라 그냥 `DEFAULT` 라면 ASCII order 에서 D 는 N 보다 앞 → DEFAULT win — **bug risk**. **mitigation**: legacy partition 의 mapping 을 `DEFAULT` 가 아니라 `~DEFAULT` 또는 `zzz_DEFAULT` 등 ASCII order 에서 뒤로 가도록 prefix 결정 (Architect 확정).
 
-10. **dedup 결과의 streaming vs materialization** (메모리/latency 결정): T1 candle scan 은 DuckDB 에서 한 번에 SQL 실행 (storage.py line 213-225) — 전체 결과 fetchall (메모리 high, latency 단일 query). T2/T3 는 pyarrow 기반 + sort 후 yield (orderbook_replay.py line 170-182) — 전체 row materialize 후 sort. dedup 도입 시 메모리 추가 부담 (양 node 의 동일 logical key row 를 buffer 에 모아 비교) — **streaming dedup**: ts_utc ASC sort 후 동일 ts_utc group 내에서 logical key 비교 (sliding window). 이 alg 가 자연 streaming 이지만 received_at fallback 의 ms-tolerance ±100ms 가 ts_utc 차이를 만들 수 있어 group 경계가 흐려짐 → window-based dedup (Architect 결정).
+10. **dedup 결과의 streaming vs materialization** (메모리/latency 결정): T1 candle scan 은 DuckDB 에서 한 번에 SQL 실행 (storage.py line ~226 fetchall) — 전체 결과 (메모리 high, latency 단일 query). T2/T3 는 pyarrow 기반 + sort 후 yield (orderbook_replay.py line 170-182) — 전체 row materialize 후 sort. dedup 도입 시 메모리 추가 부담 (양 node 의 동일 logical key row 를 buffer 에 모아 비교) — **streaming dedup**: ts_utc ASC sort 후 동일 ts_utc group 내에서 logical key 비교 (sliding window). 이 alg 가 자연 streaming 이지만 received_at fallback 의 ms-tolerance ±100ms 가 ts_utc 차이를 만들 수 있어 group 경계가 흐려짐 → window-based dedup, window size = ms-tolerance ×2 = 200ms safety margin (Architect 결정).
+
+11. **Quarantine 폭주 시 backpressure / IO 보호** (Codex F-2 escalation, Architect 결정): content mismatch 발생률이 abnormal spike 시 quarantine artifact 무한 write → disk 폭주 / scan latency degrade 가능. 후보 정책:
+    - (a) drop 금지 (모든 mismatch 기록, IO 폭주 risk 감수)
+    - (b) rate-limit (per-second cap, 초과분 dup_skip_count metric 만 증가)
+    - (c) batching (mismatch 가 N 개 모이면 single artifact 에 묶어 write)
+    - (d) cap (per-day artifact 갯수 cap, 초과 시 fail-closed scan halt)
+    Architect 결정 필요 (§5.4).
+
+12. **T2 → T1 candle aggregation ordering** (Codex F-3 escalation, X3 scope 외 명시): backtest engine 또는 collector 측 candle close 가 T2 tick 을 aggregate 해 T1 candle 을 구성하는 path — 본 X3 의 scope 외. X3 는 *각 tier 의 read-side dedup* 만, cross-tier aggregation 은 별도 lane (mctrader-engine candle aggregation 또는 backtest engine 의 candle close 로직). **명시적 out-of-scope** + §"향후 amendment" 에 추가.
 
 ### 5.4 사용자 확인 필요 (blocking — Architect 진입 전)
 
@@ -256,12 +268,14 @@ Epic Story §6.3 의 8 blocking AC 중 **X3 child 가 enforce 가능한 4 entry*
 
 단 **Architect 결정 필요 항목** (Story §7 설계 서사 의 input — blocking 아니라 design lane scope):
 
-- T1 multi-node late correction conflict resolution: §3.1 후보 (i) received_at MAX / (ii) node priority alphabetical / (iii) ii 와 동일 — 셋 중 하나 freeze
-- legacy `DEFAULT` mapping 의 ASCII prefix (alphabetical 순서 의도 검증) — §5.3 edge 9
-- quarantine artifact 위치 (sidecar vs root manifest) — §5.3 edge 7
-- multi-node mode activation criterion (distinct `node=` 값 개수 ≥ 2 vs caller hint) — §5.3 edge 4
-- streaming vs materialization dedup alg (window size + ms-tolerance 처리) — §5.3 edge 10
-- DuckDB hive_partitioning missing-key behavior 검증 결과 따른 caller-side filter spec — §5.3 edge 8
+1. T1 multi-node late correction conflict resolution: §3.1 후보 (i) received_at MAX / (ii) node priority alphabetical / (iii) hybrid (received_at MAX + tie-break node priority) — 셋 중 하나 freeze
+2. legacy `DEFAULT` mapping sentinel 명칭 (ASCII alphabetical priority 의도 정합) — 후보 `DEFAULT` (current ADR-009 §D2.1) / `NODE_DEFAULT` / `zzz_DEFAULT` (Codex F-5 escalation 5)
+3. quarantine artifact 위치 (sidecar vs root manifest `<root>/market/manifest/quarantine/active-active-mismatch/...`) — §5.3 edge 7
+4. multi-node mode activation criterion (distinct `node=` 값 개수 ≥ 2 자동 감지 vs caller hint `scan_*(active_active=True)` parameter) — §5.3 edge 4
+5. streaming vs materialization dedup alg (window size + ms-tolerance ±100ms 처리) — §5.3 edge 10
+6. DuckDB hive_partitioning missing-key behavior 검증 결과 따른 caller-side filter spec — §5.3 edge 8
+7. **`dedup.py` 신규 module 위치** (Codex F-6 escalation 4): flat `src/mctrader_data/dedup.py` (단일 책임 + test isolation) vs `storage.py` 안 helper function — Architect freeze 의무.
+8. **Quarantine 폭주 시 backpressure / IO 보호 정책** (Codex F-2 escalation 2): drop 금지 / rate-limit / batching / cap / fail-open vs fail-closed 중 결정. 본 §3.1 의 "B7 quarantine reason 신규" 의 운영 안정성 enforce.
 
 ### 5.5 사용자 정보 제공 (non-blocking — design lane 진입 가능)
 
