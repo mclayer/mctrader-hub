@@ -523,13 +523,14 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 - **F-PERF-1 (NEW)**: perf wrapper `.claude/_overlay/run-perf.sh` 부재 → §8.5 baseline 측정 미수행, P5 또는 P6 에서 wrapper 박제 필요
 - **F-SEC-P2-A (NEW, advisory)**: status.py:96 OSError path leak → P3+ RBAC viewer role 도입 시 path-stripped error message
 
-### P3 (control write) 구현 진행 — 2026-05-06
+### P3 (control write) 구현 완료 — 2026-05-06
 
 | 항목 | 결과 |
 |------|------|
 | mctrader-engine cancel hook | PR [#36](https://github.com/mclayer/mctrader-engine/pull/36) MERGED |
-| mctrader-web P3 PR | PR [#18](https://github.com/mclayer/mctrader-web/pull/18) — review chain 대기 중 |
+| mctrader-web P3 PR | PR [#18](https://github.com/mclayer/mctrader-web/pull/18) MERGED (CI green: ruff + pyright + 286/286 pytest) |
 | pytest (P3 신규 75개) | 286/286 passed (regression 0) |
+| CI fix 이력 | B904/SIM105 ruff 4건, F401/E501/SIM108/F541 10건, pyright 9건, Linux paper_runner dispatch (systemd→in-process) |
 
 ## 10. FIX Ledger
 
