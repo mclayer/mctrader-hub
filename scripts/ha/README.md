@@ -70,26 +70,31 @@ sudo mkdir -p /mnt/shared/mctrader/data
 sudo mount -t nfs nas.example.com:/mctrader /mnt/shared/mctrader/data
 # Make persistent in /etc/fstab
 
-# 3. Install runtime
+# 3. Install runtime + clone both repos
 curl -LsSf https://astral.sh/uv/install.sh | sudo -u mctrader sh
-sudo -u mctrader bash -lc 'cd /opt/mctrader && git clone https://github.com/mclayer/mctrader-data.git && uv venv && uv pip install -e ./mctrader-data'
+sudo -u mctrader bash -lc '\
+  cd /opt/mctrader && \
+  git clone https://github.com/mclayer/mctrader-data.git && \
+  git clone https://github.com/mclayer/mctrader-hub.git && \
+  uv venv && uv pip install -e ./mctrader-data \
+'
 
-# 4. Configure per-host env
+# 4. Configure per-host env (uses ops artifacts from mctrader-hub)
 sudo mkdir -p /etc/mctrader
-sudo cp scripts/ha/collector.env.example /etc/mctrader/collector.env
+sudo cp /opt/mctrader/mctrader-hub/scripts/ha/collector.env.example /etc/mctrader/collector.env
 sudo chown root:mctrader /etc/mctrader/collector.env
 sudo chmod 0640 /etc/mctrader/collector.env
 # Edit /etc/mctrader/collector.env to set NODE_ID per host
 
 # 5. Install systemd unit
-sudo cp scripts/ha/mctrader-data-collector.service /etc/systemd/system/
+sudo cp /opt/mctrader/mctrader-hub/scripts/ha/mctrader-data-collector.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable mctrader-data-collector
 sudo systemctl start mctrader-data-collector
 
 # 6. Verify
 sudo systemctl status mctrader-data-collector
-sudo -u mctrader mctrader-data status --root /mnt/shared/mctrader/data
+sudo -u mctrader /opt/mctrader/.venv/bin/mctrader-data status --root /mnt/shared/mctrader/data
 ```
 
 ## Rolling deploy

@@ -28,8 +28,25 @@
     data_root: /mnt/shared/mctrader/data
     install_dir: /opt/mctrader
     service_name: mctrader-data-collector
+    mctrader_bin: /opt/mctrader/.venv/bin/mctrader-data
+    mctrader_user: mctrader
+    env_file: /etc/mctrader/collector.env
 
   pre_tasks:
+    # Codex F-5 fix — preflight check that inventory `node_id` matches the host's
+    # /etc/mctrader/collector.env NODE_ID. Drift here means the systemd unit boots
+    # with the wrong NODE_ID and writes to the wrong heartbeat / partition.
+    - name: Preflight — read NODE_ID from collector.env
+      ansible.builtin.shell:
+        cmd: "grep -E '^NODE_ID=' {{ env_file }} | cut -d= -f2"
+      register: env_node_id
+      changed_when: false
+
+    - name: Preflight — fail if inventory node_id != collector.env NODE_ID
+      ansible.builtin.fail:
+        msg: "node_id mismatch: inventory={{ node_id | default('UNSET') }} but {{ env_file }} NODE_ID={{ env_node_id.stdout }}"
+      when: (node_id | default('')) != env_node_id.stdout
+
     # Acquire shared-storage lock (run_once: lock taken once for the entire batch).
     # POSIX mkdir is atomic on shared storage with same-directory atomic rename
     # guarantee (NFSv3 close-to-open / NFSv4 / Ceph same-pool / SMB v3).
@@ -52,12 +69,16 @@
       run_once: true
 
   tasks:
-    # Pre-stop health gate — peer node must be green (heartbeat fresh + ws_state ok).
-    # Failing here halts the rolling deploy (any_errors_fatal: true).
-    - name: Verify peer heartbeat is green before stopping this node
+    # Codex F-2 fix — health gates run as `mctrader` user (matches systemd unit
+    # User=mctrader semantics) and use absolute binary path. The CLI inspects
+    # ALL nodes' heartbeats so a single global call covers both peer-stays-green
+    # (pre-stop) and self-becomes-green (post-start) — exit code 0 means worst
+    # node is green, which is exactly the rolling-deploy invariant.
+    - name: Pre-stop health gate — entire cluster (peer + self) must be green
       ansible.builtin.command:
-        cmd: "mctrader-data status --root {{ data_root }} --format json --no-color"
+        cmd: "{{ mctrader_bin }} status --root {{ data_root }} --format json --no-color"
       register: pre_status
+      become_user: "{{ mctrader_user }}"
       changed_when: false
       failed_when: pre_status.rc != 0
 
@@ -71,23 +92,25 @@
         repo: "git@github.com:mclayer/mctrader-data.git"
         dest: "{{ install_dir }}/mctrader-data"
         version: main
-      become_user: mctrader
+      become_user: "{{ mctrader_user }}"
 
     - name: uv pip sync (deps + mctrader-data wheel)
       ansible.builtin.command:
         cmd: "{{ install_dir }}/.venv/bin/uv pip install -e {{ install_dir }}/mctrader-data"
-      become_user: mctrader
+      become_user: "{{ mctrader_user }}"
 
     - name: Start collector
       ansible.builtin.systemd:
         name: "{{ service_name }}"
         state: started
 
-    # Post-start health gate — wait for self heartbeat green within 30s
-    - name: Wait for self heartbeat green
+    # Post-start health gate — wait for self heartbeat green within 30s.
+    # Exit 0 means cluster-wide green (this node + peer both fresh).
+    - name: Post-start health gate — wait for cluster green within 30s
       ansible.builtin.command:
-        cmd: "mctrader-data status --root {{ data_root }} --format json --no-color --fresh-red-seconds 30"
+        cmd: "{{ mctrader_bin }} status --root {{ data_root }} --format json --no-color --fresh-red-seconds 30"
       register: post_status
+      become_user: "{{ mctrader_user }}"
       changed_when: false
       retries: 6
       delay: 5
@@ -95,6 +118,9 @@
       failed_when: post_status.rc != 0
 
   post_tasks:
+    # Lock release runs only if the play succeeded — `any_errors_fatal: true` aborts
+    # before reaching post_tasks on failure, intentionally leaving the lock for
+    # operator inspection (see README §"Stale lock recovery" for manual cleanup).
     - name: Release shared deploy lock
       ansible.builtin.file:
         path: "{{ deploy_lock }}"

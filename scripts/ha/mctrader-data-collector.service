@@ -5,6 +5,12 @@ After=network-online.target remote-fs.target
 Wants=network-online.target remote-fs.target
 RequiresMountsFor=/mnt/shared/mctrader/data
 
+# Allow up to 20 restarts in 5 minutes before systemd gives up — collector
+# has WS reconnect logic, so fast restarts are normal under network instability.
+# Per systemd.unit(5), StartLimit* belong to [Unit], not [Service].
+StartLimitBurst=20
+StartLimitIntervalSec=300
+
 [Service]
 Type=simple
 User=mctrader
@@ -22,11 +28,6 @@ KillMode=mixed
 # Restart on any exit (crash, OOM, manual stop). MCT-89 Epic decision #3.
 Restart=always
 RestartSec=10s
-
-# Allow up to 20 restarts in 5 minutes before systemd gives up — collector
-# has WS reconnect logic, so fast restarts are normal under network instability.
-StartLimitBurst=20
-StartLimitIntervalSec=300
 
 # Resource hardening (optional — host can override per environment)
 NoNewPrivileges=yes
