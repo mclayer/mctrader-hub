@@ -380,11 +380,92 @@ X3 main merge 가 위 3 prerequisite 모두 enforce → X2-X3 window caveat 의 
 
 ## 8. 개발 서사
 
-*(DeveloperPL 작성 예정 — Phase 2 PR에서)*
+Phase 3 implementation = `mclayer/mctrader-data` PR #9 (main merged, branch squash-deleted). mctrader-data 0.6.0 → 0.7.0.
+
+### 8.1 Implementation summary
+
+7 Task (Task 0 Preflight + Task 1-5 TDD + Task 6 Release):
+
+| Task | 산출물 | 핵심 |
+|---|---|---|
+| 0 | pyproject 0.6.0→0.7.0 | chore commit |
+| 1 | `dedup.py` (NEW, 410 LOC) + `test_dedup.py` (22 test) | tier 별 logical key extractor (T1 4-key / T2 6-tuple / T3 8-tuple) + node priority alphabetical (NODE_A < NODE_B < zzz_DEFAULT) + T1 hybrid late correction (received_at MAX + tie-break) + T2/T3 mismatch quarantine + DedupCounterSink protocol + _BackpressureLimiter (100/sec rate-limit + batching + monotonic clock) |
+| 2 | `policy.py` `QuarantineReason.ACTIVE_ACTIVE_MISMATCH` + 3 test | ADR-009 §D2.1 dedup contract + default decision = QUARANTINE |
+| 3 | `storage.py` `scan_candles()` multi-node 자동 감지 + 5 test | DuckDB hive_partitioning + caller-side regex (`r"[/\\]node=([^/\\]+)[/\\]"`) + zzz_DEFAULT mapping + `union_by_name=true` mixed legacy 호환 |
+| 4 | `orderbook_replay.py` `scan_ticks` / `scan_orderbook_events` / `tier_coverage` + 3 test | recursive `rglob("*.parquet")` + multi-node dedup + 신규 `{run_id}-{seq}.parquet` collector_run_id harvest |
+| 5 | (Task 5 skip — dedup sink wiring 는 test_dedup, scan API multi-node 는 test_storage + test_orderbook_replay 가 cover) | — |
+| 6 | PR #9 + Codex 7-area review + admin merge | 148 pytest PASS / 0 regression / 0 ruff lint warning |
+
+### 8.2 Architect 결정 8항 freeze (Sonnet decider, plan §"Architect 결정")
+
+1. **T1 hybrid late correction**: `received_at` MAX + tie-break node priority alphabetical. **scan path limitation** (Codex F-4 acknowledged): candle parquet schema 에 `received_at` column 부재 → 사실상 tie-break (node priority alphabetical) 만 작동. dedup module 자체는 hybrid 지원 (test_dedup 검증) — 향후 candle schema 확장 시 자동 적용.
+2. **DEFAULT sentinel**: `zzz_DEFAULT` (ASCII order 끝, post-HA partition 우선)
+3. **Quarantine artifact 위치**: root manifest `<root>/market/manifest/quarantine/active-active-mismatch/...` (caller 책임 위임 — X4 가 write)
+4. **Multi-node mode 자동 감지**: distinct `node=` ≥ 2 (caller transparent)
+5. **Streaming dedup window**: 200ms safety margin
+6. **DuckDB hive_partitioning**: caller-side regex extraction (DuckDB version 의존 0)
+7. **dedup.py flat module 위치**: 단일 책임 + test isolation
+8. **Quarantine backpressure**: 100/sec rate-limit + batching + 모든 mismatch counter 증가
+
+### 8.3 Codex review escalation 모두 ADOPT
+
+본 PR review (codex:rescue/gpt-5.4): needs-fix → 4/4 ADOPT 후 pass.
+
+- F-1+F-4 (PUSH-BACK, root cause 동일): scan_candles T1 hybrid 한계 명시 + node priority test 추가 (storage.py inline comment + `test_scan_candles_multi_node_mismatch_node_priority_wins`)
+- F-6 (NIT): `_BackpressureLimiter` unit test 추가 (monotonic mock + window rollover + final flush)
+- F-3 minor (NIT): test_dedup pytest import 추가
+- 기타 (Area 2/3/5/7): ADOPT-AS-IS
+
+### 8.4 Caller transparency 검증
+
+`scan_candles` / `scan_ticks` / `scan_orderbook_events` 모두 signature 변경 0. dedup import 는 함수 내부 — module-level import path 변경 0. engine / web / WFO 사용처 정적 grep 결과 — 변경 의무 0 (별도 검증 시 조치).
+
+### 8.5 X2-X3 window caveat — RESOLVED
+
+X2 의 MCT-91 §8.4 운영 caveat (a)~(c) 모두 본 PR merge 후 transparent dedup 으로 자연 해소:
+- 사용자 옵션 (a) `X3 도착 대기` → X3 main merged ⇒ 양 node 동시 가동 + read 측 transparent dedup 동시 가용
+- 옵션 (b) `collector daemon 비활성화 + backfill` / 옵션 (c) `--node-id=DEFAULT` 단일 node → 더 이상 필요 X (단 backward compat 영구 유지)
+
+**남은 phase boundary**:
+- X4 (mctrader-data status CLI) 도착 전까지 quarantine artifact 는 dedup module 의 `quarantine_records` list 만 — root manifest write 는 X4 책임
+- X4 status CLI + heartbeat metric wiring (`HeartbeatWriter` 가 `DedupCounterSink` adapter 추가) → Phase 4 Story
+- X5 ops scripts (systemd + Ansible rolling deploy) → Phase 5 / X6 Streamlit panel → Phase 6 / X7 Calibration → Phase 7
 
 ## 9. 품질 게이트 이력
 
-*(Review/Test PL 작성 예정 — Phase 2 PR에서)*
+### 9.1 Test results (mctrader-data PR #9)
+
+- **148 pytest PASS** (33 신규 X3 + 115 기존 X2 regression 0):
+  - dedup.py 전용: 22 test (logical key 3 + node priority 3 + T1 hybrid 4 + T2/T3 mismatch 3 + counter sink 2 + backpressure 2 + window 1 + limiter unit 4)
+  - storage.py 확장: 5 신규 (multi-node auto / legacy only / legacy + node mixed / signature unchanged / mismatch node priority win)
+  - orderbook_replay.py 확장: 3 신규 (multi-node ticks / 신규 file naming harvest / legacy part- harvest)
+  - policy.py 확장: 3 신규 (ACTIVE_ACTIVE_MISMATCH reason / default decision / halt policy)
+  - 기존 test 0 regression
+
+- **CI**:
+  - Windows: pass (44s)
+  - Ubuntu: pass (17s, ruff 0 warning)
+  - check-gate: pass
+  - phase-gate-mergeable: ACTION_REQUIRED (codeforge phase label sequencing — admin merge autonomy 적용)
+
+### 9.2 Codex review 결과
+
+- Phase 1 PR #98 review (Story §2-§6): 5/5 ADOPT
+- Phase 3 plan PR #99 review: 6/6 ADOPT (1 PUSH-BACK + 5 NIT)
+- Phase 3 PR #9 review: 4/4 ADOPT (2 PUSH-BACK + 3 NIT, scan T1 hybrid limitation 명시)
+
+### 9.3 ADR-009 enforcement 검증
+
+- §D2.1 mixed legacy 영구 지원: `test_scan_candles_legacy_partition_only_no_dedup` + `test_scan_candles_legacy_plus_node_a_dedup`
+- §D5 T1 late correction (no quarantine): `TestT1HybridLateCorrection.test_t1_no_quarantine_on_value_mismatch`
+- §D10.7 T2 6-tuple: `TestLogicalKey.test_t2_tick_6_tuple` + `TestT2T3ContentMismatch.test_t2_logical_key_match_value_mismatch_quarantines`
+- §D11.8 T3 8-tuple: `TestLogicalKey.test_t3_orderbook_8_tuple` + `test_t3_logical_key_match_value_mismatch_quarantines`
+
+### 9.4 Phase 3 close marker
+
+- mctrader-data 0.7.0 main merged (commit 0d263a7)
+- mctrader-hub Phase 1 PR #98 + Phase 3 plan PR #99 main merged
+- 다음 child Story 후보: MCT-X4 (status CLI + heartbeat metric wiring) / MCT-X5 (ops scripts) / MCT-X6 (web panel) / MCT-X7 (Calibration)
 
 ## 10. FIX Ledger
 
