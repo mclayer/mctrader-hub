@@ -297,6 +297,22 @@ Story §5.3 EC-1 ~ EC-11 모두 testable. 특히:
 - control endpoint p95 < 1s (audit append + adapter dispatch)
 - audit verify CLI: 100k row < 10s (sha256 hash chain)
 
+### 8.6 Observability metric 카탈로그 (Phase 4-6 박제)
+
+mctrader-web `/metrics` (Prometheus exposition format) — Phase 4 (audit 도입) 시작 시점부터 emit.
+
+| Metric | type | label |
+|--------|------|-------|
+| `mctrader_admin_control_dispatch_total` | counter | `engine_class`, `verb`, `outcome` |
+| `mctrader_admin_audit_append_latency_ms` | histogram | (none) |
+| `mctrader_admin_idempotency_hit_total` | counter | (none) |
+| `mctrader_admin_rate_limit_block_total` | counter | `bucket` (`control` / `status`) |
+| `mctrader_admin_sm_transition_total` | counter | `engine_class`, `from_state`, `to_state` |
+
+label cardinality 고정 (engine_class 5, verb ≤ 5, outcome ≤ 6, bucket 2, state ≤ 6 × 6) — Prometheus scrape 부담 무시 가능 수준.
+
+scrape 주기: 15s default (Phase 5 docs).
+
 ## 9. 재시작 가능 작업 단위
 
 각 Phase 는 독립 PR. 단일 PR 실패 시 `git revert` 가능. ADR / contract 박제 PR (현재) 은 코드 변경 없음 — 후속 PR 의 기준 SSOT.

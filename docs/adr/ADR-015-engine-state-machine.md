@@ -1,12 +1,24 @@
+---
+adr_id: ADR-015
+title: Engine state machine for Admin Engine Control Panel (daemon + one-shot)
+status: Accepted
+date: 2026-05-06
+related_story: MCT-97
+category: web
+supersedes: []
+amends: []
+---
+
 # ADR-015: Engine state machine for Admin Engine Control Panel (daemon + one-shot)
 
-- **Status**: Accepted
-- **Date**: 2026-05-06
-- **Story**: MCT-97
-- **Authors**: ArchitectAgent (chief) + OperationalRiskArchitectAgent (deputy)
-- **Reviewers**: ArchitectPLAgent
+## Status
 
-## 컨텍스트
+Accepted — 2026-05-06. MCT-97 design phase.
+
+- Authors: ArchitectAgent (chief) + OperationalRiskArchitectAgent (deputy)
+- Reviewers: ArchitectPLAgent
+
+## Context
 
 MCT-97 의 5 engine class 는 두 lifecycle 패턴으로 나뉜다 — daemon (collector / paper runner) + one-shot (backtest / WFO). market gateway 는 §AS-4 grep 결과 library only (별도 process 부재) 로 SM 대상 외 (status read 만).
 
@@ -20,7 +32,7 @@ MCT-97 의 5 engine class 는 두 lifecycle 패턴으로 나뉜다 — daemon (c
 
 state 표현이 코드 전반에 흩어져 있어 admin panel 의 표시 / SM transition 검증 / idempotent guard 가 일관성 부족.
 
-## 결정
+## Decision
 
 5 engine 의 lifecycle 을 **두 SM 으로 unified** 표현하고 control plane 의 모든 transition 을 검증.
 
@@ -36,6 +48,8 @@ state 표현이 코드 전반에 흩어져 있어 admin panel 의 표시 / SM tr
                                                                                     +---heartbeat fresh---> [running]
                                                                                     |
                                                                                     +---stop---> [stopping]
+                                                                                    |
+                                                                                    +---process exit non-zero---> [crashed]
 ```
 
 **State 정의**
@@ -55,6 +69,7 @@ state 표현이 코드 전반에 흩어져 있어 admin panel 의 표시 / SM tr
 - `[stopping]` 중 `start` → 409 Conflict (race 차단)
 - `[crashed]` → `restart` 또는 `start` 동일 (둘 다 `[starting]` 으로)
 - `[degraded]` → control 가능 (stop / restart) — alarm-only state, control 미차단
+- `[degraded]` 중 process exit non-zero (subprocess return code ≠ 0 또는 systemd `failed` 상태) 수신 → `[crashed]` 전이 + restart 회수 카운터 증가 (lock-in 회피, degraded → crashed 직접 edge)
 - 자동 restart 회수 ≥ 임계 (default 3 회 / 5 분) → `[crashed]` lock + UI "manual intervention" 표시 (admin manual `stop` 으로 lock 해제)
 
 ### One-shot SM (backtest / WFO)
@@ -84,14 +99,14 @@ state 표현이 코드 전반에 흩어져 있어 admin panel 의 표시 / SM tr
 - `[completed | failed | cancelled]` 는 terminal — 동일 run_id 로 trigger 재요청 시 409 (UI 가 신규 run_id 발급 강제)
 - `[cancelling]` 진입 후 cooperative timeout 초과 시 (default 30s) → `[failed]` 로 강제 + 부분 결과 폐기 + audit `outcome=cancel_timeout`
 
-### Cooperative cancel hook 요구 (OperationalRiskArchitect 변호)
+### Cooperative cancel hook requirement (OperationalRiskArchitect deputy)
 
 paper_runner 는 보유 (`PaperRunner.cancel()` + `PaperExecutor._cancel_event`). 그러나:
 - **BacktestExecutor**: `run()` 은 synchronous per-bar loop, cancel 부재 → P3 진입 직전 mctrader-engine PR 1건 필요 (per-bar 루프 시작에 `cancel_token: threading.Event | None = None` 인자 + 매 iteration 체크 + `CancelledError` 발생)
 - **WFOOrchestrator (`wfo.search.coordinator`)**: trial 단위 fail-fast 분기는 있으나 외부 cancel 부재 → 동일 PR 에 trial 시작 시 token 체크 추가
 - mctrader-web `BacktestLifecycleManager` / `WfoLifecycleManager` 가 token 보유 + cancel 명령 수신 시 `set()`
 
-### 운영 리스크 (OperationalRiskArchitect 5 항목)
+### Operational risk (OperationalRiskArchitect 5 항목)
 
 1. **DR (disaster recovery)**: 모든 engine 동시 down (UC-8) — admin "Boot sequence" 수동 명령 + dependency order (market-gw library load → collector → paper). 자동 boot 미제공 (solo dev scope).
 2. **Disconnect**: heartbeat stale > N sec 자동 감지 → `[degraded]` 표시. control 명령 evp 무관 (stop / restart 가능).
@@ -99,7 +114,7 @@ paper_runner 는 보유 (`PaperRunner.cancel()` + `PaperExecutor._cancel_event`)
 4. **Rate limit**: control plane 분당 30 회 / status plane 분당 300 회 (per token). engine_id 별 추가 bucket 미적용 (solo dev 단순화).
 5. **Env isolation**: Windows dev 의 in-process subprocess 추적과 Linux prod 의 systemd 추적 모두 `control_adapter` 단일 abstraction. SM 표현은 OS 무관 (process exit code / heartbeat 두 신호로만 결정).
 
-## 대안 검토
+## Alternatives considered
 
 | 대안 | Reject 사유 |
 |------|-------------|
@@ -108,14 +123,14 @@ paper_runner 는 보유 (`PaperRunner.cancel()` + `PaperExecutor._cancel_event`)
 | (3) per-engine custom SM | 중복 + 표시 일관성 부족 |
 | (4) 외부 SM library (transitions / pytransitions) | 의존성 추가, dataclass + dispatch table 충분 |
 
-## 결과
+## Consequences
 
 - `mctrader-web/src/mctrader_web/api/admin/state_machine.py` 두 SM dataclass + transition table
 - control plane endpoint 가 transition 호출 → SM 위반 시 409 + audit row
 - BacktestExecutor / WFO cancel hook PR (mctrader-engine, P3 진입 직전 — Change Plan §3 예외 PR)
 - panel 표시 = SM state + heartbeat age + last error + recent restart count
 
-## 후속 영향
+## Follow-up impact
 
 - ADR-016 (audit) 의 transition row schema 와 결합 — 모든 transition 이 audit append
 - AC-2 (제어 write) 의 idempotent guard 는 본 SM transition rule 위에 구현

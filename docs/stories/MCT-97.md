@@ -406,8 +406,7 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 
 | Iter | 시각 | 레인 | 트리거 | 원인 판정 | 재실행 범위 | RESET? |
 |------|------|------|--------|-----------|-------------|--------|
-
-*(FIX 발생 시 append)*
+| 1 | 2026-05-06 | 설계-리뷰 | engine_id mapping invariant + ADR convention | mapping 모호 + draft 흔적 + DDL self-contradict + degraded SM gap + observability metric 미명시 | ADR-014/015/016 + engine-id-naming.v1.md + Change Plan §8.5 정정 후 재리뷰 | NO |
 
 ## 11. 회고
 

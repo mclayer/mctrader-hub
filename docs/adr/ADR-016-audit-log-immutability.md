@@ -1,12 +1,24 @@
+---
+adr_id: ADR-016
+title: Audit log append-only with hash chain (Admin Engine Control Panel)
+status: Accepted
+date: 2026-05-06
+related_story: MCT-97
+category: web
+supersedes: []
+amends: []
+---
+
 # ADR-016: Audit log append-only with hash chain (Admin Engine Control Panel)
 
-- **Status**: Accepted
-- **Date**: 2026-05-06
-- **Story**: MCT-97
-- **Authors**: ArchitectAgent (chief) + DataMigrationArchitectAgent (deputy)
-- **Reviewers**: ArchitectPLAgent
+## Status
 
-## 컨텍스트
+Accepted — 2026-05-06. MCT-97 design phase.
+
+- Authors: ArchitectAgent (chief) + DataMigrationArchitectAgent (deputy)
+- Reviewers: ArchitectPLAgent
+
+## Context
 
 MCT-97 AC-4 는 모든 control 명령에 대한 append-only audit log 와 forensic-grade tamper detection 을 요구한다. 후보:
 
@@ -17,7 +29,7 @@ MCT-97 AC-4 는 모든 control 명령에 대한 append-only audit log 와 forens
 
 또한 mctrader-web `data/` 디렉토리 미존재 (현재 grep 결과). audit DB 위치 convention 결정 필요.
 
-## 결정
+## Decision
 
 **(b) SQLite (WAL) + hash chain** 채택. data/ 디렉토리 신규 생성.
 
@@ -45,13 +57,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
     latency_ms   INTEGER NOT NULL,           -- request handling latency
     source_ip    TEXT    NOT NULL,           -- request.client.host
     prev_hash    TEXT    NOT NULL,           -- previous row's row_hash (genesis: "0"*64)
-    row_hash     TEXT    NOT NULL,           -- sha256(prev_hash || canonical(row except row_hash))
-    UNIQUE(request_id)                       -- Idempotency-Key dedupe at DB level
+    row_hash     TEXT    NOT NULL             -- sha256(prev_hash || canonical(row except row_hash))
+    -- request_id 는 filter 용 non-unique index 만 (UNIQUE 는 idempotency_cache table 로 분리, 본 ADR §"데이터 무결성 invariant 2")
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_ts        ON audit_log(ts);
-CREATE INDEX IF NOT EXISTS idx_audit_engine_id ON audit_log(engine_id);
-CREATE INDEX IF NOT EXISTS idx_audit_actor     ON audit_log(actor);
+CREATE INDEX IF NOT EXISTS idx_audit_ts         ON audit_log(ts);
+CREATE INDEX IF NOT EXISTS idx_audit_engine_id  ON audit_log(engine_id);
+CREATE INDEX IF NOT EXISTS idx_audit_actor      ON audit_log(actor);
+CREATE INDEX IF NOT EXISTS idx_audit_request_id ON audit_log(request_id);
 ```
 
 PRAGMA: `journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=OFF`, `busy_timeout=5000`.
@@ -67,8 +80,10 @@ def append_audit_row(conn, row: AuditRow) -> int:
         prev_hash = prev[0] if prev else "0" * 64
         row.prev_hash = prev_hash
         row.row_hash = compute_row_hash(prev_hash, row)
-        conn.execute("INSERT INTO audit_log (...) VALUES (...)", row.as_tuple())
-        return cur.lastrowid
+        cursor = conn.execute(
+            "INSERT INTO audit_log (...) VALUES (...)", row.as_tuple()
+        )
+        return cursor.lastrowid
 ```
 
 - Hash 함수: `sha256( prev_hash || canonical_json(row except row_hash) )`. canonical_json = sorted keys + UTF-8 + no spaces.
@@ -94,12 +109,10 @@ mctrader-web admin audit verify [--from SEQ] [--to SEQ]
 - **Pruning policy**: hash chain invariant 보존 — old row 삭제 대신 **별도 archive DB 로 export** + main DB 의 genesis 를 archive 마지막 hash 로 reset (chain continuation). archive 자체는 read-only.
 - Pruning 미구현 시 단일 SQLite 파일 무한 grow — solo dev 환경에서 1 년 < 100 MB 추정 (control 분당 30 회 × 365 일 ≈ 16 M row × 200 bytes 하한). 단일 파일 운용 가능. 본 ADR 은 pruning 미강제 (P6 retention cron 만).
 
-### 데이터 무결성 invariant (DataMigrationArchitect 변호)
+### Data integrity invariant (DataMigrationArchitect deputy)
 
 1. **Schema migration**: schema 변경 시 신규 column 은 `ALTER TABLE ADD COLUMN ... DEFAULT ...` 만 (NOT NULL 신규 column 은 default 필수). DROP COLUMN 금지 — 호환 유지.
-2. **Idempotency**: `Idempotency-Key` 가 `request_id` UNIQUE column 에 매핑 → DB-level dedupe. 24h 후 cleanup 별도 cron (DELETE `WHERE ts < now - 24h AND outcome = 'ok'` — 단, hash chain 영향 — 본 ADR 은 idempotency cache 를 audit 와 분리: 별도 `idempotency_cache` table 추가 → audit row 는 영구).
-
-   **수정**: idempotency dedupe 는 별도 table 분리.
+2. **Idempotency**: dedupe 전용 별도 `idempotency_cache` table (24h cleanup). audit_log 와 분리하여 audit row 영구성 보존. audit_log 의 `request_id` 는 filter 용 non-unique index 만 (위 §Schema DDL 참조). DDL:
 
    ```sql
    CREATE TABLE IF NOT EXISTS idempotency_cache (
@@ -110,13 +123,13 @@ mctrader-web admin audit verify [--from SEQ] [--to SEQ]
    CREATE INDEX IF NOT EXISTS idx_idemp_created ON idempotency_cache(created_at);
    ```
 
-   audit_log 의 `request_id` 는 non-unique index (filter용) 로 변경.
+   24h cleanup cron: `DELETE FROM idempotency_cache WHERE created_at < datetime('now', '-24 hours')`. cleanup 이 audit_log hash chain 에 영향 0 (별도 table).
 
 3. **Backup integrity**: backup 직후 hash chain CLI 자동 실행 — 실패 시 backup 롤백 + alert.
 4. **Cross-platform**: SQLite WAL 은 Windows + Linux 동등. 단, network filesystem (NFS / SMB) 위 placement 금지 (WAL fsync 보장 안 됨) — 본 ADR 은 local fs 만 가정.
 5. **Concurrent access**: WAL mode 로 다중 reader + 단일 writer 자연 지원. control plane append 와 panel query 동시 진행 안전.
 
-## 대안 검토
+## Alternatives considered
 
 | 대안 | Reject 사유 |
 |------|-------------|
@@ -125,7 +138,7 @@ mctrader-web admin audit verify [--from SEQ] [--to SEQ]
 | (d) 외부 SIEM | solo dev overkill, 의존성 + 비용 |
 | Postgres / MySQL | solo dev 인프라 부담, SQLite 성능 충분 |
 
-## 결과
+## Consequences
 
 - `mctrader-web/data/admin_audit.sqlite` (WAL) + 신규 `data/` 디렉토리 (gitignore)
 - 두 table: `audit_log` (영구 hash chain) + `idempotency_cache` (24h cleanup)
@@ -133,7 +146,7 @@ mctrader-web admin audit verify [--from SEQ] [--to SEQ]
 - `mctrader-web` CLI subcommand: `admin audit verify` + `admin audit backup`
 - Story file §11.1-§11.5 의 마이그레이션 절차는 본 ADR 을 1차 reference 로 인용
 
-## 후속 영향
+## Follow-up impact
 
 - ADR-014 (plane 분리) 의 control-side 만 audit append (data plane 미적용)
 - ADR-015 (SM) 의 모든 transition (성공 / 실패 / no-op / SM 위반 / RBAC 거부) audit row 발생

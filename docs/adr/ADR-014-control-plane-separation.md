@@ -1,12 +1,24 @@
+---
+adr_id: ADR-014
+title: Control plane vs data plane separation for Admin Engine Control Panel
+status: Accepted
+date: 2026-05-06
+related_story: MCT-97
+category: web
+supersedes: []
+amends: []
+---
+
 # ADR-014: Control plane vs data plane separation for Admin Engine Control Panel
 
-- **Status**: Accepted
-- **Date**: 2026-05-06
-- **Story**: MCT-97
-- **Authors**: ArchitectAgent (chief) + SecurityArchitectAgent (deputy)
-- **Reviewers**: ArchitectPLAgent
+## Status
 
-## 컨텍스트
+Accepted — 2026-05-06. MCT-97 design phase.
+
+- Authors: ArchitectAgent (chief) + SecurityArchitectAgent (deputy)
+- Reviewers: ArchitectPLAgent
+
+## Context
 
 MCT-97 은 5 engine class (collector / paper runner / backtest executor / WFO executor / market gateway) 의 점검 + 제어 admin panel 을 도입한다. 기존 mctrader-web 은 `api/lifecycle.py` 등 lifecycle 로직과 heartbeat sink 의 read 경로를 동일 FastAPI 위에서 운용한다. 별도 plane 분리 없이 `/admin/*` 을 단일 router 로 추가하면 다음 위험이 발생:
 
@@ -15,7 +27,7 @@ MCT-97 은 5 engine class (collector / paper runner / backtest executor / WFO ex
 - 보안 위협 모델: read 위주 token (viewer) 이 control endpoint 의 trust boundary 를 우회할 가능성
 - audit log 의 책임 경계 불명확 — read 도 audit 에 포함되면 audit 볼륨이 control 비율을 압도
 
-## 결정
+## Decision
 
 `/admin/control/*` (write) 와 `/admin/status/*` (read) 를 **plane 으로 분리** 한다. 코드 / 인증 / rate-limit / audit / SM transition 모두 plane 별로 독립.
 
@@ -61,7 +73,7 @@ trust boundary 위반 시:
 2. **write-side blockage (subprocess hang / systemd unresponsive)** 가 status panel 표시에 영향 없음 (last-known cached state + "stale since X").
 3. 두 plane 은 **별개 FastAPI router** 로 분리하되 동일 process 내 mount (단일 TLS endpoint 책임 §7.C 유지). 다중 process 분리는 solo dev scope 외 (CFP 추가 시 재고).
 
-## 대안 검토
+## Alternatives considered
 
 | 대안 | Reject 사유 |
 |------|-------------|
@@ -69,14 +81,14 @@ trust boundary 위반 시:
 | (2) 별도 process (control daemon + status server) | solo dev IPC 부담, single-active-session 보장 복잡, 디버깅 비용 증가 |
 | (3) GraphQL 단일 endpoint | mctrader-web 의 FastAPI-only stack 과 mismatch, role-별 schema 분리 어려움 |
 
-## 결과
+## Consequences
 
 - mctrader-web `api/admin/control.py` + `api/admin/status.py` 별개 module
 - 단일 FastAPI app 내 `/admin/control` + `/admin/status` 두 sub-router mount
 - audit log append 는 control-side decorator (`@audit_emit`) 만, status-side 미적용
 - rate limit middleware 가 path prefix 로 bucket 분리
 
-## 후속 영향
+## Follow-up impact
 
 - ADR-015 (state machine) 의 transition 시점 = control plane 진입 직후
 - ADR-016 (audit hash chain) 의 row 발생 source = control plane only
