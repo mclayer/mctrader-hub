@@ -50,14 +50,19 @@ Phase 5 (X5) deliverable. Sister Stories MCT-91 (X2 writer/heartbeat) / MCT-92 (
 - SSH key + sudoers entry for the deploy operator (Ansible `become: true`)
 - Inter-node connectivity NOT required (active-active uses shared storage, not direct comms)
 
-### Capacity
+### Capacity (X7 Calibration backfill, 2026-05-06)
 
-**Capacity sizing TBD by Calibration C1/C2 (X7 Story scope)** — RAM/disk/throughput thresholds are calibrated against real Bithumb traffic, not estimated.
+Synthetic measurement basis: 10s two-process simulation, 20 ticks/sec/node + 7-day partition synthetic (70k events / 1.30 MB on disk). Real production figures depend on Bithumb traffic + symbol count and may differ — operators should re-measure post-deployment.
 
-Initial provisioning guideline (subject to X7 revision):
-- RAM: at least 2GB available for the collector daemon process (asyncio + queue buffers)
-- Disk: shared storage with 100GB+ free (parquet append-only, ~50MB/day per symbol/tier rough estimate)
-- CPU: 2 vCPU per node sufficient (collector is I/O-bound)
+| Resource | Synthetic measurement | Extrapolated (30 min run) | Recommended host provisioning |
+|---|---|---|---|
+| RAM (asyncio + queue per process) | < 100 MB peak | ~150 MB sustained | **2 GB available per node** |
+| Disk growth rate | ~19 KB/event | ~1 GB/day per symbol/tier | **100 GB shared storage** |
+| events/sec sustained | 40/sec total (2 nodes × 20/sec) | scales linearly | network-bound (Bithumb peak ~100/sec/symbol) |
+| p99 scan latency (7-day partition) | 1.4s | scales linearly with partition size | **< 5s SLA target** at 30-day partition |
+| CPU | 2 vCPU per node | I/O-bound, mostly idle | 2 vCPU per node sufficient |
+
+Reproduce these measurements: `python scripts/ha/calibration/c1_dedup_throughput.py` + `python scripts/ha/calibration/c2_scan_latency.py`. Full results: `docs/results/EPIC-RESULTS-MCT-89.md` §3.
 
 ## Initial setup (per node)
 
