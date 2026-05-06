@@ -398,11 +398,12 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 
 *(§7.G 6 phase 분할 기반 — DeveloperPL P1 완료, P2+ 진행 예정)*
 
-### §8.5 Impl Manifest — P1
+### §8.5 Impl Manifest
 
 | Phase | scope | PR | 완료일 | 변경 파일 |
 |-------|-------|----|--------|-----------|
 | P1 | skeleton | [mctrader-web#16](https://github.com/mclayer/mctrader-web/pull/16) | 2026-05-06 | production 10 / test 3 (합계 13 file, 25 test green) |
+| P2 | status read | [mctrader-web#17](https://github.com/mclayer/mctrader-web/pull/17) | 2026-05-06 | production 4 / test 3 (합계 7 file, 31 test green) |
 
 **P1 production 파일 (DeveloperAgent)**
 
@@ -435,9 +436,50 @@ control 응답은 polling 과 별개로 즉시 동기 응답 (POST → 200/409).
 | `tests/api/test_admin_routing.py` (10 test) | §8.1 P1 — /admin/control + /admin/status sub-router mount 확인 |
 | `tests/dashboard/test_admin_pages_smoke.py` (9 test) | §8.4 P1 — 4 placeholder page import-only smoke (AC-7 cross-platform) |
 
+**P2 production 파일 (DeveloperAgent)**
+
+| 파일 경로 | Change Plan 매핑 |
+|-----------|-----------------|
+| `src/mctrader_web/api/admin/__init__.py` *(modified)* | §4 P2 — get_admin_status_router mount under /admin/status prefix |
+| `src/mctrader_web/api/admin/status.py` *(modified)* | §4 P2 — GET /admin/status/engines 실제 구현 (5 engine class, ADR-014 data plane) |
+| `src/mctrader_web/dashboard/admin_status_fetcher.py` | §3.1 status_adapter 재사용 — httpx fetcher wrapper for admin overview |
+| `src/mctrader_web/dashboard/pages/10_admin_overview.py` *(modified)* | §7.A P2 — 5 engine status display + time.sleep(5)+st.rerun() polling |
+
+**P2 test 파일 (QADeveloperAgent)**
+
+| 파일 경로 | Test Contract 매핑 |
+|-----------|--------------------|
+| `tests/api/test_admin_status.py` (20 test) | §8.2 P2 — auth 401, schema, EC-4 fresh/stale/age, EC-7 multi/remove, prefix synthesis |
+| `tests/dashboard/test_admin_overview.py` (11 test) | §8.2 P2 — isolated import smoke + fetcher unit (200/non-200/OSError/no-token) |
+| `tests/dashboard/test_admin_pages_smoke.py` *(modified)* | §8.4 P2 — stub 확장 (st.rerun/columns/expander + fetcher stub + sleep stub) |
+
 ## 9. 품질 게이트 이력
 
-*(Review/Test PL 작성 예정 — Phase 2 PR에서)*
+### P1 (skeleton) 리뷰 결과 — 2026-05-06
+
+| Lane | 결과 | Iter | Finding |
+|------|------|------|---------|
+| 설계 리뷰 (DesignReviewPL) | PASS | 2/3 | iter 1 = FIX_REQUIRED (P0×1 + P1×6) → ArchitectPL 회귀 후 PASS |
+| 구현 리뷰 (CodeReviewPL) | PASS | 1/3 | 3 non-blocking comment-only finding (mechanical) |
+| 구현 테스트 (TestAgent) | PASS | - | 179 passed, p95 2.91ms < 500ms threshold, admin/health 88% coverage |
+| 보안 테스트 (SecurityTestPL) | PASS | 1/3 | 0 blocker, 3 informational defer (F-SEC-1 P4 / F-SEC-2 P5 / F-GOV-1 governance) |
+
+### Defer findings (후속 phase 책임)
+
+- **F-SEC-1 (P2-LOW)** — `audit_db.py:25-33` MCTRADER_ADMIN_AUDIT_PATH env path sanitize 누락 (현 P1 dead path) → P4 audit_db write/read 구현 시 resolve()/is_absolute()/suffix whitelist 도입
+- **F-SEC-2 (P2-LOW)** — `app.py:55-61` /admin/* 가 root API 와 동일 CORS 정책 → P5 원격 보안에서 별도 origin 화이트리스트
+- **F-GOV-1 (P3-INFO)** — mctrader-web repo CodeQL 미설정 + Secret Scanning disabled → governance backlog (P5 진입 전 활성화 권고)
+
+### P2 (status read) 구현 완료 — 2026-05-06
+
+| 항목 | 결과 |
+|------|------|
+| pytest (P2 신규) | 31/31 passed |
+| 회귀 (api/ + dashboard/) | 121/122 passed (1 pre-existing tzdata failure) |
+| PR | [mctrader-web#17](https://github.com/mclayer/mctrader-web/pull/17) |
+| exit criteria | 6/6 충족 |
+
+*(CodeReviewPL + TestAgent + SecurityTestPL P2 review 결과 — PR CI 통과 후 업데이트 예정)*
 
 ## 10. FIX Ledger
 
