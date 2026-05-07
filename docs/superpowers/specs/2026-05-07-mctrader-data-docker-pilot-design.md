@@ -58,7 +58,7 @@ mctrader-data repo의 Docker-first 전환 — **collector daemon** 1 service만 
 
 ### §3.1 Architecture overview
 
-mctrader-data의 long-running collector daemon을 systemd unit에서 Docker container (single image, 2-stage Dockerfile, named volume, 자체 heartbeat-check)로 전환. ADR-033 §7.4 OpRiskArch 4 항목 (restart / volume DR / health check / network mode)을 compose.yml에 박제해 후속 5 sister rollout의 reference 패턴으로 만든다.
+mctrader-data의 long-running collector daemon을 systemd unit에서 Docker container (single image, 2-stage Dockerfile, named volume, 내장 HTTP `/health` endpoint)로 전환. ADR-033 §7.4 OpRiskArch 4 항목 (restart / volume DR / health check / network mode)을 compose.yml에 박제해 후속 5 sister rollout의 reference 패턴으로 만든다.
 
 ### §3.2 Components (file 단위 변경)
 
@@ -69,9 +69,10 @@ mctrader-data의 long-running collector daemon을 systemd unit에서 Docker cont
 | `Dockerfile` | python:3.12-slim 2-stage (deps → runner). uv로 의존 install (mctrader-market / mctrader-market-bithumb git+https). runtime은 wheel만, non-root user `mctrader` (UID 1001). HEALTHCHECK directive 포함. |
 | `compose.yml` | 1 service `collector` (build: .). volumes: `mctrader_data:/var/lib/mctrader/data` named volume. restart: unless-stopped. networks: bridge default. healthcheck (compose-side, Dockerfile HEALTHCHECK 보강). env: `MCTRADER_DATA_ROOT=/var/lib/mctrader/data`. |
 | `.dockerignore` | codeforge cli-tool-minimal 패턴 + `data/` 추가 (개발용 parquet 제외) |
-| `src/mctrader_data/cli.py` (수정) | 신규 subcommand `mctrader-data heartbeat-check` 추가 — heartbeat 파일 mtime ≤ threshold 검증, 임계 초과 시 exit 1 |
-| `src/mctrader_data/heartbeat.py` (수정) | `check_staleness(path, threshold_sec)` 함수 추가 — 기존 heartbeat write 로직 재사용 |
-| `tests/test_heartbeat_check.py` | TDD 4 시나리오: 파일 부재 / mtime 신선 / mtime stale / env override threshold |
+| `src/mctrader_data/health_server.py` (신규) | stdlib `http.server` + daemon thread `HealthServer` — `GET /health` 200/503 응답. HeartbeatWriter._ws_state 기반 판정. |
+| `src/mctrader_data/cli.py` (수정) | `collect` subcommand에 HealthServer 생성 + MultiSymbolCollector wiring (HeartbeatWriter 패턴과 동일 dependency injection) |
+| `src/mctrader_data/collector.py` (수정) | `MultiSymbolCollector.__init__`에 `health_server: HealthServer \| None = None` 인자 추가, run() 에서 lifecycle 관리 (start/stop) |
+| `tests/test_health_server.py` | TDD 시나리오: heartbeat_writer 부재 → 503 / ws_state=connected → 200 / ws_state=disconnected → 503 / port env override |
 | `.github/workflows/image-lint.yml` | codeforge `templates/github-workflows/container-image-scan.yml` 패턴을 참조하여 hadolint job만 활성. invocation 방식 (file 내용 직접 작성 vs reusable `uses: mclayer/plugin-codeforge/.github/workflows/X.yml@main` 호출) 은 plan 단계에서 결정 (codeforge가 templates/에 둔 file이라 reusable 호출 가능 여부 확인 필요). trivy job은 image-ref 부재 → skip 또는 미포함. |
 | `tests/integration/README.md` | manual smoke 절차 박제 (compose up + healthcheck wait + volume invariant + SIGTERM graceful) |
 
@@ -120,9 +121,9 @@ docker compose stop
 
 #### Network boundary
 
-- **Inbound**: 0개 (collector는 listening service 아님)
+- **Inbound**: port 8080 (HealthServer `/health` endpoint, **internal only** — compose `ports:` 절 부재라 host expose 안 함). Docker HEALTHCHECK가 same-container 안에서 호출.
 - **Outbound**: `pubwss.bithumb.com:443` (WebSocket TLS) + `api.bithumb.com:443` (HTTPS)
-- **Network mode**: bridge (compose default). `network_mode: host` 미사용. `ports:` 절 부재 (inbound 0).
+- **Network mode**: bridge (compose default). `network_mode: host` 미사용. host port 매핑 0 (8080은 container 내부 listen 만).
 
 #### Volume / persistence
 
@@ -152,26 +153,26 @@ collector는 mode-agnostic, 항상 24/7 forward-only 운영 (ADR-009 forward-onl
 
 | 파라미터 | 값 | 근거 |
 |---|---|---|
-| `test` | `["CMD", "mctrader-data", "heartbeat-check"]` | self-check, exec into container 불요 |
+| `test` | `["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"]` | HTTP /health endpoint, slim image에 curl/wget 부재라 stdlib python urllib 사용 |
 | `interval` | `30s` | webapp-minimal 패턴 차용 |
 | `timeout` | `10s` | heartbeat 파일 read는 ms 단위 |
 | `retries` | `3` | transient WebSocket reconnect 90초 윈도우 (3 × 30) |
 | `start_period` | `60s` | collector 초기 connect + symbol subscribe 시간 |
 
-heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STALENESS_SEC`로 override.
+HealthServer port = `8080` default, env `MCTRADER_HEALTH_PORT` override. compose `ports:` 절 부재 (internal network only — same-container healthcheck). state source = `HeartbeatWriter._ws_state` (이미 wired).
 
 #### 4. Network mode boundary
 
 - compose default bridge network
 - `network_mode: host` 금지
-- inbound port 매핑 0 (collector listening 0)
+- 호스트 port 매핑 0 (HealthServer는 container 내부 8080 listen 만, `ports:` 절 부재)
 - outbound: NAT로 Bithumb 도달
 
 ## §4. API 계약
 
 **N/A — production runtime API 변경 0개.**
 
-근거: CLI subcommand 1개 (`heartbeat-check`)만 추가. 기존 `collect` / `backfill` subcommand surface 무변. Public Python API (`scan_candles`, `OhlcvSchema`, `BackfillRunner`) 무변. mctrader-market / mctrader-market-bithumb 의존 schema 무변.
+근거: 내부 HTTP `/health` endpoint (port 8080, internal network only, `ports:` expose 안 함) 신설 — public API 아님. 기존 `collect` / `backfill` CLI subcommand surface 무변. Public Python API (`scan_candles`, `OhlcvSchema`, `BackfillRunner`) 무변. mctrader-market / mctrader-market-bithumb 의존 schema 무변.
 
 ## §5. 보안 설계
 
@@ -188,7 +189,7 @@ heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STA
 | Container image | base image stale CVE | python:3.12-slim 사용. 후속 Story에서 trivy image scan 자동화 (Out-of-scope) |
 | Container image | image layer 안 secret 누설 | collector scope에서 secret 0개 (public WebSocket만). `.dockerignore` strict로 sensitive file 제외. hadolint syntax 검증. |
 | compose network | service-to-service spoofing | 1 service only — service-to-service 0 |
-| compose network | host network 노출 | bridge default, host network 미사용, inbound port 매핑 0 |
+| compose network | host network 노출 | bridge default, host network 미사용, 호스트 port 매핑 0 (HealthServer 8080은 container 내부 listen) |
 | Volume | host path escape | named volume only. host bind mount는 dev 옵션. |
 | Container secret mount | log/error 누설 | secret 0개 — N/A |
 
@@ -214,13 +215,12 @@ heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STA
 
 ### §6.1 Unit (pytest)
 
-- `tests/test_heartbeat_check.py` (TDD, 4 시나리오):
-  1. heartbeat 파일 부재 → exit 1, stderr "heartbeat file not found"
-  2. mtime ≤ threshold (default 90s) → exit 0
-  3. mtime > threshold → exit 1, stderr "heartbeat stale: <delta>s"
-  4. env `MCTRADER_HEARTBEAT_STALENESS_SEC=30` override 적용 검증
-- `tests/test_cli.py` (수정) — `mctrader-data heartbeat-check --help` 진입점 등록 확인
-- 기존 182 pytest 회귀 PASS 유지 (CLI subcommand 추가만, production code path 무관)
+- `tests/test_health_server.py` (TDD, 4 시나리오):
+  1. heartbeat_writer 부재 (None) → 503 + JSON `{"status":"unhealthy","reason":"heartbeat unavailable"}`
+  2. ws_state="connected" → 200 + JSON `{"status":"ok","ws_state":"connected", ...}`
+  3. ws_state="disconnected" → 503 + JSON `{"status":"unhealthy","reason":"ws_state=disconnected", ...}`
+  4. port env override `MCTRADER_HEALTH_PORT=9090` 적용 검증
+- 기존 182 pytest 회귀 PASS 유지 (HealthServer module 추가만, production code path 무관)
 
 ### §6.2 Integration (compose smoke)
 
@@ -228,7 +228,7 @@ heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STA
   1. `docker compose build` exit 0
   2. `docker compose up -d collector` exit 0
   3. 60초 대기 후 `docker compose ps` → `healthy`
-  4. `docker compose exec collector mctrader-data heartbeat-check` exit 0
+  4. `docker compose exec collector python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"` exit 0
   5. `docker volume inspect mctrader-data_mctrader_data` 존재 확인
   6. `docker compose down -v` cleanup
 - Bithumb live WebSocket 의존 → CI fragile → manual smoke + `tests/integration/README.md` 박제
@@ -249,17 +249,17 @@ heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STA
 
 ### §6.5 TDD 진입 순서
 
-1. `test_heartbeat_check.py` 4 시나리오 RED
-2. `cli.py` + `heartbeat.py`의 `check_staleness()` 추가 GREEN
-3. Dockerfile 작성 (hadolint PASS)
-4. compose.yml 작성 (`docker compose config` syntax PASS)
+1. `test_health_server.py` 4 시나리오 RED
+2. `health_server.py` (HealthServer class) + `cli.py` `collect` subcommand wiring + `collector.py` `MultiSymbolCollector.__init__` 인자 추가 GREEN
+3. Dockerfile 작성 (HEALTHCHECK = python urllib /health, hadolint PASS)
+4. compose.yml 작성 (healthcheck = python urllib /health, `docker compose config` syntax PASS)
 5. systemd 자산 삭제 + README 교체
 6. `infra_strategy: docker_first` field 추가 → `check-container-strategy.sh` PASS
 7. `.github/workflows/image-lint.yml` 작성
 
 ### §6.6 Coverage 목표
 
-- heartbeat-check 신규 코드 100% line
+- HealthServer module 신규 코드 100% line
 - integration smoke = manual + CI는 syntax-only
 
 ## §7. Migration / Cross-platform parity
@@ -279,14 +279,14 @@ heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STA
 
 ### §7.3 Rollback 경로 (Pilot 검증 실패 시)
 
-- git revert PR로 commit 복구 (Dockerfile / compose.yml / .dockerignore / heartbeat-check 모두 제거)
+- git revert PR로 commit 복구 (Dockerfile / compose.yml / .dockerignore / health_server.py 모두 제거)
 - production 운영 중 아니므로 host cleanup 불요
 - volume `mctrader_data`은 docker volume rm으로 삭제 OR 다음 시도 위해 보존 — 사용자 재량
 
 ### §7.4 Cutover 검증 (Story §10 acceptance evidence)
 
 1. Windows dev에서 `docker compose build && docker compose up -d collector` → 60s 후 healthy
-2. `docker compose exec collector mctrader-data heartbeat-check` exit 0
+2. `docker compose exec collector python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"` exit 0
 3. `docker compose logs collector --tail=20`에 `[collector] symbol=KRW-BTC channels=...` 라인 존재
 4. `docker compose down -v && docker compose up -d collector` → healthy 회복 (volume 재마운트 invariant)
 5. `hadolint Dockerfile` warning 0
@@ -367,7 +367,7 @@ heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STA
 1. `Dockerfile` (2-stage, python:3.12-slim, non-root user) — hadolint warning 0
 2. `compose.yml` (collector 1 service, named volume, restart unless-stopped, healthcheck, bridge network) — `docker compose config` PASS
 3. `.dockerignore` — codeforge cli-tool-minimal 패턴 + `data/` 추가
-4. `mctrader-data heartbeat-check` CLI subcommand + 4 TDD 시나리오 pytest PASS
+4. `health_server.py` HTTP `/health` endpoint (port 8080) + 4 TDD 시나리오 pytest PASS
 5. `.claude/_overlay/project.yaml`에 `infra_strategy: docker_first` 추가
 6. `bash scripts/check-container-strategy.sh` PASS (codeforge lint)
 7. `.github/workflows/image-lint.yml` (codeforge `container-image-scan.yml` reusable, hadolint job 활성)
@@ -386,6 +386,6 @@ heartbeat-check staleness threshold = `90s` default, env `MCTRADER_HEARTBEAT_STA
 2. 사용자 approve 후 `superpowers:writing-plans` skill 호출 → implementation plan 작성
 3. plan 작성 후 `MCT-M` Epic Story + `MCT-N` Pilot Story file scaffold (codeforge story-init workflow)
 4. Phase 1 PR (design freeze + Story §1-§7 + Codex review archive)
-5. Phase 2 PR (impl: Dockerfile + compose + heartbeat-check + README + systemd 삭제 + project.yaml + image-lint.yml)
+5. Phase 2 PR (impl: Dockerfile + compose + health_server.py + README + systemd 삭제 + project.yaml + image-lint.yml)
 6. Phase 2 PR review chain (CodeReview + TestAgent + SecurityTest 1st-layer hadolint) + admin merge
 7. Story §11 회고 — Epic Phase 2+ rollout sequencing 결정점 박제

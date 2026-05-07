@@ -1281,3 +1281,309 @@ Pilot Story (mctrader Containerization Epic Phase 1)."
 ### 보충 fix (self-review 결과)
 
 - 없음 — 일관성 OK.
+
+---
+
+## Amendment 1 (2026-05-07) — HEALTHCHECK API endpoint
+
+**Trigger**: Task 1 진입 시 기존 `heartbeat.py` 구조가 plan 가정과 다른 것 발견 (`<root>/.heartbeat` 단일 파일이 아니라 `<root>/market/manifest/heartbeat-<node_id>.json` HA active-active 패턴, MCT-91/93). 사용자 결정: heartbeat-check CLI 폐기 + HTTP `/health` API endpoint로 대체. webapp-minimal 패턴과 일관 + 5 sister rollout reference 강함.
+
+### 변경 요약
+
+- **신규 module**: `src/mctrader_data/health_server.py` (stdlib `http.server` + daemon thread `HealthServer`)
+- **CLI subcommand `heartbeat-check`**: 폐기 (cli.py에 추가하지 않음)
+- **HEALTHCHECK CMD**: `["CMD", "mctrader-data", "heartbeat-check"]` → `["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"]`
+- **port**: 8080 default, env `MCTRADER_HEALTH_PORT` override. compose `ports:` 절 부재 (host expose 안 함, internal only).
+- **State source**: `HeartbeatWriter._ws_state` (collector.py에 이미 wired된 인스턴스 활용). 부재 → 503.
+- **Library**: stdlib `http.server` + daemon threading (zero new dep, asyncio loop와 격리, `daemon=True`로 main loop 종료 시 자동 cleanup)
+
+### Task 1 재정의 (HealthServer module + TDD)
+
+**Files (변경)**:
+- Create: `src/mctrader_data/health_server.py`
+- Create: `tests/test_health_server.py`
+- Modify: `src/mctrader_data/cli.py` (`collect` subcommand에서 HealthServer 생성 + MultiSymbolCollector wiring)
+- Modify: `src/mctrader_data/collector.py` (`MultiSymbolCollector.__init__`에 `health_server: HealthServer | None = None` 인자 + run() lifecycle)
+
+**Step 1.A: test_health_server.py 4 시나리오 작성** (TDD RED)
+
+```python
+"""TDD for HealthServer HTTP /health endpoint (Pilot, Amendment 1)."""
+from __future__ import annotations
+
+import json
+import threading
+import time
+import urllib.request
+from typing import Any
+
+import pytest
+
+from mctrader_data.health_server import HealthServer
+from mctrader_data.heartbeat import HeartbeatWriter
+
+
+def _free_port() -> int:
+    """Allocate an ephemeral port for test isolation."""
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _get_health(port: int) -> tuple[int, dict[str, Any]]:
+    """GET /health, return (status_code, body_json). 503 returns body too."""
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
+    try:
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            return resp.status, json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        return exc.code, json.loads(exc.read())
+
+
+def test_health_503_when_heartbeat_writer_missing(tmp_path):
+    port = _free_port()
+    server = HealthServer(heartbeat_writer=None, port=port)
+    server.start()
+    try:
+        time.sleep(0.2)  # give server a moment to bind
+        code, body = _get_health(port)
+        assert code == 503
+        assert body["status"] == "unhealthy"
+        assert "heartbeat unavailable" in body["reason"]
+    finally:
+        server.stop()
+
+
+def test_health_200_when_ws_connected(tmp_path):
+    writer = HeartbeatWriter(root=tmp_path, node_id="test-node")
+    writer.ws_state = "connected"
+    port = _free_port()
+    server = HealthServer(heartbeat_writer=writer, port=port)
+    server.start()
+    try:
+        time.sleep(0.2)
+        code, body = _get_health(port)
+        assert code == 200
+        assert body["status"] == "ok"
+        assert body["ws_state"] == "connected"
+        assert body["node_id"] == "test-node"
+    finally:
+        server.stop()
+
+
+def test_health_503_when_ws_disconnected(tmp_path):
+    writer = HeartbeatWriter(root=tmp_path, node_id="test-node")
+    writer.ws_state = "disconnected"
+    port = _free_port()
+    server = HealthServer(heartbeat_writer=writer, port=port)
+    server.start()
+    try:
+        time.sleep(0.2)
+        code, body = _get_health(port)
+        assert code == 503
+        assert body["status"] == "unhealthy"
+        assert "ws_state=disconnected" in body["reason"]
+    finally:
+        server.stop()
+
+
+def test_health_port_env_override(tmp_path, monkeypatch):
+    """Resolve port from MCTRADER_HEALTH_PORT env when caller passes None."""
+    from mctrader_data.health_server import resolve_port
+
+    monkeypatch.setenv("MCTRADER_HEALTH_PORT", "9090")
+    assert resolve_port() == 9090
+    monkeypatch.delenv("MCTRADER_HEALTH_PORT")
+    assert resolve_port() == 8080
+```
+
+**Step 1.B: health_server.py 구현** (GREEN)
+
+```python
+"""HTTP /health endpoint for Docker HEALTHCHECK (Pilot, Amendment 1).
+
+Lightweight stdlib http.server in a daemon thread — zero dep, asyncio-loop-free.
+Reads HeartbeatWriter._ws_state for liveness signal:
+  - heartbeat_writer is None → 503 unhealthy ("heartbeat unavailable")
+  - ws_state in {connected, reconnecting} → 200 ok
+  - ws_state == disconnected → 503 unhealthy
+"""
+from __future__ import annotations
+
+import json
+import os
+import threading
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
+
+
+DEFAULT_PORT = 8080
+HEALTHY_WS_STATES = frozenset({"connected", "reconnecting"})
+
+
+def resolve_port() -> int:
+    """Read MCTRADER_HEALTH_PORT env, default 8080."""
+    raw = os.environ.get("MCTRADER_HEALTH_PORT")
+    if not raw:
+        return DEFAULT_PORT
+    try:
+        return int(raw)
+    except ValueError:
+        return DEFAULT_PORT
+
+
+def _build_response(heartbeat_writer: Any) -> tuple[int, dict[str, Any]]:
+    """Return (http_status, body) given the heartbeat writer state."""
+    if heartbeat_writer is None:
+        return 503, {"status": "unhealthy", "reason": "heartbeat unavailable"}
+    ws_state = getattr(heartbeat_writer, "ws_state", "unknown")
+    node_id = getattr(heartbeat_writer, "node_id", "unknown")
+    started_at = getattr(heartbeat_writer, "started_at", None)
+    uptime = (
+        int((datetime.now(timezone.utc) - started_at).total_seconds())
+        if started_at is not None else 0
+    )
+    body: dict[str, Any] = {
+        "ws_state": ws_state,
+        "node_id": node_id,
+        "uptime_seconds": uptime,
+    }
+    if ws_state in HEALTHY_WS_STATES:
+        body["status"] = "ok"
+        return 200, body
+    body["status"] = "unhealthy"
+    body["reason"] = f"ws_state={ws_state}"
+    return 503, body
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    # set by HealthServer at start()
+    heartbeat_writer: Any = None
+
+    def do_GET(self) -> None:  # noqa: N802 (stdlib API)
+        if self.path != "/health":
+            self.send_response(404)
+            self.end_headers()
+            return
+        status, body = _build_response(self.heartbeat_writer)
+        payload = json.dumps(body).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        # Silence default stderr access logs during normal operation.
+        return
+
+
+class HealthServer:
+    """Daemon-thread HTTP server exposing GET /health.
+
+    Lifecycle:
+      server = HealthServer(heartbeat_writer=writer)  # bind in start()
+      server.start()                                  # spawn daemon thread
+      ...
+      server.stop()                                   # graceful shutdown
+    """
+
+    def __init__(self, heartbeat_writer: Any | None, port: int | None = None):
+        self._heartbeat_writer = heartbeat_writer
+        self._port = port if port is not None else resolve_port()
+        self._httpd: ThreadingHTTPServer | None = None
+        self._thread: threading.Thread | None = None
+
+    @property
+    def port(self) -> int:
+        return self._port
+
+    def start(self) -> None:
+        # Bind a fresh handler subclass so the writer is captured per server.
+        writer = self._heartbeat_writer
+
+        class _BoundHandler(_HealthHandler):
+            heartbeat_writer = writer
+
+        self._httpd = ThreadingHTTPServer(("0.0.0.0", self._port), _BoundHandler)
+        self._thread = threading.Thread(
+            target=self._httpd.serve_forever,
+            name="mctrader-health-server",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        if self._httpd is not None:
+            self._httpd.shutdown()
+            self._httpd.server_close()
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+        self._httpd = None
+        self._thread = None
+```
+
+**Step 1.C: cli.py wiring** — `collect` subcommand가 HealthServer를 생성해 `MultiSymbolCollector` 에 주입.
+
+(상세 코드 = Task 진행 시 cli.py의 `collect` subcommand 위치 확인 후 결정. wiring은 HeartbeatWriter 패턴 그대로 — `MultiSymbolCollector(... health_server=HealthServer(heartbeat_writer=writer))`.)
+
+**Step 1.D: collector.py wiring** — `MultiSymbolCollector.__init__`에 인자 추가 + run() 에서 `start()/stop()` 처리.
+
+(상세 코드 = run()에서 heartbeat_task와 동일 패턴으로 lifecycle 관리. `try ... finally:` 안에 stop() 호출.)
+
+**Step 1.E ~ 1.H**: 기존 plan의 Step 1.6 (run test pass) ~ Step 1.8 (commit) 그대로. commit message는 `feat: HealthServer HTTP /health endpoint for Docker HEALTHCHECK` 등.
+
+### Task 2 (Dockerfile) HEALTHCHECK CMD 변경
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+    CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"]
+```
+
+### Task 2.5 entrypoint smoke 변경
+
+```powershell
+docker run --rm mctrader-data:pilot --help
+# heartbeat-check 호출 안 함 (CLI 폐기)
+# Health endpoint smoke = compose up 후 검증 (Task 3.4)
+```
+
+### Task 3 (compose.yml) healthcheck 변경
+
+```yaml
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+```
+
+`MCTRADER_HEARTBEAT_STALENESS_SEC` env 주석은 삭제. `MCTRADER_HEALTH_PORT` env (default 8080) 주석으로 대체. **`ports:` 절 부재 유지** — internal only.
+
+### Task 5 README 변경
+
+Operations table의 Healthcheck row:
+
+```markdown
+| Healthcheck | `docker compose ps` (STATUS column) or `docker compose exec collector python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"` |
+```
+
+config table은 `MCTRADER_HEARTBEAT_STALENESS_SEC` → `MCTRADER_HEALTH_PORT` (default 8080) 으로 교체.
+
+### Task 7 integration smoke README — Smoke 2 변경
+
+Smoke 2 = `docker compose exec collector python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"` exit 0 + 200 응답.
+
+### Task 8 CHANGELOG 변경
+
+`Added` 의 `mctrader-data heartbeat-check` line 삭제. 새 line 추가: `HealthServer HTTP /health endpoint (port 8080, internal only) for Docker HEALTHCHECK`.
+
+### Type / signature consistency (re-checked)
+
+- `HealthServer(heartbeat_writer, port=None) -> HealthServer` — Step 1.B 정의 → Step 1.C cli.py wiring 일치
+- `resolve_port() -> int` — Step 1.B 정의 → port env 검사
+- `MCTRADER_HEALTH_PORT` env var — health_server.py + compose.yml + README config table 일치
+- HEALTHCHECK args — Dockerfile (Task 2) + compose.yml (Task 3) 둘 다 `python -c "..."` 동일
