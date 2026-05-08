@@ -18,6 +18,9 @@ Accepted — 2026-05-06. MCT-97 design phase.
 - Authors: ArchitectAgent (chief) + DataMigrationArchitectAgent (deputy)
 - Reviewers: ArchitectPLAgent
 
+**Amendment History**:
+- 2026-05-08 — §"Backup + retention" 절에 Docker named volume backup recipe + WAL checkpoint 사전 호출 + backup-then-verify invariant + restore genesis preservation + cross-platform NFS/SMB 금지 추가. MCT-101 Phase 4 (mctrader-web Docker-first containerization).
+
 ## Context
 
 MCT-97 AC-4 는 모든 control 명령에 대한 append-only audit log 와 forensic-grade tamper detection 을 요구한다. 후보:
@@ -108,6 +111,61 @@ mctrader-web admin audit verify [--from SEQ] [--to SEQ]
 - **Retention**: 최소 90일 (Phase 6 default). 환경변수 `MCTRADER_AUDIT_RETENTION_DAYS` override.
 - **Pruning policy**: hash chain invariant 보존 — old row 삭제 대신 **별도 archive DB 로 export** + main DB 의 genesis 를 archive 마지막 hash 로 reset (chain continuation). archive 자체는 read-only.
 - Pruning 미구현 시 단일 SQLite 파일 무한 grow — solo dev 환경에서 1 년 < 100 MB 추정 (control 분당 30 회 × 365 일 ≈ 16 M row × 200 bytes 하한). 단일 파일 운용 가능. 본 ADR 은 pruning 미강제 (P6 retention cron 만).
+
+### Docker volume backup recipe (Amendment 2026-05-08, MCT-101 Phase 4)
+
+mctrader-web Docker-first 전환에 따라 audit DB 가 named volume 안에 위치. 표준 backup 절차:
+
+#### A1. Backup recipe (PowerShell + bash)
+
+```powershell
+# Windows / PowerShell
+$timestamp = Get-Date -Format yyyyMMdd_HHmmss
+docker compose exec api python -c "import sqlite3; c=sqlite3.connect('/var/lib/mctrader/web/admin_audit.sqlite'); c.execute('PRAGMA wal_checkpoint(FULL)'); c.close()"
+docker run --rm `
+  -v mctrader_web_data:/source:ro `
+  -v ${PWD}:/backup `
+  alpine tar czf /backup/mctrader_web_audit_${timestamp}.tar.gz -C /source .
+docker compose exec api mctrader-cli audit-verify
+```
+
+```bash
+# Linux / bash
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+docker compose exec api python -c "import sqlite3; c=sqlite3.connect('/var/lib/mctrader/web/admin_audit.sqlite'); c.execute('PRAGMA wal_checkpoint(FULL)'); c.close()"
+docker run --rm \
+  -v mctrader_web_data:/source:ro \
+  -v "$(pwd):/backup" \
+  alpine tar czf /backup/mctrader_web_audit_${TIMESTAMP}.tar.gz -C /source .
+docker compose exec api mctrader-cli audit-verify
+```
+
+#### A2. Backup-then-verify invariant
+
+backup 직후 즉시 `mctrader-cli audit-verify` 실행 의무. 실패 시 backup file 삭제 + alert (operator 의무). WAL fsync 미보장 시 chain integrity 깨짐 가능 — 본 invariant 가 backup integrity 의 ground truth.
+
+#### A3. Restore safety + genesis preservation
+
+```bash
+# Stop api service before restore (volume detach 회피)
+docker compose stop api
+# Restore archive
+docker run --rm \
+  -v mctrader_web_data:/dest \
+  -v "$(pwd):/backup" \
+  alpine tar xzf /backup/mctrader_web_audit_<TIMESTAMP>.tar.gz -C /dest
+# Restart + immediate chain re-verify
+docker compose start api
+docker compose exec api mctrader-cli audit-verify
+```
+
+restore 후 chain re-verify FAIL 시 = backup corruption → restore 롤백 (이전 backup 시도 또는 manual chain forensics). genesis hash 보존 invariant — restore 가 backup 시점의 genesis row 까지 정확 복구해야 chain 무결성 유지.
+
+#### A4. Cross-platform invariant
+
+- Windows + Linux Docker Desktop 양쪽 동등 (named volume 의 underlying fs = local driver).
+- **NFS / SMB / network filesystem 위 named volume 금지** — WAL fsync 보장 안 됨 → hash chain race 가능.
+- production 환경에서 named volume 의 underlying directory 가 local fs 인지 확인 의무.
 
 ### Data integrity invariant (DataMigrationArchitect deputy)
 
