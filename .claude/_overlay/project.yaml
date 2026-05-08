@@ -4,6 +4,9 @@
 project:
   name: mctrader
 
+# CFP-128 / ADR-033 — none (governance hub, no Docker artifacts)
+infra_strategy: none
+
 github:
   org: mclayer
   repo: mctrader-hub
