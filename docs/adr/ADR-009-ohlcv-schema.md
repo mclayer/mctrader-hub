@@ -16,6 +16,7 @@ Accepted — 2026-05-02. MCT-9 Phase 1 PR.
 **Amendment History**:
 - 2026-05-04 — §D10 (Tick stream v1) + §D11 (Orderbook event stream v1) NEW. MCT-63 Epic Phase 1.
 - 2026-05-05 — §D2.1 (Active-Active HA `node=` partition + dedup contract anchor) + §D10.7 (T2 tick logical key) + §D11.8 (T3 orderbook logical key) NEW. MCT-X1 Phase 1 (Collector HA active-active multi-node + shared storage).
+- 2026-05-08 — §D12 (Docker-first persistence: named volume `mctrader_data` + forward-only invariant + DR backup recipe) NEW. MCT-98 Phase 2 entry (mctrader Docker-first Migration Epic, Pilot reference 박제).
 
 ## Context
 
@@ -327,6 +328,82 @@ T3 orderbook event stream 의 active-active multi-node dedup logical key — §D
 **raw_json column 정책**: §D10.7 동일 (node priority 우선 row 의 값 채택).
 
 **§D11.6 Fail-closed reconstruction 와의 관계**: 기존 §D11.6 의 "duplicate event with different hash = halt" 정책은 active-active 도입 시 single-node 환경 (legacy 또는 `node=DEFAULT`) 에 한정 적용. multi-node 환경 (`node=NODE_A` + `node=NODE_B`) 에서는 본 §D11.8 의 logical key + quarantine 정책이 우선 — halt 가 아닌 quarantine + 진행.
+
+### D12. Docker-first persistence (Amendment 2026-05-08, MCT-98 Phase 2 entry)
+
+mctrader-data Pilot (MCT-99, 2026-05-07 merged) 의 Docker-first 전환 박제 패턴. 5 sister rollout (mctrader-engine / -web — deployable trio) 의 reference.
+
+#### D12.1 Named volume `mctrader_data` 영속화
+
+mctrader-data collector daemon 의 OHLCV / tick / orderbook 데이터는 Docker named volume 에 보관:
+
+| 항목 | 값 |
+|---|---|
+| volume name | `mctrader_data` |
+| container mount | `/var/lib/mctrader/data` |
+| env | `MCTRADER_DATA_ROOT=/var/lib/mctrader/data` |
+| compose driver | local (default, compose.yml 미명시) |
+
+codeforge ADR-033 §결정 6 (named volume 권장) 정합. host bind mount 거절 — Windows host path mapping 비호환 + production Linux host 와 dev Windows host 의 volume 패턴 통일.
+
+#### D12.2 Forward-only invariant 명시
+
+Bithumb public API 는 ticks/orderbook 의 historical replay 를 제공하지 않음. mctrader-data collector 는 forward-only:
+
+- restart 시 데이터 누락 회피 → compose `restart: unless-stopped`
+- container kill / volume detach 동안의 데이터 = 영구 손실
+- backfill = candle (OHLCV) 만 가능, ticks/orderbook 은 backfill 없음
+- HA active-active partition (§D2.1) 가 single-node 데이터 누락 회피의 일부 — node 별 forward-only 보장 + scan-side merge
+
+본 invariant 는 collector lifecycle 의 hard constraint. 5 sister rollout 시 동일 패턴 적용.
+
+#### D12.3 DR backup recipe (volume snapshot)
+
+표준 backup 명령 (PowerShell, mctrader-data Pilot reference):
+
+```powershell
+# Backup
+$timestamp = Get-Date -Format yyyyMMdd_HHmmss
+docker run --rm `
+  -v mctrader_data:/source:ro `
+  -v ${PWD}:/backup `
+  alpine tar czf /backup/mctrader_data_${timestamp}.tar.gz -C /source .
+
+# Restore
+docker run --rm `
+  -v mctrader_data:/dest `
+  -v ${PWD}:/backup `
+  alpine tar xzf /backup/mctrader_data_<TIMESTAMP>.tar.gz -C /dest
+```
+
+bash 등가 명령:
+
+```bash
+# Backup
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+docker run --rm \
+  -v mctrader_data:/source:ro \
+  -v "$(pwd):/backup" \
+  alpine tar czf /backup/mctrader_data_${TIMESTAMP}.tar.gz -C /source .
+
+# Restore
+docker run --rm \
+  -v mctrader_data:/dest \
+  -v "$(pwd):/backup" \
+  alpine tar xzf /backup/mctrader_data_<TIMESTAMP>.tar.gz -C /dest
+```
+
+5 sister rollout (deployable trio: data, engine, web) 의 volume backup 표준 reference.
+
+#### D12.4 후속 자동화 (별도 Story)
+
+- volume backup cron / scheduled snapshot 자동화 — Phase 6 또는 별도 ops Story (Pilot F5/O4 carry-over)
+- ghcr.io publish 후 image-ref + volume data lineage tracking — Pilot F1-F3 carry-over
+- multi-host volume replication (production scale-out 시점) — TBD
+
+#### D12.5 의무
+
+본 §D12 의 invariant + recipe 는 5 sister rollout 시점에 deployable repo (data, engine, web) 가 reference 의무. library quartet (market, bithumb, hub) 는 `infra_strategy: none` 으로 본 §D12 미적용.
 
 ## Alternatives Considered
 
