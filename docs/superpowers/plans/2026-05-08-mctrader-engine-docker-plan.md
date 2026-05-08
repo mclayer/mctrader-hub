@@ -1440,10 +1440,18 @@ services:
 volumes:
   mctrader_data:
     external: true
+    name: mctrader_data  # Pilot compose.yml 의 explicit name (`mctrader-data/compose.yml:38`) 와 정합. Pilot 가 이 name 을 떨구면 본 compose break.
   mctrader_engine_runs:
   mctrader_engine_wfo:
   mctrader_engine_lock:
 ```
+
+**Phase 4 (MCT-101) surface review reconciliation** (parallel session 발견 사항 반영):
+
+- Surface 1 (ADR-014 single-process invariant): 이미 align — paper_runner 가 asyncio.Runner.run() 단일 process + HealthServer daemon thread.
+- Surface 2 (HealthServer 패턴): 이미 align — Pilot stdlib http.server 패턴 차용 (단순성 우선, FastAPI 의존 추가 회피).
+- Surface 3 (cross-stack volume name): 본 step 에서 `name: mctrader_data` 명시 추가로 Pilot 의존성 박제. standalone fallback (volume 부재 시 engine 동작) = 별도 Story 후보 (Future Q F8).
+- Surface 4 (ADR-002 D6 paper ledger forward-only): Phase 3 scope 외, future entry F9.
 
 ### Step 9.2: `docker compose config` smoke
 
