@@ -74,7 +74,7 @@ codeforge plugin 의 ADR-033 Accepted 후 mctrader 6-repo 가 Docker-first migra
 |---|---|---|---|
 | **D13 fcntl.flock cross-container mutex** | P3 (engine) | 기존 atomic-write+pid-alive 패턴이 cross-container PID namespace 격리에서 mutex 깨짐 — POSIX OFD-managed mutex 가 kernel 레벨에서 cross-container 동기화 보장 | **F9 carry-over** — 2nd reuse 시점에 ADR formalize (현재 단일 사용처 = engine) |
 
-### 4.3 13 D × 3 phase summary (33 결정 박제)
+### 4.3 Design 결정 박제 (~55 D, 6 phase 합산)
 
 - Phase 1 Pilot 7 D (D1-D7): 응답 경로 / Epic sequencing / Pilot 후보 / systemd 처리 / Compose surface / Pilot depth / Build target
 - Phase 2 entry 8 D (D1-D8): Phase 2 scope / Sequencing / First sister / Bithumb handling / library infra_strategy / ADR-009 amendment 시점 / 등록 mechanic / Epic 명칭
@@ -84,6 +84,16 @@ codeforge plugin 의 ADR-033 Accepted 후 mctrader 6-repo 가 Docker-first migra
 - Phase 6 close 9 D (D1-D9): Document location / Structure / D13 ADR formalization / F1-F8 carry-over / Close mechanic / Findings depth / Phase 6 Story / Metrics depth / F7 live smoke
 
 → 약 55 design 결정 일괄 Codex 7-area review + Sonnet decider 합성 + 사용자 승인 트라이악 패턴.
+
+### 4.4 Security-relevant invariants (deployable trio)
+
+본 Epic 가 박제한 보안 의미 invariant 3건 — deep dive 는 §5 또는 sister Story 박제, 본 절은 EPIC-RESULTS 수준 brief:
+
+| Invariant | Phase | 의미 | 박제 위치 |
+|---|---|---|---|
+| **D6 TLS env exempt + host port 0 invariant** | P4 web | host network 노출 금지 (compose api service 의 host port mapping 0). 외부 TLS 종단은 reverse proxy 책임. env override `MCTRADER_ALLOW_NON_LOCALHOST_NO_TLS` 명시 시점에만 non-localhost bind 허용 (UserWarning + 명시 의도). 3-asset enforcement = compose.yml + README 명시 + `tests/test_compose_invariant.py` CI gate (Codex fix-back commit) | MCT-101.md §8.4 / mctrader-web `tests/test_compose_invariant.py` |
+| **ADR-016 hash chain integrity-aware DR** | P4 web | audit_log 의 forward-only invariant + HMAC-SHA256 hash chain — backup-then-verify 의무 (verify CLI PASS 시점에만 backup 인정), WAL race avoidance, NFS/SMB 금지, restore 시 genesis row 보존 | §5.4 deep dive / ADR-016 §A1-A4 |
+| **Cross-stack volume RO mount + standalone fallback** | P4 web | mctrader-web api 가 mctrader-data 의 named volume 을 read-only 로 mount → 데이터 권한 격리. fail-loud invariant (volume 부재 시 fail) + standalone fallback env (`MCTRADER_DISABLE_DATA_STATUS`) 로 dev experience 유지 | MCT-101.md §8.4 / mctrader-web `compose.yml` D8 |
 
 ---
 
@@ -170,7 +180,7 @@ Phase 2 entry 의 ADR-009 §D12 박제 invariant:
 | Sister | volume topology | §D12 정합 | 비고 |
 |---|---|---|---|
 | Phase 1 mctrader-data 자체 | `mctrader_data` (named, rw) | invariant 자체 source | Pilot |
-| Phase 3 mctrader-engine | `mctrader_data:ro` (cross-stack) + `engine_runs` + `engine_wfo` + `engine_lock` (4 named volumes) | ✅ 4/4 named, forward-only | engine 자체 named 추가는 §D12 의 spirit 정합 |
+| Phase 3 mctrader-engine | `mctrader_data:ro` (external cross-stack) + `engine_runs` + `engine_wfo` + `engine_lock` (총 4 named volume = engine-owned 3 + cross-stack RO 1) | ✅ 4/4 named, forward-only | engine 자체 named 추가는 §D12 의 spirit 정합 |
 | Phase 4 mctrader-web | `mctrader_web_data:rw` (api 자체) + `mctrader-data_mctrader_data:ro` (external cross-stack) | ✅ 2/2 named, forward-only | RO mount 는 named volume 그대로 — §D12 정합 |
 | Phase 5 mctrader-market | n/a | n/a | 배포 표면 부재 |
 | Phase 5 mctrader-market-bithumb | n/a | n/a | 배포 표면 부재 |
@@ -188,7 +198,7 @@ Phase 2 entry 의 ADR-009 §D12 박제 invariant:
 | F4 | ghcr.io publish + multi-arch buildx (Pilot F1-F2 carry) | mid | list-only — release Story 후보 |
 | F5 | webapp-minimal codeforge example update (Streamlit 2-service 패턴) | low | list-only — codeforge upstream |
 | **F6** | **collector e2e Linux-only fix (MCT-97 P6 era)** | **HIGH** | **GitHub issue (mctrader-web) — 본 Epic close 와 동시 등록** |
-| F7 | manual integration smoke 10 항목 actual deploy verification | mid | list-only — deploy event 시 ops 책임 |
+| F7 | manual integration smoke 10 항목 actual deploy verification | mid | list-only — **trigger 조건**: 첫 production deploy event (예: ghcr.io publish 후 staging server 가동 시점) 또는 live executor (MCT-12) Docker 통합 시점 — 둘 중 먼저 발생한 시점에 ops Story 화 의무 |
 | F8 | dev sqlite git history cleanup | low | list-only — history rewrite Story 후보 |
 | F9 | D13 fcntl.flock cross-container mutex ADR formalization | low | list-only — 2nd reuse 시점 |
 
@@ -263,9 +273,9 @@ Phase 2 entry 의 ADR-009 §D12 박제 invariant:
 | 총 sister repo PR | 5 (data#11, engine#37, web#22, market#2, bithumb#5) |
 | 총 commit (sister repo) | data 8 + engine 10 + web 15-squashed (실 commit 다수) + market 1 + bithumb 1 = ~35+ |
 | 총 commit (mctrader-hub) | P1-P6 합 ~30 |
-| 총 신규 test | data +4 (HealthServer) + engine +6 (HealthServer + flock + paper_runner) + web +12 (D6/D8/compose invariant + 4 admin pyright fix) + library 0 = +22 |
-| 총 baseline → final test 수 (per repo) | data 182→186 / engine 751→757 / web (이미 460+ baseline) → +5 신규 + 4 fix = +9 net |
-| Linux-only e2e regression | F6 (1 test, MCT-97 era pre-existing surface 후 admin merge bypass + 본 Epic close 와 동시 follow-up issue 등록) |
+| 총 신규 test | data +4 (HealthServer) + engine +6 (HealthServer + flock + paper_runner) + web +12 (D6 = 15 cases via parametrize, D8 = 2 cases, compose invariant = 6 cases — 합계 unit ≈ 23, file 단위로는 3 신규 + 4 fix file = +12 file delta) + library 0 |
+| 총 baseline → final test 수 (per repo) | data 182→186 (+4) / engine 751→757 (+6) / web baseline 460+ → +13 신규 cases (D6/D8/compose invariant 합) + 4 admin fixture 의 pyright type fix (test count Δ 0, 단 type 정정만) ≈ net +13 case |
+| Linux-only e2e regression | F6 (1 test, MCT-97 era pre-existing — pyright 가려지던 시점에는 hidden, Phase 4 type fix 후 surface, admin merge bypass 시점 박제 + 본 Epic close 와 동시 mctrader-web repo 별도 issue 등록 — F6 가 신규 test count 에 포함되지 않음, 기존 test 의 regression surface) |
 
 ### 9.2 ADR amendment / 신규 pattern 수
 
@@ -290,14 +300,19 @@ Phase 2 entry 의 ADR-009 §D12 박제 invariant:
 
 → 총 Codex review round 8회 이상. Sonnet decider 합성 + 사용자 승인 트라이악 패턴 모든 phase 적용.
 
-### 9.4 Phase 3+4 parallel ROI 실측
+### 9.4 Phase 3+4 parallel ROI ≈50% 추정 (실측 근거 제한)
 
 - Phase 3 + Phase 4 모두 2026-05-08 단일 calendar day 완료
-- Phase 3 mctrader-hub merge: PR #135 02:33:04Z → mctrader-engine PR #37 후속 → (engine PR # 시점 미박제, but P3 close 02:30~03:00 KST 추정)
+- Phase 3 mctrader-hub merge: PR #135 02:33:04Z → mctrader-engine PR #37 후속 (engine PR merge timestamp 미박제, P3 종료 ~02:30-03:00 KST 추정)
 - Phase 4 mctrader-hub merge: PR #136 (01:59:25Z) → mctrader-web PR #22 (07:13:11Z) → PR #141 Story close (07:19:28Z)
-- 두 phase parallel 진행 시점 시간차 약 4-5시간 → serial 가정 시 8-10시간 → 실제 4-5시간 으로 약 50% 단축
+- 두 phase 병렬 진행 시 wall-clock 시간차 ~4-5시간 (Phase 4 종료 기준)
 
-→ Hybrid by shape sequencing (D2=C, deployable trio + library 분리) 의 critical path 단축 효과 확인. parallel session race 비용 (Phase 5 contamination 1건) 은 worktree isolation pattern 으로 mitigation.
+**주의** — ROI 산출 근거 제한:
+- Phase 3, Phase 4 의 단독 소요 시간 (start→end) 을 박제하지 않음 — 각 session 시작 timestamp 미기록
+- "serial 가정 시 8-10시간" 은 양 phase 가 각각 4-5시간 씩 소요됐다는 가정 하에 단순 합산
+- 실제 parallel session 의 oscillation, race recovery (Phase 5 contamination 1건 복구), Codex review round 비용 등은 미반영
+
+→ Hybrid by shape sequencing (D2=C, deployable trio + library 분리) 의 critical path 단축 효과 **≈50% 추정** (실측 근거 제한). parallel session race 비용은 worktree isolation pattern 으로 mitigation. 정밀 ROI 측정은 후속 Epic 의 session timestamp 박제 의무로 carry-over.
 
 ### 9.5 Version bump summary
 
