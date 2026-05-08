@@ -1067,6 +1067,25 @@ Expected: compose.yml parsed + rendered output. external volume reference (`mctr
 
 만약 standalone smoke 시 external volume 부재로 fail 시 — 본 plan §"Phase 3 standalone smoke" 에서 `docker volume create mctrader-data_mctrader_data` 임시 생성 후 검증.
 
+- [ ] **Step 2b: D6 host port invariant 3-asset enforcement 검증** (Codex 2026-05-08 High Area 2 박제)
+
+compose.yml 의 host port mapping 0 invariant 검증:
+
+```bash
+# api service ports 절 부재 확인
+docker compose config | python -c "
+import yaml, sys, json
+data = yaml.safe_load(sys.stdin.read())
+api_ports = data.get('services', {}).get('api', {}).get('ports', [])
+assert api_ports == [], f'D6 invariant 위반: api service 의 ports 절이 비어있어야 함, got: {api_ports}'
+panel_ports = data.get('services', {}).get('panel', {}).get('ports', [])
+assert panel_ports, f'panel service 의 ports 8501:8501 의무, got: {panel_ports}'
+print('D6 invariant PASS: api host expose 0, panel host:8501 expose')
+"
+```
+
+이 명령은 본 Step 의 manual smoke 의무 — output `D6 invariant PASS` 가 review 의 ground truth. 자동화는 Phase 6+ ops Story 후보.
+
 - [ ] **Step 3: Verify api_client port consistency**
 
 `src/mctrader_web/api_client/client.py` 의 default `port=DEFAULT_PORT=7821` 그대로. panel container 가 client 사용 시 `host="api"` keyword 로 override 가능 (이미 코드 지원).
@@ -1099,15 +1118,27 @@ D6 env (MCTRADER_API_HOST=0.0.0.0 + MCTRADER_ALLOW_NON_LOCALHOST_NO_TLS=1)
 
 ### Task 2.9 (conditional): panel api_client host env wiring
 
-**조건**: Task 2.8 Step 3 의 grep 결과 panel 측에서 `MctraderApiClient()` 가 default host 사용 시.
+**Decision rule** (Codex 2026-05-08 Medium Area 7 박제 — grep-dependent ambiguity 해결):
+
+Task 2.8 Step 3 의 grep 결과:
+- (a) panel page 에서 `MctraderApiClient()` 호출 시 host kwarg 없이 default 만 사용 → **본 Task 2.9 진입 의무**
+- (b) panel page 에서 host kwarg 명시 (`MctraderApiClient(host="api", port=7821)`) → **본 Task 2.9 skip** (compose env 동작 검증만 manual smoke)
+
+**Wiring 위치 결정**: `api_client/client.py` env-aware default 채택 (page 별 분산 instantiation 보다 single source of truth 유지).
 
 **Files:**
 - Modify: `c:/workspace/mclayer/mctrader-web/src/mctrader_web/api_client/client.py` (env-aware default)
-- 또는: `c:/workspace/mclayer/mctrader-web/src/mctrader_web/dashboard/<page>.py` (env read at instantiation)
 
-- [ ] **Step 1: Identify default host strategy**
+**Resolution priority** (host/port):
+1. kwarg `host=` / `port=` (caller explicit 우선)
+2. env `MCTRADER_API_HOST_FOR_CLIENT` / `MCTRADER_API_PORT_FOR_CLIENT`
+3. `DEFAULT_HOST=127.0.0.1` / `DEFAULT_PORT=7821` (legacy fallback)
 
-api_client 가 env-aware default 가 자연스러운지 (cleaner) vs page 별 instantiation site 가 env read (더 explicit) 비교.
+- [ ] **Step 1: Identify wiring need**
+
+`grep -n "MctraderApiClient" src/mctrader_web/dashboard/*.py` 결과 review:
+- (a) host kwarg 부재 → continue Step 2
+- (b) host kwarg 명시 → mark Task 2.9 SKIPPED + commit message 박제 후 Task 2.10 진입
 
 - [ ] **Step 2: Modify api_client/client.py**
 
@@ -1715,6 +1746,8 @@ docker compose exec api mctrader-cli audit-verify
 
 ## Smoke 8: Cross-stack volume RO read (mctrader-data peer 가동 시)
 
+### 8.A Positive case (peer 가동)
+
 ```bash
 # Verify external volume mounted RO on api
 docker compose exec api ls -la /var/lib/mctrader/data/
@@ -1731,6 +1764,33 @@ result = fetch_status('/var/lib/mctrader/data', use_cache=False)
 print(f'worst_level={result.worst_level}, error={result.error}, nodes={len(result.nodes)}')
 "
 # Expected: worst_level=0~2 (live data) / error=None
+```
+
+### 8.B Negative case (peer 부재 OR project name 변경 — D8 fail-loud invariant)
+
+(Codex 2026-05-08 Medium Area 3 박제 — D8 negative case 의무)
+
+```bash
+# Step 1: external volume 임시 삭제 (또는 다른 이름으로 rename test)
+docker volume rm mctrader-data_mctrader_data 2>/dev/null || true
+
+# Step 2: docker compose up 시도
+docker compose up -d 2>&1 | tee /tmp/compose-up.log
+echo "Exit: $?"
+
+# Expected fail-loud output:
+# error: external volume "mctrader-data_mctrader_data" not found
+# Exit: non-zero
+
+# silent fallback 발생 시 = D8 invariant 위반 → review block
+
+# Step 3: Recovery — fallback 또는 peer 재가동
+# Option A: standalone fallback (Smoke 9)
+echo "MCTRADER_DISABLE_DATA_STATUS=1" >> .env
+# compose.yml 의 external volume reference 임시 주석 처리 또는 docker volume create dummy
+docker volume create mctrader-data_mctrader_data
+docker compose up -d
+# Option B: mctrader-data peer 재가동 (별도 stack)
 ```
 
 ## Smoke 9: Standalone fallback (mctrader-data peer 미가동)

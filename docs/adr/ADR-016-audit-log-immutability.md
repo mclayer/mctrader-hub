@@ -167,6 +167,46 @@ restore 후 chain re-verify FAIL 시 = backup corruption → restore 롤백 (이
 - **NFS / SMB / network filesystem 위 named volume 금지** — WAL fsync 보장 안 됨 → hash chain race 가능.
 - production 환경에서 named volume 의 underlying directory 가 local fs 인지 확인 의무.
 
+**Storage class preflight** (Codex 2026-05-08 High Area 4 박제):
+
+backup 절차 진입 전 fs class 검증 의무:
+
+```bash
+# 1. Volume driver 확인 (local 만 허용)
+docker volume inspect mctrader_web_data --format '{{.Driver}}'
+# Expected: "local"
+
+# 2. Mountpoint underlying fs 확인
+MOUNT=$(docker volume inspect mctrader_web_data --format '{{.Mountpoint}}')
+df -T "$MOUNT" | tail -1
+# Expected: ext4 / btrfs / xfs / zfs / overlay (Linux) / 또는 NTFS (Windows wsl2)
+# Reject: nfs / nfs4 / cifs / smbfs
+
+# 3. Local 이 아닐 경우 backup 거부
+df -T "$MOUNT" | tail -1 | awk '{print $2}' | grep -qE '^(nfs|cifs|smb)' && {
+    echo "ERROR: backup 거부 — $MOUNT 가 network filesystem"
+    exit 1
+}
+```
+
+**WAL race 회피** (alternative): 위 checkpoint + tar 가 -wal/-shm 동기화 race 가능 시 대안:
+
+```bash
+# 1. api stop (volume detach 회피하지 않음 — graceful shutdown 만)
+docker compose stop api
+# 2. 정적 backup
+docker run --rm -v mctrader_web_data:/source:ro -v "$(pwd):/backup" \
+  alpine tar czf /backup/mctrader_web_audit_${TIMESTAMP}.tar.gz -C /source .
+# 3. api restart + verify
+docker compose start api
+sleep 60
+docker compose exec api mctrader-cli audit-verify
+```
+
+서비스 중단 가능 시 stop-tar-start 패턴이 가장 안전. 24x7 운영 시 §A1 hot backup 패턴 + accept WAL race 미세 가능성 (recovery 시 audit-verify 가 break 검출).
+
+**Production preflight script**: `scripts/audit_backup_preflight.sh` (Phase 6+ ops Story 후보 — 본 ADR 의 follow-up F-list 박제). preflight + backup + verify 단일 wrapper 자동화.
+
 ### Data integrity invariant (DataMigrationArchitect deputy)
 
 1. **Schema migration**: schema 변경 시 신규 column 은 `ALTER TABLE ADD COLUMN ... DEFAULT ...` 만 (NOT NULL 신규 column 은 default 필수). DROP COLUMN 금지 — 호환 유지.

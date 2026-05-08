@@ -236,7 +236,13 @@ def validate_tls_for_host(host: str) -> None:
         raise ValueError(...)  # 기존 invariant
 ```
 
-**보안 invariant**: env true 시 host port mapping 0 의무 (compose `ports:` 미명시 의무 → host network 노출 0 → TLS 부재 위험 0). README + compose.yml 의 양쪽 자산이 invariant 표현.
+**보안 invariant** (3-asset enforcement): env true 시 host port mapping 0 의무. 다음 3 자산이 invariant 동시 표현 — 하나라도 누락 시 review block:
+
+1. **compose.yml**: api service 의 `ports:` 절 미명시 (host expose 0)
+2. **README.md "Docker deployment"**: TLS bypass + host port 0 invariant 명시 절
+3. **Phase 2 Plan Task 2.8 step 3-validate**: `docker compose config | grep -A5 'api:'` → output 에 `ports:` 절 부재 검증 (manual smoke 의무)
+
+operator 가 본 invariant 위반 시 → host network 에 TLS 부재 endpoint expose 발생. **Codex 7-area review 2026-05-08 High Area 2 박제 — 3-asset 모두 review 의무**.
 
 ### §3.5 D8 Cross-stack volume + standalone fallback
 
@@ -267,6 +273,32 @@ MCTRADER_DISABLE_DATA_STATUS=1
 `status_adapter.fetch_status()` 가 첫 line 에서 env check → mock `StatusResult(worst_level=1, error="data status disabled (MCTRADER_DISABLE_DATA_STATUS=1)")` return. panel admin status section "yellow" 표시 + 메시지.
 
 **volume 이름 invariant**: Pilot project name = `mctrader-data` (mctrader-data repo directory). volume namespace = `<project>_<volume>` = `mctrader-data_mctrader_data`. Pilot Story §9.2 evidence 박제 (`docker volume inspect mctrader-data_mctrader_data` 명시).
+
+**Detection / diagnosis** (Codex 2026-05-08 High Area 1 박제):
+
+mctrader-data Pilot project name 변경 또는 standalone deployment 시 외부 volume 부재 → `docker compose up -d` 가 다음과 같이 fail:
+
+```
+service "api" refers to undefined volume mctrader-data_mctrader_data: invalid compose project
+```
+
+**Diagnosis steps**:
+
+```bash
+# 1. external volume 존재 확인
+docker volume ls | grep mctrader-data
+# Expected: mctrader-data_mctrader_data 표시 / 부재 시 mctrader-data peer 미가동 또는 project name 변경
+
+# 2. Pilot stack project name 확인
+cd <mctrader-data dir> && docker compose config | grep "name:"
+# Expected: project: name: mctrader-data
+
+# 3. fallback path
+# (a) mctrader-data peer 부재 시 → MCTRADER_DISABLE_DATA_STATUS=1 + compose.yml 에서 external volume reference 임시 주석 처리
+# (b) project name 변경 시 → mctrader-web compose.yml 의 external volume name 동기화 의무 (cross-repo coordination)
+```
+
+**fail-loud invariant**: external volume 부재 시 `docker compose up -d` 가 silent fallback 하지 않고 명시적 error 발생. 본 fail-loud 가 D8 검증의 ground truth.
 
 ### §3.6 D12 ADR-016 amendment — Docker volume backup + hash chain integrity
 
