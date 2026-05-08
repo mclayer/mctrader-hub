@@ -142,9 +142,9 @@ mctrader Docker-first Migration Epic 의 governance state 를 engineering state 
 
 #### Runtime (Phase 2 entry 종료 후 Epic state)
 
-- Epic MCT-98 OPEN, Phase 1 = DONE, Phase 2 entry = DONE, Phase 3-6 = TODO
-- Pilot Story MCT-99 OPEN (retroactive) — Phase 1 done badge, §11 retrospection complete
-- Bithumb finding OPEN (mctrader-market-bithumb#1) — bithumb sister rollout blocker label
+- Epic MCT-98 (#120) OPEN, Phase 1 = DONE, Phase 2 entry = DONE, Phase 3-6 = TODO
+- Pilot Story MCT-99 (#121) OPEN (retroactive) — Phase 1 done badge, §11 retrospection complete
+- Bithumb finding (mctrader-market-bithumb#4) **CLOSED 2026-05-08** — resolved by PR #3 inline fix + integration smoke verification (post-discovery during Phase 2 entry execution; original spec assumed open-and-blocking, actual state = pre-satisfied)
 - ADR-009 amended — sister rollout 들이 named volume + forward-only + DR pattern reference
 
 ### §3.4 Phase 2 entry 종료 후 Phase 3+ 진입 조건
@@ -165,8 +165,8 @@ mctrader Docker-first Migration Epic 의 governance state 를 engineering state 
 | **B1** | Epic Story file MCT-98 작성 + Phase 1-6 plan + child link 5개 (MCT-99 + Phase 3-5 placeholder) | `docs/stories/MCT-98.md` 존재 + grep "Phase 1\|Phase 2\|Phase 3\|Phase 4\|Phase 5\|Phase 6" |
 | **B2** | Pilot Story file MCT-99 작성 + §11 회고 완성 (Pilot 성과 + Phase 2+ 조건 + 5 sister shape 분석 + Bithumb finding link) | `docs/stories/MCT-99.md` 존재 + §11 section 확인 |
 | **B3** | ADR-009 amendment §X 추가 (named volume + forward-only + DR backup recipe) | `docs/adr/ADR-009-ohlcv-schema.md` diff 확인 |
-| **B4** | mctrader-hub Epic issue MCT-98 OPEN + body 에 Phase 1-6 plan | `gh issue view MCT-98 --repo mclayer/mctrader-hub` |
-| **B5** | mctrader-hub Pilot Story issue MCT-99 OPEN + retroactive close 가능 표시 (Phase 1 DONE) | `gh issue view MCT-99` |
+| **B4** | mctrader-hub Epic issue MCT-98 OPEN + body 에 Phase 1-6 plan | `gh issue view 120 --repo mclayer/mctrader-hub` |
+| **B5** | mctrader-hub Pilot Story issue MCT-99 OPEN + retroactive close 가능 표시 (Phase 1 DONE) | `gh issue view 121 --repo mclayer/mctrader-hub` |
 | **B6** | mctrader-market-bithumb issue #1 OPEN + 2 schema finding 명시 + MCT-99 link + 본문/title 에 "blocks Phase 5 bithumb rollout" marker (codeforge label 미bootstrap 상태 — label 의존 없이 본문 marker 로 충분) | `gh issue view 1 --repo mclayer/mctrader-market-bithumb` |
 | **B7** | mctrader-hub doc PR phase-gate-mergeable green | `gh pr checks` |
 | **B8** | Codex 7-area review push-back 모두 fix-back 또는 deferred 명시 | review 응답 + Sonnet decider 합성 commit |
@@ -231,7 +231,7 @@ git checkout -b docs/MCT-98-MCT-99-phase-2-entry
 - 6 repo (1 hub + 5 sister) 모두 `.claude/_overlay/project.yaml` 에 `infra_strategy:` 명시 (docker_first or none)
 - 2 repo (data, engine) 또는 3 repo (data, engine, web) Docker artifact 보유 + healthcheck pattern 박제
 - 3 repo (market, bithumb, hub) `infra_strategy: none` lint pass
-- `mctrader-market-bithumb#1` (WS finding) close 또는 별도 Story 로 close
+- `mctrader-market-bithumb#4` (WS finding) **이미 CLOSED 2026-05-08** (resolved by PR #3 + integration smoke verification, Phase 5 entry pre-satisfied)
 - EPIC-RESULTS-MCT-98.md 작성 (회고 + 6 phase 결과 요약 + cross-cutting finding + 후속 ADR 후보)
 
 ### §8.2 EPIC-RESULTS file 위치

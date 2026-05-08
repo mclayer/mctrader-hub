@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **POST-EXECUTION AMENDMENT (2026-05-08)**: 본 plan 의 D4 가정 ("Bithumb WS finding 미등록 → issue 등록 + Phase 5 blocker") 은 timeline 누락 기반이었음. 실제 timeline: mctrader-market-bithumb PR #3 (`fix(ws_mapping): align with live Bithumb envelope`) 가 Pilot 종료 ~4시간 후 (2026-05-07T12:02:24Z) **same-day inline fix** 됨. 본 plan 실행 중 Task 4 (Bithumb finding 등록) 후 PR #3 발견 → integration smoke verification 직접 실행 → mctrader-market-bithumb#4 close as resolved (2026-05-08T00:36:49Z). Plan 본문의 `bithumb#1` 참조는 등록 시점 가정값 (실제 issue # = #4, CLOSED). Phase 5 bithumb sister rollout entry condition (Story §7 Phase 5) 단순화: "WS schema fix Story 선행 의무" → **이미 만족** (PR #3 + smoke verified). Story file (MCT-98.md, MCT-99.md) 가 actual state 박제 — 본 plan 의 historical narrative 와 비교 시 Story file 우선.
+
 **Goal:** mctrader Docker-first Migration Epic governance state 정렬. mctrader-data Pilot 구현 종료 후 Epic + Pilot Story 를 retroactive 등록하고 ADR-009 §D12 (named volume + forward-only + DR backup) 박제, mctrader-market-bithumb WS schema finding 별도 issue 등록. 5 sister rollout (Phase 3-5) 진입 전 의무.
 
 **Architecture:** doc-only PR + GitHub issue 등록. 코드 변경 0. 산출 7 artifact: mctrader-hub `docs/stories/MCT-98.md` (Epic) + `docs/stories/MCT-99.md` (Pilot retroactive) + `docs/adr/ADR-009-ohlcv-schema.md` (§D12 amendment) + 3 GitHub issue (mctrader-hub × 2, mctrader-market-bithumb × 1) + Codex 7-area review + Sonnet decider 합성.
