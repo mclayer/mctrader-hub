@@ -6,7 +6,7 @@ component: epic
 type: epic
 parent_epic: null
 related_adrs: ADR-002, ADR-005, ADR-006, ADR-007, ADR-009
-results_doc: EPIC-RESULTS-MCT-55.md
+results_doc: docs/retros/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-55 (Epic): WFO Execution — ADR-006 자동 실행 도구 + Web Integration

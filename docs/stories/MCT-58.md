@@ -6,7 +6,7 @@ component: engine
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-006
-results_doc: EPIC-RESULTS-MCT-55.md
+results_doc: docs/retros/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-58: OOS evaluator + 12-metric AND gate D6 + canonical fold report
