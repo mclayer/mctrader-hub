@@ -17,6 +17,7 @@ Accepted — 2026-05-02. MCT-9 Phase 1 PR.
 - 2026-05-04 — §D10 (Tick stream v1) + §D11 (Orderbook event stream v1) NEW. MCT-63 Epic Phase 1.
 - 2026-05-05 — §D2.1 (Active-Active HA `node=` partition + dedup contract anchor) + §D10.7 (T2 tick logical key) + §D11.8 (T3 orderbook logical key) NEW. MCT-X1 Phase 1 (Collector HA active-active multi-node + shared storage).
 - 2026-05-08 — §D12 (Docker-first persistence: named volume `mctrader_data` + forward-only invariant + DR backup recipe) NEW. MCT-98 Phase 2 entry (mctrader Docker-first Migration Epic, Pilot reference 박제).
+- 2026-05-09 — §D9 amendment (L3 reservation = future exchanges only, Bithumb KRW 한정 L2-30 only) + §D13 (`exchange_metadata.v1`) NEW + §D14 (`orderbook_snapshot.v1` L2 30-level snapshot stream + ordering invariant) NEW. MCT-104 Phase 1 (Bithumb 데이터 surface 전수 탐색 + P1 metadata + P2 orderbook snapshot 채택).
 
 ## Context
 
@@ -166,10 +167,10 @@ class Candle(Protocol):
 
 Reader: `scan_candles(exchange, symbol, timeframe, start_ts, end_ts, snapshot_id) -> Iterable[Candle]` — `ts_utc` ASC, end exclusive, forward-fill 금지.
 
-### D9. Orderbook snapshot v1 — L3 depth-ladder (예약, 미구현)
+### D9. Orderbook depth-ladder v1 — L3 reservation (예약, 미구현, future exchanges only)
 
 ```
-schema_version=orderbook_snapshot.v1
+schema_version=orderbook_depth_ladder.v1
 exchange / symbol / ts_utc / sequence_id /
 bid_prices / bid_sizes / ask_prices / ask_sizes / depth /
 source_ingested_at / data_snapshot_id / data_hash
@@ -177,7 +178,18 @@ source_ingested_at / data_snapshot_id / data_hash
 
 Lists = LIST<DECIMAL(38,18)>. Upbit `orderbook_units` ↔ 자연 매핑.
 
-**§D9 = L3 depth-ladder 형식 reservation (ADR-004 D2 L3 future).** 미구현. §D11 (L2 event stream) 와 별개 schema. Bithumb public WS 는 L2 만 제공 → §D11 이 v1 구현분.
+**§D9 = L3 depth-ladder 형식 reservation (ADR-004 D2 L3 future).** 미구현. §D11 (L2 event stream) 와 별개 schema.
+
+#### D9 Amendment (NEW, MCT-104 Phase 1, 2026-05-09)
+
+**§D9 reservation scope = L3 depth-ladder 를 노출하는 future exchange 대상 only**. Bithumb KRW 스팟 public WS 는 **L2 30-level only** (`orderbookdepth` channel 의 delta event + `orderbooksnapshot` channel 의 30-level full snapshot push) — Bithumb KRW 한정으로는 §D9 활성화 대상 **아님**. Bithumb 운용은:
+
+- L2 event stream (delta) → §D11 (`orderbook.v1`)
+- L2 30-level snapshot stream → **§D14 (`orderbook_snapshot.v1`)** (NEW, MCT-104 Phase 1)
+
+§D9 의 schema_version (`orderbook_depth_ladder.v1`) 은 §D14 의 schema_version (`orderbook_snapshot.v1`) 과 **별개 namespace**. 향후 L3 노출 거래소 도입 시 §D9 활성화 + §D14 와 양립. naming collision 회피 위해 §D9 의 schema_version label 을 명시적으로 `orderbook_depth_ladder.v1` 로 박제 (기존 `orderbook_snapshot.v1` 라벨은 §D14 가 점유).
+
+본 amendment 는 Bithumb KRW 노출 사실 (L2 30-level only) 을 §D9 reservation 의 dormant 상태와 분리하기 위한 명시화 작업. Bithumb KRW 가 L3 미노출 → §D9 활성화 trigger 에 해당 안 함. 후속 거래소 도입 시 본 절 amendment 로 활성화.
 
 ### D10. Tick stream v1 (NEW, MCT-63 Epic Phase 1, 2026-05-04 amendment)
 
@@ -404,6 +416,255 @@ docker run --rm \
 #### D12.5 의무
 
 본 §D12 의 invariant + recipe 는 5 sister rollout 시점에 deployable repo (data, engine, web) 가 reference 의무. library quartet (market, bithumb, hub) 는 `infra_strategy: none` 으로 본 §D12 미적용.
+
+### D13. Exchange metadata v1 (NEW, MCT-104 Phase 1, 2026-05-09)
+
+거래소 capability snapshot 의 forward-only partitioned record. ADR-002 H5 `ExchangeCapabilities` frozen dataclass 의 first implementation source. mctrader-data collector daemon 이 daily cadence 로 Bithumb public REST `/public/ticker/ALL_KRW` (symbol list + asset_status proxy) + 코드화된 Bithumb price-band lookup table (tick_size) + 공식 fee schedule (fee_maker / fee_taker 정율) 결합 후 snapshot 적재.
+
+#### D13.1 Schema (14 column)
+
+| Column | Type | Nullable | 의미 |
+|---|---|---|---|
+| schema_version | string | no | `"exchange_metadata.v1"` |
+| exchange | string | no | `"bithumb"` v1 only |
+| symbol | string | no | canonical `"{quote}-{base}"` (e.g. `"KRW-BTC"`) |
+| base_asset | string | no | canonical (e.g. `"BTC"`) |
+| quote_asset | string | no | canonical (e.g. `"KRW"`) |
+| tick_size | decimal128(38, 18) | no | 가격 단위 (Bithumb price-band lookup table 의 결정값) |
+| min_order_qty | decimal128(38, 18) | no | 최소 주문 수량 (없는 거래소 = `0` sentinel 금지 — 명시 자료 필수) |
+| min_order_notional_krw | decimal128(38, 18) | yes | 최소 주문 KRW 명목 (Bithumb KRW 스팟 = `5000` 정율, future exchange = nullable) |
+| fee_maker | decimal128(38, 18) | no | maker 수수료율 (e.g. `0.0025` = 0.25%) |
+| fee_taker | decimal128(38, 18) | no | taker 수수료율 |
+| asset_status | string | no | `"active"` / `"deposit_only"` / `"withdraw_only"` / `"halted"` (Bithumb `/public/assetsstatus` 응답 normalize) |
+| fetched_at | timestamp[ns, UTC] | no | collector REST 호출 응답 도착 시각 (= **available_from_ts**, ADR-005 path c) |
+| source_snapshot_id | string | no | logical key 의 일부 — collector 가 daily refresh 시 발급한 deterministic id (e.g. SHA256(`exchange|fetched_date|collector_run_id`)[:16]) |
+| data_hash | string | no | (exchange + symbol + tick_size + min_order_qty + fee_maker + fee_taker + asset_status) tuple 의 SHA256. 동일 hash = idempotent skip + dedup. |
+
+근거:
+- `tick_size` / `min_order_qty` / `fee_maker` / `fee_taker` = ADR-002 H5 `ExchangeCapabilities` 의 4 hard requirement.
+- `asset_status` = Live executor 의 H9 data freshness gate + asset halt 시 order block source.
+- `min_order_notional_krw` = Bithumb KRW 스팟 의 `5000 KRW` 명목 minimum (Bithumb 공식). nullable = future exchange 가 quote 별 다른 minimum 사용 시 N/A.
+- `data_hash` = §D13.5 logical key 와 별도 — content-based dedup 보강 (capability 가 변경 안 된 day 의 idempotent skip).
+
+#### D13.2 Hive partition layout
+
+```
+market/exchange_metadata/schema_version=exchange_metadata.v1/exchange={ex}/
+       fetched_date={YYYY-MM-DD}/node={node_id}/
+       part-{collector_run_id}.parquet
+```
+
+Physical partition = UTC date of `fetched_at` (`fetched_date`). §D2 ohlcv 의 year/month/date 계층보다 단순 — metadata 의 cardinality (50 sym × 365 day) 가 낮아 단일 `fetched_date` partition 으로 충분.
+
+§D2.1 HA = `node=` partition 적용. mixed legacy partition (pre-HA) 지원은 본 partition 신규 도입이라 N/A — 모든 row 가 `node=NODE_A` 또는 `node=NODE_B` 또는 `node=DEFAULT` (단일 node).
+
+#### D13.3 Forward-only invariant + lookahead 방어
+
+**`available_from_ts := fetched_at`**. ADR-005 path c. Backtest reader (`scan_exchange_metadata`) 는 caller 의 `simulated_clock` 주입 시 `fetched_at <= simulated_clock` row 만 yield + 가장 가까운 row 선택 (lookback semantics). `fetched_at > simulated_clock` row 노출 = lookahead violation → reject + halt (D11.6 동형).
+
+#### D13.4 Refresh cadence + scheduling
+
+- Default cadence: **1 day** (Bithumb capability 변경 빈도 낮음). 
+- Schedule: 매 UTC 0시 + 1분 grace (collector daemon scheduler 가 `next_fetch_at = ceil_to_utc_midnight(now()) + 1min` 계산).
+- Rate-limit budget (§D13.7 별도 절) 준수 의무.
+- 변경 detection: 적재 직전 직전 day 의 `data_hash` 와 비교 — 동일 시 idempotent skip (row 미생성, 단 manifest 에 "skipped" 기록). 다른 시 신규 row append.
+
+#### D13.5 Active-Active HA dedup logical key
+
+T2/T3 와 다른 cardinality (low frequency, daily snapshot) — logical key:
+
+**Logical key**: `(exchange, symbol, fetched_date, source_snapshot_id)` 4-tuple.
+
+**dedup procedure** (read-side `scan_exchange_metadata` 책임):
+
+1. multi-node partition union scan
+2. 동일 logical key tuple 발견 시 **node priority** (alphabetical) — §D2.1 동형
+3. content (data_hash 비교) 일치 → idempotent skip
+4. content mismatch → **`active-active mismatch` quarantine** emit (signal: tier=metadata / node_a / node_b / logical_key / data_hash_diff)
+
+**Dedup 정확도 목표**: > 99% (양 node 가 같은 day 에 같은 REST endpoint 호출 → 양 node identical 기대 매우 높음). 미달 시 root cause = REST upstream change mid-day 또는 fetched_at clock skew (host clock drift).
+
+**Timestamp tolerance**: `fetched_at` 은 collector 측 도착 시각 → 양 node divergence 가능 (ms-tolerance ±60s 적용 — daily cadence 라 수십초 drift 수용). `fetched_date` partition key 는 strict equality.
+
+#### D13.6 Read API contract
+
+```python
+def scan_exchange_metadata(
+    exchange: str,
+    symbol: str,
+    ts_utc: datetime,
+    *,
+    snapshot_id: str | None = None,
+) -> ExchangeMetadataRecord:
+    """가장 가까운 fetched_at <= ts_utc 의 row 반환 (lookback semantics).
+
+    Lookahead 방어: fetched_at > ts_utc row 노출 금지.
+    """
+```
+
+ADR-002 H5 `ExchangeCapabilities` frozen dataclass 매핑:
+- `fee_maker` / `fee_taker` → `Capabilities.fee` (maker/taker 분리)
+- `tick_size` → `Capabilities.tick`
+- `min_order_qty` → `Capabilities.min_order_size`
+- `min_order_notional_krw` → `Capabilities.min_order_notional`
+- `asset_status` → ADR-002 H9 data freshness gate 의 입력 (halt = order reject)
+
+#### D13.7 Rate-limit + backoff + halt 정책 (Calibration C2)
+
+- Bithumb public REST rate-limit: 135 req/sec (exchange 공식). collector daemon 의 daily cadence + 50 sym 가정 시 **1 req/day × 1 endpoint = budget overhead 무시 가능**.
+- Endpoint 호출 실패 시 exponential backoff (initial 1s, doubling, max 5min, retry budget 5회). 5회 실패 = halt + emit `MetadataFetchHaltEvent`.
+- 직전 day metadata 가 살아있으면 stale-but-acceptable (ADR-005 path c — `available_from_ts` 가 lookahead 방어). collector daemon 은 retry budget 소진 후에도 halt 안 함 — 다음 day cadence 재시도 + alert. 단 14일 이상 fetch 실패 시 `MetadataStaleHaltEvent` (Live executor consumer 측 capability gate 가 halt trigger).
+
+#### D13.8 Lineage + manifest
+
+- `_lineage.json` per partition (§D6 candle 동형) — endpoint URL + request_params_hash + fetched_at_utc + response_hash + adapter_version.
+- `CollectorManifest` (MCT-65 schema) 에 "skipped daily refresh" 기록 의무 — idempotent skip 도 manifest 에 row 1 (`event_type="skipped"`).
+
+#### D13.9 Out-of-scope
+
+- Private REST `/info/account_info` 등 (KRW 스팟 미공개 + Live Epic).
+- `tick_size` 의 dynamic refresh (Bithumb price-band lookup 변경) — 현재는 코드화된 lookup table 채택. Bithumb 공식 변경 발표 시 hand-amend.
+- Multi-exchange — Bithumb only v1.
+
+### D14. Orderbook L2 snapshot stream v1 (NEW, MCT-104 Phase 1, 2026-05-09)
+
+forward-only L2 30-level orderbook **full snapshot** stream — Bithumb public WS `orderbooksnapshot` channel 의 push event partition. §D11 (`orderbook.v1` L2 event stream — snapshot + delta 가 flat 으로 mix) 와는 **별개 partition**: §D14 = full snapshot only (no delta), §D11.6 fail-closed reconstruction 의 missing baseline gap window 단축의 baseline source.
+
+§D9 (L3 depth-ladder reservation, future exchanges only) 와도 별개 schema — §D9 의 schema_version 은 `orderbook_depth_ladder.v1`, 본 §D14 의 schema_version 은 `orderbook_snapshot.v1` (별도 namespace).
+
+#### D14.1 Schema (10 column — §D11.1 / §D10.1 의 schema_version-out-of-row 패턴 답습)
+
+`schema_version` 은 partition path (`schema_version=orderbook_snapshot.v1`) 에 박제 — column 화 안 함 (§D11.1 / §D10.1 동형). row column 10:
+
+| Column | Type | Nullable | 의미 |
+|---|---|---|---|
+| ts_utc | timestamp[ns, UTC] | no | 거래소 발생 시각 (Bithumb WS event_time, snapshot 자체의 stamp) |
+| received_at | timestamp[ns, UTC] | no | collector server-side 도착 시각 (= **available_from_ts**, §D11.4 동형) |
+| exchange | string | no | `"bithumb"` v1 only |
+| symbol | string | no | canonical |
+| baseline_seq | int64 | no | snapshot 내 결정성 sort key — §D14.5 ordering invariant 참조 |
+| side | string | no | `"bid"` / `"ask"` |
+| level | int32 | no | 0..29 (top-of-book = 0, Bithumb L2 30-level) |
+| price | decimal128(38, 18) | no | level price |
+| quantity | decimal128(38, 18) | no | level quantity |
+| raw_json | string | yes | original WS frame (debug, optional) |
+
+`event_type` column 부재 — 본 partition 은 snapshot 만 보유 (delta 는 §D11). 
+
+`baseline_seq` 의무 (Bithumb WS 가 sequence column 미노출, §D11.8 검증 결과) — collector 측 발급:
+- 동일 snapshot frame (multi-frame split 가능 §D14.5) 의 모든 row 는 동일 `baseline_seq` (frame group id).
+- frame group id = `f"{symbol}|{ts_utc.isoformat()}|{collector_run_id}|{frame_seq}"` 의 SHA256 first 8 bytes (int64 cast). 동일 (symbol, ts_utc) 의 multi-frame 시 `frame_seq` = 0,1,2,... — 단조 증가, 결정적.
+
+#### D14.2 Hive partition layout
+
+```
+market/orderbook_snapshot/schema_version=orderbook_snapshot.v1/exchange={ex}/
+       symbol={sym}/date={YYYY-MM-DD}/node={node_id}/
+       part-{collector_run_id}.parquet
+```
+
+Physical partition = UTC date of `received_at`. §D2.1 HA `node=` partition 적용. §D11.2 (`orderbook.v1`) 와 비슷한 layout 이지만 partition root 가 별도 (`market/orderbook_snapshot/` vs `market/orderbook/`).
+
+#### D14.3 Forward-only invariant + lookahead 방어
+
+**`available_from_ts := received_at`** — §D11.4 동형 mechanism. `event_time` (`ts_utc`) 사용 금지 — Bithumb 측 server clock skew 가능.
+
+#### D14.4 결정적 sort key
+
+`(ts_utc ASC, baseline_seq ASC, side ASC ['ask' < 'bid' alphabetical], level ASC)`. 동일 ts_utc 다중 snapshot frame = baseline_seq 순. 동일 baseline_seq 내 row 는 side+level 순. Backtest 결정성 의무.
+
+§D11.5 (delta event stream) 의 sort key 와 다름 — §D14 는 frame group 내 ordering (snapshot 자체의 60 row 가 결정적) 의무가 추가.
+
+#### D14.5 Ordering invariant — baseline_seq + delta applicability window (Calibration C3 freeze)
+
+본 절은 §D11.6 fail-closed reconstruction 정책의 **contract base alignment**. 3 invariant freeze:
+
+**(1) 동일 (symbol, snapshot ts) 의 baseline_seq 결정성 (multi-frame split 시 ordering 보존)**
+
+Bithumb WS 가 한 snapshot 을 multiple frame 으로 split 하는 경우 (§D11.8 divergence source — Bithumb 공식 미명시 but 관측 가능):
+- collector 가 **frame_seq** 를 도착 순으로 0,1,2,... 발급
+- frame group id = SHA256(`symbol|ts_utc.iso|collector_run_id|frame_seq`)[:8] → int64 → `baseline_seq`
+- 동일 (symbol, ts_utc) 의 모든 frame row 는 같은 frame group id 의 단조 증가 sequence — 양 node 가 다른 frame 분할 경계로 도착해도 logical key (symbol, ts_utc, side, level, price) 일치 시 §D2.1 dedup 적용
+
+**(2) Snapshot 적용 후 §D11 delta event 가 어느 시점부터 fold-forward 가능한지 (=delta applicability window)**
+
+Reconstruction utility (MCT-66 `get_orderbook_at`) 의 fold sequence:
+
+1. **Baseline 선택**: 시점 T 에 대해 `received_at <= T` 인 가장 최근 §D14 snapshot 의 frame group (동일 baseline_seq 의 60 row) 을 baseline 으로 채택. 없으면 §D11 의 `event_type="snapshot"` event (legacy) 로 fallback.
+2. **Delta applicability window**: 채택한 snapshot 의 `received_at` (= `T_baseline`) 기점, **`(T_baseline, T]` 구간의 §D11 delta event** 만 fold-forward. `received_at <= T_baseline` 인 §D11 delta 는 **무시** (이미 snapshot 에 반영된 state 의 prior delta — replay 시 over-apply 발생).
+3. **Frame split safety**: 동일 baseline_seq 의 frame group 이 incomplete (60 row 미만) detected 시 fail-closed (`ReconstructionError("incomplete snapshot frame group")`). silent skip 거부. 직전 baseline 으로 fallback 또는 halt 의 caller 정책 의무.
+
+**(3) Snapshot 도달 전 delta 도달 시 처리 정책**
+
+WS reconnect 직후 또는 collector startup 직후 시점:
+
+- 처리 path = **2-step**:
+  1. Pending queue 보관 (in-memory, FIFO, default size 10,000 event). reconnect 후 첫 snapshot 도달 시점까지의 delta 만 보관.
+  2. 첫 snapshot 도달 시 (2) applicability window (= snapshot 의 `received_at` = T_baseline 이후 delta 만) 적용 후 fold. snapshot 도달 전 delta = T_baseline 이전 → 무시 (queue drop). snapshot 도달 후 도착 delta = queue 비우면서 fold.
+- Fail-closed trigger:
+  - Queue overflow (10,000 event 초과 도달) = halt + emit `PendingDeltaOverflow`. snapshot push interval 이 reconnect 후에도 도달 안 함 = upstream incident.
+  - Reconnect 후 first-snapshot-timeout (default 60sec) = halt + emit `MissingBaselineHaltEvent`. §D11.6 의 "missing baseline" 정책 답습.
+- 본 정책은 §D11.6 fail-closed 의 단축 효과 = "다음 snapshot 도달 시점 (push interval, default 30s 가정) 까지의 wall-clock 단축". push interval 측정 + lock-in = Calibration C2 의무. 첫 7일 측정 후 retention / push subsample 정책 freeze.
+
+본 invariant 3종은 §D11.6 fail-closed 정책의 "missing baseline" gap window 단축 mechanism 의 contract — silent skip / over-apply / under-apply 어느 violation 도 fail-closed.
+
+#### D14.6 Active-Active HA dedup logical key
+
+T3 (§D11.8) 와 비슷한 best-effort + Bithumb sequence column 부재 fallback:
+
+**Logical key (fallback tuple)**: `(exchange, symbol, ts_utc, baseline_seq, side, level, price, quantity)` 8-tuple.
+
+**Best-effort 명시** — 다음 source 에서 양 node divergence 발생:
+- **Frame split 분할 경계 차이**: 같은 snapshot 을 양 node 가 다른 frame_seq 로 분할하면 baseline_seq 가 다름. 이 경우 dedup 정확도 < 100% (양 node 의 같은 row 가 다른 baseline_seq 를 가짐).
+- **Reconnect 직후 baseline**: 양 node reconnect 시점 다르면 baseline 의 ts_utc 차이.
+- **Received_at fallback**: §D10.7 / §D11.8 동형.
+
+**Mitigation** — content (price + quantity) 일치 + 같은 (ts_utc, side, level) tuple → "soft logical key" dedup 추가 (baseline_seq 무시). 적용 시점은 read-side reconstruction utility 의 책임 — 양 node 의 baseline 이 다른 frame group 으로 도착해도 fold 결과 동일한 state 가 나오도록 보강.
+
+**Dedup 정확도 목표**: > 90% (T3 보다 낮음, frame split 분할 차이 인정). 미달 시 root cause analysis. C2 측정 의무.
+
+**Timestamp tolerance**: §D11.8 동형 (server-side ts strict, received_at fallback ms-tolerance ±100ms).
+
+**raw_json column 정책**: §D11.8 동형 (node priority 우선 row 의 값 채택).
+
+**§D11.6 Fail-closed reconstruction 와의 관계**: 기존 §D11.6 은 §D14 도입 후에도 유지. 단 baseline source 가 §D11 의 `event_type="snapshot"` event 만이 아니라 §D14 의 snapshot frame 도 포함 — reconstruction utility 의 baseline 선택 알고리즘 (D14.5 (1)/(2)) 가 양 source union.
+
+#### D14.7 Read API contract
+
+```python
+def scan_orderbook_snapshots(
+    exchange: str,
+    symbol: str,
+    start: datetime,
+    end: datetime,  # half-open [start, end)
+    *,
+    snapshot_id: str | None = None,
+) -> Iterable[OrderbookSnapshotRecord]:
+    """L2 30-level full snapshot stream. ts_utc ASC + baseline_seq ASC + side+level ASC."""
+```
+
+`get_orderbook_at(symbol, ts_utc)` (§D11.3 의 기존 utility) 의 baseline source 는 §D14 (`orderbook_snapshot.v1`) → §D11 (`event_type="snapshot"`) → halt 순으로 fallback. caller 변경 0 — utility 내부 baseline selection 이 §D14 우선.
+
+#### D14.8 Storage budget 정량 추정 (Calibration C1 freeze)
+
+- Push interval 가정: **30s/symbol** (Bithumb 공식 미명시, 보수적 가정 — 첫 7일 측정 후 lock-in)
+- Per-snapshot rows: **60 (bid 30 + ask 30)**
+- Per-day snapshots/symbol: 24 × 3600 / 30 = **2,880**
+- Per-row size compressed (zstd): **~40 bytes** (decimal128 2 + int32 1 + int64 1 + string 5 + timestamp 2, raw_json nullable null 가정)
+- 50 symbols × 1년 × 2 node = **~252 GB/year** (uncapped)
+- **Retention freeze: 180 days** → annual rolling **~125 GB** (2 node)
+- 실측 push interval > 30s 시 정비례 감소 / < 30s 시 증가 — C2 calibration 7일 후 lock-in.
+
+P1 `exchange_metadata.v1` 은 daily × 50 sym × 2 node × ~50 bytes = **~1.8 MB/year, 영구 retention**. 무시 가능.
+
+Compression: zstd (level 3) 통일.
+
+#### D14.9 Out-of-scope
+
+- L3 depth-ladder (§D9 future exchanges only).
+- Bithumb private WS (KRW 스팟 미공개).
+- multi-exchange (Bithumb only v1).
+- §D11 delta partition 의 retention 변경 (별도 ops Story).
 
 ## Alternatives Considered
 
