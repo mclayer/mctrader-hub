@@ -378,3 +378,21 @@ UI 장애 시에도 CLI / direct API call 로 kill 가능 — engine = enforceme
 - MCT-42 (carrier ADR-012)
 - MCT-46 (engine impl)
 - ADR-008 D8 (incident response 7-step)
+
+## H5 Implementation seal — `ExchangeCapabilities` source partition (Amendment 2, 2026-05-09, MCT-104)
+
+ADR-002 D10 H5 (`ExchangeCapabilities` frozen dataclass per-exchange) 은 ADR 채택 시점 (2026-05-02) 에 dataclass shape 만 freeze, **source 미정** 상태였다. mctrader-engine 코드 grep 결과 (2026-05-09, MCT-104 §2 audit) — `ExchangeCapabilities` 는 어떤 형태 (dataclass / hardcode / config / DI) 로도 미구현 상태였다 (Live executor blocker dormant).
+
+**MCT-104 Phase 1 PR 이 H5 first implementation seal**:
+
+- **Source partition**: ADR-009 §D13 (`exchange_metadata.v1`) — mctrader-data collector daemon 이 daily cadence 로 Bithumb public REST `/public/ticker/ALL_KRW` + 코드화된 price-band lookup table + 공식 fee schedule 결합 후 적재.
+- **Capability 매핑** (§D13.6 박제):
+  - `fee_maker` / `fee_taker` → `Capabilities.fee` (maker/taker 분리 필수, ADR-002 H5 의 "fee" 단일 field 가 maker/taker 분리로 명시화 amend)
+  - `tick_size` → `Capabilities.tick`
+  - `min_order_qty` → `Capabilities.min_order_size`
+  - `min_order_notional_krw` → `Capabilities.min_order_notional`
+  - `asset_status` → ADR-002 H9 data freshness gate 의 입력 (asset halt = order reject)
+- **Live executor consumer 책임**: ADR-002 H5 의 dormant 상태 종결. 단 mctrader-engine 측 `ExchangeCapabilities` consumer 구현 = Live executor Epic (별도 Story) 책임. MCT-104 = produce only — `exchange_metadata.v1` partition 적재까지 책임.
+- **Capability schema drift 정책**: `ExchangeCapabilities` dataclass 의 field 추가 = ADR-002 amendment + ADR-009 §D13 schema migration (minor `exchange_metadata.v1.M`). field 삭제 = supersede.
+
+본 amendment 로 ADR-002 H5 의 dormant 상태가 종결되며, ADR-009 §D13 이 H5 의 canonical source 로 박제된다. ADR-009 §D13.6 의 "ADR-002 H5 매핑" 절이 SSOT 으로 cross-reference.
