@@ -3,6 +3,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: mctrader-postgres
     environment:
       POSTGRES_DB: mctrader
       POSTGRES_USER: mctrader
@@ -13,7 +14,9 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - mctrader_net
+      mctrader_net:
+        aliases:
+          - postgres
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mctrader"]
       interval: 10s
