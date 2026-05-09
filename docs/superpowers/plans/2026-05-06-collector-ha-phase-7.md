@@ -24,7 +24,7 @@ Escalation 0.
 3. Run C1 + C2 → capture output → commit `*_results.txt`
 4. `scripts/ha/e2e/two_process_simulation.py` — E2E demo
 5. Run E2E → capture output → commit `e2e_results.txt`
-6. `docs/results/EPIC-RESULTS-MCT-89.md` — 10-section Epic close artifact
+6. `EPIC-RESULTS-MCT-89.md` — 10-section Epic close artifact
 7. `scripts/ha/README.md` §"Capacity" TBD → measured values backfill
 8. `docs/stories/MCT-96.md` — Story §1-9 + §11 (Epic-level 회고)
 9. PR open + admin merge + Memory update + Epic close marker
