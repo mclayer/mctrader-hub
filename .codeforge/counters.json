@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "prefix": "MCT",
+  "counters": {
+    "mctrader-hub":            { "next": 112 },
+    "mctrader-data":           { "next": 1 },
+    "mctrader-market":         { "next": 1 },
+    "mctrader-market-bithumb": { "next": 1 },
+    "mctrader-engine":         { "next": 1 },
+    "mctrader-web":            { "next": 1 }
+  },
+  "reservations": {}
+}

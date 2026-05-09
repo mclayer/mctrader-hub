@@ -28,6 +28,58 @@ github:
   milestone:
     epic_naming_pattern: "Epic-{key}-{slug}"
 
+codeforge:
+  stories:
+    hub:
+      key_pattern: "MCT-{seq:03d}"
+      story_dir: docs/stories
+
+    repo_key_pattern: "MCT-{seq:03d}"
+    counters:
+      path: .codeforge/counters.json
+      lock: file
+
+    repos:
+      - name: mctrader-hub
+        role: governance
+        story_dir: docs/stories
+        creates_repo_stories: false
+
+      - name: mctrader-data
+        role: implementation
+        path: C:/workspace/mclayer/mctrader-data
+        github: mclayer/mctrader-data
+        story_dir: docs/stories
+        components: [data, pipeline, storage]
+
+      - name: mctrader-market
+        role: implementation
+        path: C:/workspace/mclayer/mctrader-market
+        github: mclayer/mctrader-market
+        story_dir: docs/stories
+        components: [market, contracts]
+
+      - name: mctrader-market-bithumb
+        role: implementation
+        path: C:/workspace/mclayer/mctrader-market-bithumb
+        github: mclayer/mctrader-market-bithumb
+        story_dir: docs/stories
+        components: [market-bithumb, exchange]
+
+      - name: mctrader-engine
+        role: implementation
+        path: C:/workspace/mclayer/mctrader-engine
+        github: mclayer/mctrader-engine
+        story_dir: docs/stories
+        components: [engine, strategy, risk, executor]
+
+      - name: mctrader-web
+        role: implementation
+        path: C:/workspace/mclayer/mctrader-web
+        github: mclayer/mctrader-web
+        story_dir: docs/stories
+        components: [web, ui]
+
 labels:
   components:
     # 6 repo (cross-repo Story labeling)
