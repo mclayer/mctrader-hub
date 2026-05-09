@@ -23,3 +23,6 @@ Thumbs.db
 # superpowers brainstorming visual companion
 .superpowers/
 out/
+
+# Environment secrets (never commit — use .env.example as template)
+.env
