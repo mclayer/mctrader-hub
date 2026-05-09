@@ -6,7 +6,7 @@ component: web
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-002, ADR-006
-results_doc: EPIC-RESULTS-MCT-55.md
+results_doc: docs/retros/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-61: WFO Web Integration — FastAPI endpoints + Streamlit panel + 1 active session lock 확장

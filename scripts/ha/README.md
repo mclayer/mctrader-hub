@@ -62,7 +62,7 @@ Synthetic measurement basis: 10s two-process simulation, 20 ticks/sec/node + 7-d
 | p99 scan latency (7-day partition) | 1.4s | scales linearly with partition size | **< 5s SLA target** at 30-day partition |
 | CPU | 2 vCPU per node | I/O-bound, mostly idle | 2 vCPU per node sufficient |
 
-Reproduce these measurements: `python scripts/ha/calibration/c1_dedup_throughput.py` + `python scripts/ha/calibration/c2_scan_latency.py`. Full results: `EPIC-RESULTS-MCT-89.md` §3.
+Reproduce these measurements: `python scripts/ha/calibration/c1_dedup_throughput.py` + `python scripts/ha/calibration/c2_scan_latency.py`. Full results: `docs/retros/EPIC-RESULTS-MCT-89.md` §3.
 
 ## Initial setup (per node)
 

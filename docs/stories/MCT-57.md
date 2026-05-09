@@ -6,7 +6,7 @@ component: engine
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-006
-results_doc: EPIC-RESULTS-MCT-55.md
+results_doc: docs/retros/EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-57: Search engine + correction interface — Random 100 + Top-K rank consensus + deflated Sharpe ranking

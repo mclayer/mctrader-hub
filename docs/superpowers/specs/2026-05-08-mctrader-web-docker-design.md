@@ -644,7 +644,7 @@ memory file `project_dockerization_phase4.md` 박제 (이미 작성). 4 항목:
 - `mctrader-data/Dockerfile` — Pilot 패턴 (2-stage / non-root / HEALTHCHECK / mctrader UID 1001)
 - `mctrader-engine/src/mctrader_engine/runtime/paper_runner.py` — LifecycleManager 가 in-process import 의무 (D5)
 - `mctrader-engine/src/mctrader_engine/runtime/paper_lock.py` — paper.lock host-wide invariant
-- `mctrader-hub/EPIC-RESULTS-MCT-97.md` — Admin Engine Control Panel reference (MultiTokenAuth + RBAC)
+- `mctrader-hub/docs/retros/EPIC-RESULTS-MCT-97.md` — Admin Engine Control Panel reference (MultiTokenAuth + RBAC)
 - `mctrader-hub/docs/superpowers/specs/2026-05-07-mctrader-data-docker-pilot-design.md` — Pilot reference
 - `mctrader-hub/docs/stories/MCT-99.md` — Pilot Story §11.4 risk classification
 

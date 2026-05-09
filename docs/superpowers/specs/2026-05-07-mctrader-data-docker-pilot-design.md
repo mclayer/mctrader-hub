@@ -351,9 +351,9 @@ HealthServer port = `8080` default, env `MCTRADER_HEALTH_PORT` override. compose
 ### mctrader (관련 cross-repo 자산)
 - `mctrader-data/deploy/mctrader-collector.service` — 본 Pilot에서 삭제 대상
 - `mctrader-data/src/mctrader_data/heartbeat.py` — 기존 heartbeat write 로직, `check_staleness()` 함수 추가 대상
-- `mctrader-hub/EPIC-RESULTS-MCT-89.md` — collector HA reference (systemd 박제)
-- `mctrader-hub/EPIC-RESULTS-MCT-94.md` — Ops Scripts (systemd + Ansible) reference
-- `mctrader-hub/EPIC-RESULTS-MCT-97.md` — Admin Engine Control Panel (5 engine SM, Pilot의 web admin과 후속 연결점)
+- `mctrader-hub/docs/retros/EPIC-RESULTS-MCT-89.md` — collector HA reference (systemd 박제)
+- `mctrader-hub/docs/retros/EPIC-RESULTS-MCT-94.md` — Ops Scripts (systemd + Ansible) reference
+- `mctrader-hub/docs/retros/EPIC-RESULTS-MCT-97.md` — Admin Engine Control Panel (5 engine SM, Pilot의 web admin과 후속 연결점)
 
 ### mctrader-data 본 repo
 - `pyproject.toml` — version bump 대상
