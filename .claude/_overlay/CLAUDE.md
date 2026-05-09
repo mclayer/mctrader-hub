@@ -40,12 +40,29 @@ SSOT 상수는 `.claude/_overlay/project.yaml` 참조.
 - **UI**: Streamlit (개인용, 빠른 반복)
 - **거래소 SDK**: 자체 HTTP client (Bithumb 공식 doc 기준) — ccxt 미사용 (KRW pair quirks + 제어성)
 
-## 경로 관습 (mctrader-hub 내부)
+## 경로 관습
 
-- `docs/stories/MCT-NN.md` — Story SSOT
+### mctrader-hub (governance hub)
+
+- `docs/stories/MCT-NN.md` — Hub story SSOT (배경·방향·위임 링크만, 구현 상세 없음)
 - `docs/adr/ADR-NN-<slug>.md` — 도메인 ADR (codeforge ADR-N 와 별 카운터)
 - `docs/change-plans/<slug>.md` — Architect Change Plan
 - `docs/domain-knowledge/{market,risk,backtest,paper,live,contracts}/` — Domain KB
+- `.codeforge/counters.json` — repo별 MCT-NNN 독립 시퀀스 카운터
+
+### impl repo (mctrader-data / market / market-bithumb / engine / web)
+
+- `docs/stories/MCT-NN.md` — Repo story (구현 상세 전담, 해당 repo 내 독립 시퀀스)
+
+### Story key 체계
+
+| 위치 | 형식 | 예시 |
+|---|---|---|
+| mctrader-hub | `MCT-NNN` | `MCT-112` |
+| impl repo | `MCT-NNN` (repo 내 독립 시퀀스) | `MCT-001` |
+| Cross-repo 참조 | `{repo-name}#MCT-NNN` | `mctrader-data#MCT-001` |
+
+기존 `MCT-1~111` = legacy-hub (파일 이동 없음). 신규 hub story는 `MCT-112`부터, 각 impl repo는 `MCT-001`부터.
 
 ## codeforge consumer 데뷔 의무
 
@@ -114,9 +131,11 @@ HOTFIX_BYPASS_CODEFORGE=1 HOTFIX_BYPASS_REASON='<incident-id>' <명령>
 
 ### Story workflow (codeforge ζ arc)
 
-- KEY: `MCT-N` (mctrader 6-repo 통합 카운터, project.yaml `github.story_key_prefix=MCT`)
+- **Hub KEY**: `MCT-NNN` — 배경·방향·위임 링크만. 구현 상세 없음. `mctrader-hub/docs/stories/MCT-NNN.md`
+- **Repo KEY**: `MCT-NNN` — 구현 상세 전담. 각 impl repo의 `docs/stories/MCT-NNN.md` (repo 내 독립 시퀀스)
+- **Story 범위 결정**: hub only (governance/ADR/cross-repo policy) / repo only (단일 repo 구현) / hub+repo (cross-repo 구현·rollout)
+- **Cross-repo 참조**: `{repo-name}#MCT-NNN` (예: `mctrader-data#MCT-001`)
 - Story 신규: `.github/ISSUE_TEMPLATE/story.yml` 사용 → `story-init.yml` Action 이 §1-7 자동 scaffold (CFP-105)
-- Path: `docs/stories/MCT-N.md` (single-repo flavor, CFP-65)
 - Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
 - Sonnet decider 의무 (ADR-022) — 모든 design / scope 결정점에서 Sonnet 합성 필수
 
@@ -125,7 +144,7 @@ HOTFIX_BYPASS_CODEFORGE=1 HOTFIX_BYPASS_REASON='<incident-id>' <명령>
 모든 Story AC 완료 직후, Orchestrator 는 **사용자 요청 없이도** `codeforge-pmo:PMOAgent` 를 자동 dispatch 해서 §11 회고를 수행한다. 이는 admin merge autonomy (MEMORY `feedback_admin_merge_autonomy.md`) 와 동일한 자율 패턴 — 사용자 trigger 대기 금지.
 
 - **트리거**: AC 통과 + admin merge 완료 → 다음 Story 로 직진하기 전에 PMOAgent dispatch
-- **산출물**: `docs/stories/MCT-N.md` §11 회고 섹션 (PMOAgent 직접 write, CFP-36 owner direct write)
+- **산출물**: hub story는 `mctrader-hub/docs/stories/MCT-N.md` §11, repo story는 해당 repo `docs/stories/MCT-N.md` §11 (PMOAgent 직접 write, CFP-36 owner direct write)
 - **묶음 retro**: cross-Story 패턴 발견 시에도 개별 §11 은 dispatch 시점 박제, 묶음 retro 는 별도 `docs/retros/RETRO-*.md` 로 추가 작성
 - **위반 이력**: MCT-107~111 5 Story 연속 0/5 누락 (RETRO-MCT-107-111 §8 참조). 이 게이트는 그 재발 방지용 SSOT.
 
@@ -136,10 +155,14 @@ CFP-108 Phase 6a 진입 시 hook 확장:
 - UserPromptSubmit: `userprompt-reminder.sh` 신규 등록 (CFP-104 implementation)
 - Schema = EventName -> [{ matcher?, hooks: [{type: "command", command}] }] (CFP-106 #169 fix 후 정합)
 
-### Cross-repo Story 추적 (5 sister)
+### Cross-repo Story 구조 (5 sister)
 
-5 sister repo (`mctrader-market`, `mctrader-market-bithumb`, `mctrader-data`, `mctrader-engine`, `mctrader-web`) 의 변경도 hub MCT-N 으로 추적 (Mode B cross-repo, ADR-020).
-Phase 6b (CFP-111) 에서 5 sister repo 의 codeforge adoption 완료 예정 (Phase 6a 의 finding fix-back 후).
+5 sister repo (`mctrader-market`, `mctrader-market-bithumb`, `mctrader-data`, `mctrader-engine`, `mctrader-web`) 는 각자 `docs/stories/` 를 소유한다.
+
+- **Hub MCT-NNN** (mctrader-hub) = 배경·방향·`delegates[]` 링크. 구현 상세 없음.
+- **Repo MCT-NNN** (각 impl repo) = 구현 상세 전담. `hub_story: MCT-NNN` 역링크 포함.
+- Frontmatter: hub story → `story_scope: hub` + `delegates[]`, repo story → `story_scope: repo` + `repo:` + `hub_story:`
+- plugin-codeforge#342 merge 전까지는 `story_scope` + `repo` frontmatter 수동 기입.
 
 ### overlay agents (CFP-108)
 
