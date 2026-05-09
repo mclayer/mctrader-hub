@@ -26,3 +26,6 @@ out/
 
 # Environment secrets (never commit — use .env.example as template)
 .env
+
+# git worktrees (ADR-019)
+.worktrees/

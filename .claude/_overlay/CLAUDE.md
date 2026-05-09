@@ -168,3 +168,78 @@ CFP-108 Phase 6a 진입 시 hook 확장:
 
 - `.claude/_overlay/agents/DomainAgent.md` — 자동매매 도메인 전문가 (RequirementsPL sub-agent, CFP-37)
 - `.claude/_overlay/agents/DataEngineerAgent.md` — DuckDB / Parquet / OHLCV 특화 (DeveloperPL sub-agent, CFP-39)
+
+## ADR-019 Preflight 표준 시퀀스
+
+MCT-100/101/102/110 parallel agent branch race 재발 방지. 6 repo 공통 의무.
+
+### 병렬 에이전트 (2+ 동시 실행) — D1 worktree 필수
+
+```powershell
+# Step 1: Python 3.12 검증 (D2)
+py -3.12 --version
+
+# Step 2: Worktree 생성 (D1)
+.\scripts\agent-worktree.ps1 -Branch "feat/branch-name"
+# 반환된 절대 경로로 이동
+Set-Location "<worktree-absolute-path>"
+
+# Step 3: Venv 생성 + 활성화
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+
+# Step 4: Editable install (D3) — mctrader-hub 제외
+py -3.12 -m pip install -e ".[dev]" --quiet
+
+# Step 5: 작업 수행
+py -3.12 -m pytest tests/ -v
+
+# Step 6: Cleanup
+deactivate
+Set-Location "C:\workspace\mclayer\<repo>"
+.\scripts\agent-worktree.ps1 -Branch "feat/branch-name" -Mode cleanup
+```
+
+### 단일 에이전트 — D4 Branch Guard 필수
+
+```powershell
+# Step 1: Python 3.12 검증 (D2)
+py -3.12 --version
+
+# Step 2: Venv 생성 + 활성화
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+
+# Step 3: Editable install (D3) — mctrader-hub 제외
+py -3.12 -m pip install -e ".[dev]" --quiet
+
+# Step 4: Branch 검증 (D4) — 커밋 직전 매번
+$currentBranch = git branch --show-current
+$expectedBranch = "feat/branch-name"
+if ($currentBranch -ne $expectedBranch) {
+    throw "BRANCH MISMATCH: expected=$expectedBranch, current=$currentBranch — aborting"
+}
+
+# Step 5: 작업 수행
+py -3.12 -m pytest tests/ -v
+```
+
+### Preflight Scripts
+
+| 스크립트 | 역할 | ADR |
+|---|---|---|
+| `scripts/agent-preflight.ps1` | D2/D3/D4 자동화 | ADR-019 |
+| `scripts/agent-worktree.ps1` | D1 worktree 생성/정리 | ADR-019 |
+
+### D5: 6 repo 적용 범위
+
+| Repo | D1 worktree | D2 Python | D3 Editable | D4 Branch guard |
+|---|---|---|---|---|
+| mctrader-hub | 의무 | 의무 | N/A | 의무 |
+| mctrader-market | 의무 | 의무 | 의무 | 의무 |
+| mctrader-market-bithumb | 의무 | 의무 | 의무 | 의무 |
+| mctrader-data | 의무 | 의무 | **HIGH** | 의무 |
+| mctrader-engine | 의무 | 의무 | **HIGH** | 의무 |
+| mctrader-web | 의무 | 의무 | 의무 | 의무 |
+
+> `mctrader-data`, `mctrader-engine`: MCT-110에서 stale wheel 문제 직접 확인 → D3 우선순위 HIGH
