@@ -3,7 +3,9 @@ adr_id: ADR-019
 title: Parallel agent isolation — git worktree + Python/editable bootstrap contract
 status: Accepted
 date: 2026-05-09
-related_story: MCT-110 (trigger)
+amended: 2026-05-10
+amendment_trigger: MCT-113~117 5 audit Story 80% branch race 재발 — 1주 관측 임계 충족
+related_story: MCT-110 (trigger), MCT-113~117 (D6 amendment evidence)
 category: Infrastructure
 ---
 
@@ -12,6 +14,10 @@ category: Infrastructure
 ## Status
 
 Accepted — 2026-05-09. MCT-110 trigger. MCT-100/101/102 (2026-05-08) 재발 이력 포함.
+
+**D6 Amendment — 2026-05-10**: MCT-113~117 5 audit Story 중 4건(80%)에서 branch race
+재발. RETRO-MCT-113 §4.1 "1주 관측 후 재검토" 임계 충족 → Orchestrator preflight inject
+의무화 (D6) 추가. D4 "fallback" → "mandatory supplement"로 격상.
 
 ## Context
 
@@ -248,6 +254,79 @@ Set-Location "C:\workspace\mclayer\<repo>"
 git worktree remove .worktrees/feat-foo
 ```
 
+### D6. Orchestrator preflight inject — expected-branch 컨텍스트 강제 주입 *(2026-05-10 amendment)*
+
+**근거**: MCT-113~117 5 audit Story 중 4건(80%)에서 branch race 재발.
+RETRO-MCT-113 §4.1 "1주 추가 관측 후 재검토" 임계 충족.
+
+**관찰된 실패 패턴**:
+- ADR-019 D1~D5 는 각 에이전트의 self-discipline 의존 → 구현 에이전트가 spawn 될 때
+  prompt 에 branch context 가 없으면 D4 guard 를 silent skip 가능
+- "단일 에이전트" 세션도 IDE parallel session (VSCode Git UI, 다른 터미널) 이
+  동일 working directory 에서 `git checkout` 을 실행하면 branch race 발생
+  (D1 worktree 의무 면제 케이스에서 D4 미적용 시 무방어 상태)
+
+**D4 재분류**: "fallback (worktree 미사용 시)" → **"mandatory supplement" (D1과 병행 적용)**
+
+**정책 (D6-1): Orchestrator spawn-time branch inject 의무**
+
+Orchestrator 가 구현 에이전트(DeveloperAgent, QADeveloperAgent 등)를 spawn 할 때
+prompt 에 아래 컨텍스트를 반드시 포함한다:
+
+```
+BRANCH_CONTEXT:
+  expected_branch: feat/<story-id>-<slug>   # Story frontmatter 의 branch 값
+  repo_path: <절대 경로>                     # 에이전트가 작업할 repo root
+  commit_guard: |
+    모든 git commit / git push 직전 실행:
+      $cur = git branch --show-current
+      if ($cur -ne "<expected_branch>") {
+          Write-Error "BRANCH MISMATCH: expected=<expected_branch>, current=$cur — ABORT"
+          exit 1
+      }
+```
+
+**정책 (D6-2): Session 시작 시 외부 race 탐지**
+
+에이전트는 세션 시작(첫 번째 git 조작 직전)에 다음을 실행한다:
+
+```powershell
+# 외부 race 탐지 — uncommitted changes 없음 확인
+$status = git status --porcelain
+if ($status) {
+    Write-Warning "DIRTY WORKING TREE DETECTED — possible external race. Contents:"
+    git status --short
+    # 계속 진행 가능하나 사용자에게 보고 의무
+}
+
+# 현재 branch 기록 (세션 시작 기준)
+$SESSION_BRANCH = git branch --show-current
+Write-Host "Session branch lock: $SESSION_BRANCH"
+```
+
+**정책 (D6-3): Story frontmatter `branch:` 필드 의무화**
+
+Story 파일 frontmatter 에 `branch:` 필드를 명시하여 Orchestrator spawn 시
+expected branch 를 자동 참조 가능하게 한다:
+
+```yaml
+---
+story_id: MCT-NNN
+branch: feat/mct-NNN-<slug>   # D6-1 inject 의 SSOT
+---
+```
+
+**D6 적용 시점**:
+
+| 세션 유형 | D6-1 inject | D6-2 race 탐지 | D6-3 frontmatter |
+|---|---|---|---|
+| Orchestrator → 구현 에이전트 spawn | **의무** | 구현 에이전트 책임 | **의무** |
+| 단일 에이전트 직접 실행 | N/A (self-apply) | **의무** | 권장 |
+| 병렬 에이전트 (D1 worktree 사용) | D1이 물리적 격리 제공 — D6-1 보완 | 각 worktree 내 의무 | **의무** |
+
+**D6-CI (장기 옵션)**: `phase-gate-mergeable.yml` 에 Story frontmatter `branch:` ↔
+actual PR head ref 비교 검증 추가. PR head 가 frontmatter `branch:` 와 다르면 FAIL.
+
 ## Alternatives Considered
 
 ### A1. Branch 검증만으로 충분 (D4 only, worktree 미사용)
@@ -290,6 +369,23 @@ git worktree remove .worktrees/feat-foo
   로컬 에이전트 pass. 에이전트 Preflight에 포함해야 silent pass 방지.
 - idempotent이므로 매번 실행해도 추가 비용 미미 (이미 설치된 경우 <1초).
 
+### A6. D4 guard 없이 D6-1 inject만으로 충분 *(D6 amendment 검토)*
+
+**기각 사유**:
+- D6-1 (Orchestrator inject)는 에이전트 spawn 시점 컨텍스트 제공. 그러나
+  에이전트가 D4 guard를 실제 실행하지 않으면 inject 효과 없음.
+- D4 mandatory supplement 격상이 없으면 D6-1 은 "선언적 주석" 수준.
+- D4 + D6-1 병행 적용이 "주입 + 실행" 양면 커버 — 둘 중 하나만으로는 불충분.
+
+### A7. pre-commit hook으로 expected-branch 검증 *(D6 amendment 검토)*
+
+**부분 채택**: D6-3 frontmatter + local pre-commit hook 조합으로 D6-CI 단기 구현 가능.
+- `.codeforge/expected-branch` 파일 (또는 Story frontmatter `branch:` 필드) 을 읽어
+  `git branch --show-current` 와 비교하는 pre-commit hook 구성
+- D6-CI (phase-gate-mergeable) 대비 CI 불필요, 로컬 즉시 적용 가능
+- **채택 여부**: D6-3 frontmatter 의무화 후 hook은 개별 repo opt-in. 전체 의무화는
+  미루고 MCT-119 이후 추가 재발 관측 시 에스컬레이션.
+
 ## Consequences
 
 ### C1. Parallel agent 실행 안전성 확보
@@ -331,10 +427,21 @@ git worktree prune
 git worktree list
 ```
 
-### C7. 단일 에이전트 세션은 영향 미미
+### C7. 단일 에이전트 세션은 영향 미미 → D6 amendment 후 보정
 
-순차 실행 단일 에이전트는 D1 불필요. D2/D3/D4만 적용. 현행 대비 Preflight
-30초 미만 추가.
+*D6 이전*: 순차 실행 단일 에이전트는 D1 불필요. D2/D3/D4만 적용. 현행 대비
+Preflight 30초 미만 추가.
+
+*D6 이후*: 단일 에이전트도 D6-2 (외부 race 탐지) + D4 mandatory supplement 적용
+추가. 세션 시작 시 `git status --porcelain` 1회 실행 오버헤드만 추가 (~0.1초).
+Story frontmatter `branch:` 필드 명시로 spawn-side expected-branch 컨텍스트 자동화.
+
+### C8. D6 amendment — Orchestrator 행동 변화 요구 *(신규)*
+
+D6-1 은 Orchestrator 가 subagent spawn prompt 에 BRANCH_CONTEXT 블록을 추가해야
+효과 있음. Orchestrator 레이어 (Sonnet/Opus 최상위) 의 self-discipline 의존은
+동일하나, BRANCH_CONTEXT 가 명시적 구조로 존재하면 에이전트가 D4 guard 를
+자동 참조 가능 — silent skip 확률 감소.
 
 ## Cross-references
 
@@ -343,5 +450,9 @@ git worktree list
 - ADR-011 (branch protection CI — required status checks)
 - MCT-100, MCT-101, MCT-102 (2026-05-08 — parallel agent branch race 최초 확인)
 - MCT-110 (2026-05-09 — stale wheel + Python 버전 불일치 재발, 본 ADR trigger)
+- MCT-113 (2026-05-09 — D6 발의 최초 제안, RETRO-MCT-113 §4.1 "1주 관측 권고")
+- MCT-113~117 (2026-05-09~10 — 5 audit Story 80% branch race 재발, D6 amendment trigger)
+- RETRO-MCT-113 §4.1 — D6 후보 최초 박제 (Orchestrator preflight inject)
+- RETRO-MCT-115 §5.4 — 1주 관측 임계 충족 선언, 즉시 발의 권고
 - [git-worktree documentation](https://git-scm.com/docs/git-worktree)
 - [PEP 514 — Python registration in the Windows registry](https://peps.python.org/pep-0514/)
