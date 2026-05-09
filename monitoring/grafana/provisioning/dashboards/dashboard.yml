@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: mctrader
+    folder: mctrader
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
