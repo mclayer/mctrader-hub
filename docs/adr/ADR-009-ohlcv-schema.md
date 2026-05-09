@@ -742,6 +742,22 @@ class OrderbookSnapshotWriter:
 
 **Calibration C2 의무**: throttle drop ratio + reconstruction gap distribution 측정 후 정책 lock-in. Phase 3 entry 시 (50 sym × 7-day 측정) 결과 박제.
 
+## §D2 amendment — Tier partition for compaction (MCT-106, 2026-05-09)
+
+All Parquet layouts under `market/` gain a mandatory `tier=L{1,2,3}` partition key
+**between** `schema_version=` and `exchange=`:
+
+```
+market/<channel>/schema_version=*.v1/tier=L{1,2,3}/exchange=.../symbol=.../date=.../node=<id>/part-*.parquet
+```
+
+- `node=<id>` remains **mandatory** per §D2.1 (enforced at every tier level).
+- `tier=` absent legacy files are treated as `tier=L1` by all `scan_*` read APIs.
+- `node=` absent legacy files are treated as `node=DEFAULT` by all `scan_*` read APIs.
+  Both mixed-scan behaviours are permanent (no forced migration).
+
+Cross-references: ADR-017 §Decision 2; MCT-106 Change Plan §4.2.
+
 ## Alternatives Considered
 
 ### A1. float64 instead of Decimal(38,18)
