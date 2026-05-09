@@ -80,7 +80,7 @@ codeforge@mclayer
 codeforge-requirements@mclayer
 codeforge-design@mclayer
 codeforge-develop@mclayer
-codeforge-test@mclayer
+codeforge-test@mclayer          # DEPRECATED (CFP-317/ADR-048) — CI-native 전환, 유지만
 codeforge-review@mclayer
 codeforge-pmo@mclayer
 github@claude-plugins-official
@@ -88,6 +88,15 @@ codex@openai-codex
 superpowers@claude-plugins-official
 claude-md-management@claude-plugins-official
 ```
+
+### codeforge 업그레이드 프로세스
+
+codeforge plugin upgrade 시 **반드시** 각 plugin CHANGELOG 를 읽고 consumer-facing 변경 사항을 이 파일에 반영한다. 확인 순서:
+
+1. `plugin-codeforge/CHANGELOG.md` — core (Orchestrator 지침 / ADR / contract 변경)
+2. lane plugin CHANGELOGs — pmo / requirements / design / develop / test / review
+3. **Breaking change** → Story workflow / plugin list / phase 순서 즉시 갱신
+4. **Deprecation** → plugin list 주석 업데이트 + Story phase 에서 제거
 
 ### 3-trigger enforcement (ADR-027 §결정-2)
 
@@ -108,8 +117,17 @@ HOTFIX_BYPASS_CODEFORGE=1 HOTFIX_BYPASS_REASON='<incident-id>' <명령>
 - KEY: `MCT-N` (mctrader 6-repo 통합 카운터, project.yaml `github.story_key_prefix=MCT`)
 - Story 신규: `.github/ISSUE_TEMPLATE/story.yml` 사용 → `story-init.yml` Action 이 §1-7 자동 scaffold (CFP-105)
 - Path: `docs/stories/MCT-N.md` (single-repo flavor, CFP-65)
-- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → 구현-테스트 → 보안-테스트 → 완료
+- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
 - Sonnet decider 의무 (ADR-022) — 모든 design / scope 결정점에서 Sonnet 합성 필수
+
+### Story 완료 의무 — PMO 회고 자동 dispatch (RETRO-MCT-107-111 §8 ESCALATE 후속)
+
+모든 Story AC 완료 직후, Orchestrator 는 **사용자 요청 없이도** `codeforge-pmo:PMOAgent` 를 자동 dispatch 해서 §11 회고를 수행한다. 이는 admin merge autonomy (MEMORY `feedback_admin_merge_autonomy.md`) 와 동일한 자율 패턴 — 사용자 trigger 대기 금지.
+
+- **트리거**: AC 통과 + admin merge 완료 → 다음 Story 로 직진하기 전에 PMOAgent dispatch
+- **산출물**: `docs/stories/MCT-N.md` §11 회고 섹션 (PMOAgent 직접 write, CFP-36 owner direct write)
+- **묶음 retro**: cross-Story 패턴 발견 시에도 개별 §11 은 dispatch 시점 박제, 묶음 retro 는 별도 `docs/retros/RETRO-*.md` 로 추가 작성
+- **위반 이력**: MCT-107~111 5 Story 연속 0/5 누락 (RETRO-MCT-107-111 §8 참조). 이 게이트는 그 재발 방지용 SSOT.
 
 ### Settings hook 등록 (`.claude/settings.json`)
 
