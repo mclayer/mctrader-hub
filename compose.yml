@@ -1,0 +1,33 @@
+# mctrader-hub/compose.yml — Shared infrastructure: PostgreSQL + mctrader_net
+# Provides postgres service for all mctrader repos via external mctrader_net network.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mctrader
+      POSTGRES_USER: mctrader
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - mctrader_postgres:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/01-init-db.sh
+    ports:
+      - "5432:5432"
+    networks:
+      - mctrader_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mctrader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      mctrader.role: "postgres"
+      mctrader.story: "MCT-105"
+
+networks:
+  mctrader_net:
+    name: mctrader_net
+    driver: bridge
+
+volumes:
+  mctrader_postgres:
