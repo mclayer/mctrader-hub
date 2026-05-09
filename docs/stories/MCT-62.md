@@ -6,7 +6,7 @@ component: engine
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-006
-results_doc: docs/EPIC-RESULTS-MCT-55.md
+results_doc: EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-62: Promotion CLI + Epic close — `mctrader-cli wfo promote` + EPIC-RESULTS-MCT-55

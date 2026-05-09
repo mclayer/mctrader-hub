@@ -48,7 +48,7 @@ synthetic = blocking. real Bithumb 30-min smoke = observational only (PR 가 Bit
 
 ### 5.5 EPIC-RESULTS schema (F-5 SUGGEST 채택)
 
-`docs/results/EPIC-RESULTS-MCT-89.md` 작성:
+`EPIC-RESULTS-MCT-89.md` 작성:
 - Story-by-story summary (Phase 1-7, PR/version/test count)
 - C1/C2 measurement table
 - 16-row decision stack outcome verification
@@ -91,7 +91,7 @@ X5 README §"Capacity" TBD → 측정값 backfill. RAM peak / disk growth / even
 | `scripts/ha/e2e/two_process_simulation.py` (NEW) | single-host 2-process E2E demo |
 | `scripts/ha/e2e/e2e_results.txt` (NEW) | E2E captured output |
 | `scripts/ha/README.md` | §"Capacity" TBD → 측정값 backfill |
-| `docs/results/EPIC-RESULTS-MCT-89.md` (NEW) | Epic close artifact (10 sections) |
+| `EPIC-RESULTS-MCT-89.md` (NEW) | Epic close artifact (10 sections) |
 | `docs/stories/MCT-96.md` (NEW) | Story §1-9 + §11 |
 | `docs/superpowers/plans/2026-05-06-collector-ha-phase-7.md` (NEW) | Phase 7 plan |
 

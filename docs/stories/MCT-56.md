@@ -6,7 +6,7 @@ component: engine
 type: brainstorm
 parent_epic: MCT-55
 related_adrs: ADR-005, ADR-006
-results_doc: docs/EPIC-RESULTS-MCT-55.md
+results_doc: EPIC-RESULTS-MCT-55.md
 ---
 
 # MCT-56: Foundation — SplitRegistry + AuditLog + run_manifest + decision_group lifecycle + L4 skeleton
