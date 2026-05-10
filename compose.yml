@@ -233,7 +233,6 @@ services:
     command: ["python", "-m", "signal_collector.workers.kimchi_premium"]
     environment:
       - REDIS_URL=redis://redis:6379
-      - CRYPTOQUANT_API_KEY=${CRYPTOQUANT_API_KEY}
     networks:
       - mctrader_net
     depends_on:
