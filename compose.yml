@@ -251,8 +251,6 @@ services:
     command: ["python", "-m", "signal_collector.workers.announcement"]
     environment:
       - REDIS_URL=redis://redis:6379
-      - UPBIT_NOTICE_API_URL=${UPBIT_NOTICE_API_URL}
-      - BITHUMB_NOTICE_API_URL=${BITHUMB_NOTICE_API_URL}
     networks:
       - mctrader_net
     depends_on:
@@ -280,6 +278,23 @@ services:
     labels:
       mctrader.role: "signal-coinglass"
       mctrader.story: "MCT-124"
+
+  nginx:
+    image: nginx:alpine
+    container_name: mctrader-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    networks:
+      - mctrader_net
+    depends_on:
+      - grafana
+      - prometheus
+      - minio
+    restart: unless-stopped
+    labels:
+      mctrader.role: "nginx"
 
 networks:
   mctrader_net:
