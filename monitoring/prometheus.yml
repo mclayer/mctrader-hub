@@ -59,3 +59,9 @@ scrape_configs:
     static_configs:
       - targets: [signal-coinglass:9200]
     metrics_path: /metrics
+
+  - job_name: mctrader-web
+    static_configs:
+      - targets: ['mctrader-web-api:7821']
+    metrics_path: /metrics
+    scrape_interval: 15s
