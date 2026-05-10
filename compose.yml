@@ -192,6 +192,8 @@ services:
       mctrader.story: "MCT-123"
 
   signal-fear-greed:
+    # container_name: mctrader-web signal_status.py/signal_control.py 가 "signal-fear-greed" 로 조회
+    container_name: signal-fear-greed
     image: ghcr.io/mclayer/mctrader-signal-collector:latest
     build:
       context: ../mctrader-signal-collector
@@ -209,6 +211,7 @@ services:
       mctrader.story: "MCT-124"
 
   signal-ecos:
+    container_name: signal-ecos
     image: ghcr.io/mclayer/mctrader-signal-collector:latest
     build:
       context: ../mctrader-signal-collector
@@ -227,6 +230,7 @@ services:
       mctrader.story: "MCT-124"
 
   signal-kimchi:
+    container_name: signal-kimchi
     image: ghcr.io/mclayer/mctrader-signal-collector:latest
     build:
       context: ../mctrader-signal-collector
@@ -244,6 +248,7 @@ services:
       mctrader.story: "MCT-124"
 
   signal-announcement:
+    container_name: signal-announcement
     image: ghcr.io/mclayer/mctrader-signal-collector:latest
     build:
       context: ../mctrader-signal-collector
@@ -261,6 +266,7 @@ services:
       mctrader.story: "MCT-124"
 
   signal-coinglass:
+    container_name: signal-coinglass
     image: ghcr.io/mclayer/mctrader-signal-collector:latest
     build:
       context: ../mctrader-signal-collector
