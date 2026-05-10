@@ -191,6 +191,96 @@ services:
       mctrader.role: "node-exporter"
       mctrader.story: "MCT-123"
 
+  signal-fear-greed:
+    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    build:
+      context: ../mctrader-signal-collector
+    command: ["python", "-m", "signal_collector.workers.fear_greed"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - mctrader_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      mctrader.role: "signal-fear-greed"
+      mctrader.story: "MCT-124"
+
+  signal-ecos:
+    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    build:
+      context: ../mctrader-signal-collector
+    command: ["python", "-m", "signal_collector.workers.ecos"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - ECOS_API_KEY=${ECOS_API_KEY}
+    networks:
+      - mctrader_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      mctrader.role: "signal-ecos"
+      mctrader.story: "MCT-124"
+
+  signal-kimchi:
+    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    build:
+      context: ../mctrader-signal-collector
+    command: ["python", "-m", "signal_collector.workers.kimchi_premium"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - CRYPTOQUANT_API_KEY=${CRYPTOQUANT_API_KEY}
+    networks:
+      - mctrader_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      mctrader.role: "signal-kimchi"
+      mctrader.story: "MCT-124"
+
+  signal-announcement:
+    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    build:
+      context: ../mctrader-signal-collector
+    command: ["python", "-m", "signal_collector.workers.announcement"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - UPBIT_NOTICE_API_URL=${UPBIT_NOTICE_API_URL}
+      - BITHUMB_NOTICE_API_URL=${BITHUMB_NOTICE_API_URL}
+    networks:
+      - mctrader_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      mctrader.role: "signal-announcement"
+      mctrader.story: "MCT-124"
+
+  signal-coinglass:
+    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    build:
+      context: ../mctrader-signal-collector
+    command: ["python", "-m", "signal_collector.workers.coinglass"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - COINGLASS_API_KEY=${COINGLASS_API_KEY}
+    networks:
+      - mctrader_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      mctrader.role: "signal-coinglass"
+      mctrader.story: "MCT-124"
+
 networks:
   mctrader_net:
     name: mctrader_net
