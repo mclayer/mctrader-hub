@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # .claude/_overlay/run-perf.sh — consumer가 작성하는 성능 테스트 wrapper
 #
-# TestAgent가 호출. baseline 대비 회귀 검증.
+# IntegrationTestAgent가 호출 (codeforge-test 1.0.0, ADR-055). baseline 대비 회귀 검증.
 # Change Plan §8.3 "N/A" 명시 시 즉시 exit 0.
 #
 # 인터페이스:

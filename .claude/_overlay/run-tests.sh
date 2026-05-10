@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # .claude/_overlay/run-tests.sh — consumer가 작성하는 기능 테스트 wrapper
 #
-# TestAgent가 호출. 프로젝트 러너로 unit/integration/infra 테스트 실행.
+# IntegrationTestAgent가 호출 (codeforge-test 1.0.0, ADR-055). unit/integration/infra 테스트 실행.
 # 성능 마커는 deselect (성능은 run-perf.sh에서).
 #
 # 인터페이스:

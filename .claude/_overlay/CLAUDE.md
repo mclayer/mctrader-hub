@@ -114,6 +114,8 @@ codeforge plugin upgrade 시 **반드시** 각 plugin CHANGELOG 를 읽고 consu
 2. lane plugin CHANGELOGs — pmo / requirements / design / develop / test / review
 3. **Breaking change** → Story workflow / plugin list / phase 순서 즉시 갱신
 4. **Deprecation** → plugin list 주석 업데이트 + Story phase 에서 제거
+5. **Deprecated agent 잔존 참조 감사** → `grep -r "DeprecatedAgentName" . --include="*.md" --include="*.sh" -l | grep -v "CHANGELOG\|retro"` 로 active spawn 참조 확인 후 주석/설정 갱신
+6. **6-repo 동기화** → 5 impl repo `.claude/_overlay/CLAUDE.md` plugin 버전 메모 동기화 (mctrader-hub §plugin 목록 기준 — MCT-129 패턴)
 
 ### 3-trigger enforcement (ADR-027 §결정-2)
 
