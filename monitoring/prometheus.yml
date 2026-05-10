@@ -34,3 +34,28 @@ scrape_configs:
     static_configs:
       - targets: [mctrader-engine-paper:8080]
     metrics_path: /metrics
+
+  - job_name: signal-fear-greed
+    static_configs:
+      - targets: [signal-fear-greed:9200]
+    metrics_path: /metrics
+
+  - job_name: signal-ecos
+    static_configs:
+      - targets: [signal-ecos:9200]
+    metrics_path: /metrics
+
+  - job_name: signal-kimchi
+    static_configs:
+      - targets: [signal-kimchi:9200]
+    metrics_path: /metrics
+
+  - job_name: signal-announcement
+    static_configs:
+      - targets: [signal-announcement:9200]
+    metrics_path: /metrics
+
+  - job_name: signal-coinglass
+    static_configs:
+      - targets: [signal-coinglass:9200]
+    metrics_path: /metrics
