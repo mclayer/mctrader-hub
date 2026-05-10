@@ -1,7 +1,7 @@
 # Heartbeat Stale 파일 누적 문제 해결 설계
 
 **날짜**: 2026-05-11  
-**관련 Story**: MCT-128 (mctrader-data), MCT-129 (mctrader-web)  
+**관련 Story**: MCT-129 (cli.py), MCT-130 (HeartbeatWriter TTL), MCT-131 (mctrader-web UI)  
 **배경**: `http://mctrader.mclayer.it/status` 페이지가 수십 개 컬럼으로 깨지는 운영 장애
 
 ---
@@ -148,17 +148,48 @@ stale 노드 (level 2):
 
 ---
 
-## §6 scope_manifest (초안 — PMOAgent Phase 2 산출)
+## §6 scope_manifest (PMOAgent Phase 2 산출)
+
+> **추가 발견**: `collector.py:71`이 이미 `node_id or os.environ.get("MCTRADER_NODE_ID") or socket.gethostname()` 패턴 사용. `cli.py`만 동기화 필요.
 
 ```yaml
+# scope_manifest — MCT-129~131 (heartbeat stale 3-layer defense)
 planned_adrs: 0
+# ADR-018 Amendment 검토 (TTL 정리 정책 추가) — Story 진입 시 결정
+
+story_keys:
+  - MCT-129   # cli.py node_id env var 우선순위 (collector.py 패턴 동기화)
+  - MCT-130   # HeartbeatWriter TTL 정리 + 테스트
+  - MCT-131   # 00_status.py 방어적 렌더링 + 테스트
+
 planned_files:
   # mctrader-data (compose.yml 변경 불필요 — 이미 NODE_ID 설정됨)
-  - mctrader-data/src/mctrader_data/cli.py
-  - mctrader-data/src/mctrader_data/heartbeat.py
-  - mctrader-data/tests/test_heartbeat_stale_cleanup.py
+  - mctrader-data/src/mctrader_data/cli.py           # MCT-129: resolved_node_id 1줄 수정
+  - mctrader-data/src/mctrader_data/heartbeat.py     # MCT-130: start() 신설 + TTL 정리
+  - mctrader-data/tests/test_heartbeat.py            # MCT-130: stale 정리 단위 테스트
   # mctrader-web
-  - mctrader-web/src/mctrader_web/dashboard/pages/00_status.py
-  - mctrader-web/tests/test_apptest_status_panel.py
-planned_claude_md_sections: []
+  - mctrader-web/src/mctrader_web/dashboard/pages/00_status.py  # MCT-131: active/stale 분기
+  - mctrader-web/tests/test_apptest_status_panel.py             # MCT-131: AppTest 3 케이스
+  # mctrader-hub docs
+  - mctrader-hub/docs/stories/MCT-129.md
+  - mctrader-hub/docs/stories/MCT-130.md
+  - mctrader-hub/docs/stories/MCT-131.md
+
+planned_claude_md_sections:
+  - "node_id 우선순위: --node-id CLI > MCTRADER_NODE_ID env > hostname (mctrader-data)"
+  - "HeartbeatWriter TTL: MCTRADER_HEARTBEAT_STALE_CLEANUP_SECONDS (기본 300s)"
+  - "00_status.py 렌더링: active(lv0/1) 전체 카드 / stale(lv2) expander 접힘"
+
+not_in_scope:
+  - compose.yml 변경 (MCTRADER_NODE_ID 이미 설정됨)
+  - heartbeat-schema.v1 버전 bump (페이로드 변경 없음)
+  - 알림(Slack/이메일) 기능 (MCT-95 Epic decision #14 defer 유지)
 ```
+
+### 결정점 (Story 진입 시)
+
+| # | 결정 | 권고 |
+|---|------|------|
+| D1 | ADR-018 Amendment vs ADR 신설 | Amendment (TTL 정리는 방어 패턴, 독립 ADR 불필요) |
+| D2 | HeartbeatWriter.start() 신설 vs `__init__` 직접 호출 | `start()` 신설 (`__init__` 순수 유지, 테스트 격리) |
+| D3 | MCT-129→130→131 순서 직렬 or 병렬 | MCT-129→MCT-130 직렬(같은 파일), MCT-131 독립 병렬 가능 |
