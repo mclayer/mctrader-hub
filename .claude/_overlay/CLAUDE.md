@@ -95,10 +95,10 @@ mctrader-hub = codeforge plugin family 의 첫 비-dogfood consumer (debut). 본
 ```
 codeforge@mclayer
 codeforge-requirements@mclayer
-codeforge-design@mclayer
-codeforge-develop@mclayer
-codeforge-test@mclayer          # DEPRECATED (CFP-317/ADR-048) — CI-native 전환, 유지만
-codeforge-review@mclayer
+codeforge-design@mclayer        # 0.5.0 — CFP-319: ArchitectAgent WS stream push_interval 실증 의무; TestContractArch wiretap fixture; change-plan §8.5.1
+codeforge-develop@mclayer       # 0.4.0 — presets/docker-compose.test.yml (IntegrationTestAgent §8.6); CFP-317 PR pre-flight guard
+codeforge-test@mclayer          # REVIVED (ADR-055/CFP-367) — IntegrationTestAgent(Sonnet) active; TestAgent/StatefulTestAgent deprecated (spawn 불가); test-verdict-v2
+codeforge-review@mclayer        # 1.2.0 — CFP-318: 3 ReviewPL bootstrap-labels.sh preflight; review-verdict v4 (CFP-137, v3 Archived)
 codeforge-pmo@mclayer
 github@claude-plugins-official
 codex@openai-codex
@@ -136,7 +136,7 @@ HOTFIX_BYPASS_CODEFORGE=1 HOTFIX_BYPASS_REASON='<incident-id>' <명령>
 - **Story 범위 결정**: hub only (governance/ADR/cross-repo policy) / repo only (단일 repo 구현) / hub+repo (cross-repo 구현·rollout)
 - **Cross-repo 참조**: `{repo-name}#MCT-NNN` (예: `mctrader-data#MCT-001`)
 - Story 신규: `.github/ISSUE_TEMPLATE/story.yml` 사용 → `story-init.yml` Action 이 §1-7 자동 scaffold (CFP-105)
-- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
+- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 통합테스트 (IntegrationTestAgent, ADR-055, §8.6, test-verdict-v2) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
 - Sonnet decider 의무 (ADR-022) — 모든 design / scope 결정점에서 Sonnet 합성 필수
 
 ### Story 완료 의무 — PMO 회고 자동 dispatch (RETRO-MCT-107-111 §8 ESCALATE 후속)
@@ -168,6 +168,12 @@ CFP-108 Phase 6a 진입 시 hook 확장:
 
 - `.claude/_overlay/agents/DomainAgent.md` — 자동매매 도메인 전문가 (RequirementsPL sub-agent, CFP-37)
 - `.claude/_overlay/agents/DataEngineerAgent.md` — DuckDB / Parquet / OHLCV 특화 (DeveloperPL sub-agent, CFP-39)
+
+### Agent model tier (ADR-042 Amendment 2 — 2026-05-10)
+
+InfraEngineerAgent·QADeveloperAgent·DataEngineerAgent = `claude-haiku-4-5` (기계적 패턴 실행 카테고리).
+나머지 모든 agent = Sonnet 이상 (ADR-042 §결정-1 3-tier 매트릭스).
+롤백 트리거: 해당 agent 의 ESCALATE rate 급증 또는 품질 저하 시 ADR-042 governance re-audit (ADR-042 §결정-5/6).
 
 ## ADR-019 Preflight 표준 시퀀스
 
