@@ -9,14 +9,19 @@ Phase 0 — A1 stabilize 적용 전 / 후 비교 baseline 확보.
    ```
    # 중요: 컨테이너 내 파일명을 "tracemalloc.py" 로 하면 stdlib tracemalloc 모듈을
    # 스크립트 자신이 shadow → AttributeError. 반드시 다른 이름으로 cp.
+   # → host filename (compactor-tracemalloc.py) ≠ container filename
+   #   (compactor_capture.py) by design. shadowing 회피 목적.
    docker cp tools/compactor-tracemalloc.py mctrader-compactor:/tmp/compactor_capture.py
    docker exec mctrader-compactor sh -c \
        'nohup python /tmp/compactor_capture.py \
             --duration-hours 12 --interval-min 10 \
             --out /var/lib/mctrader/data/_tracemalloc/baseline \
             >/var/lib/mctrader/data/_tracemalloc/baseline.log 2>&1 &
-        echo PID=$!'
+        echo $! > /tmp/compactor_capture.pid; echo PID=$!'
    # 검증: 1-2분 뒤 snap-<ts>.pkl 파일이 baseline/ 에 생기는지 확인.
+   # PID 재확인: `cat /tmp/compactor_capture.pid` 또는 `pgrep -f compactor_capture.py`.
+   # 주의: capture 프로세스는 컨테이너 재시작 시 손실됨 (/tmp 휘발 + nohup ≠ supervisor).
+   #       12h 도중 compactor restart 발생 시 baseline 무효 → 재시작 후 처음부터 다시 캡처.
    ```
 
 2. Prometheus 에서 12 시간 동안 다음 query 시계열 저장:

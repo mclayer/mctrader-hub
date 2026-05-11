@@ -1,10 +1,16 @@
 """Compactor tracemalloc snapshot collector.
 
 Designed to run INSIDE the mctrader-compactor container via:
-    docker cp tools/compactor-tracemalloc.py mctrader-compactor:/tmp/tracemalloc.py
-    docker exec -d mctrader-compactor python /tmp/tracemalloc.py \\
-        --duration-hours 12 --interval-min 10 \\
-        --out /var/lib/mctrader/data/_tracemalloc/baseline    # or /...after-a1
+    # IMPORTANT: container-side filename must NOT shadow stdlib `tracemalloc`.
+    # See docs/runbooks/compactor-baseline.md for the full procedure.
+    docker cp tools/compactor-tracemalloc.py mctrader-compactor:/tmp/compactor_capture.py
+    docker exec -d mctrader-compactor sh -c \\
+        'nohup python /tmp/compactor_capture.py \\
+            --duration-hours 12 --interval-min 10 \\
+            --out /var/lib/mctrader/data/_tracemalloc/baseline \\
+            > /var/lib/mctrader/data/_tracemalloc/baseline.log 2>&1 &'
+
+    # for A1 after-effect: --out /var/lib/mctrader/data/_tracemalloc/after-a1
 
 See docs/runbooks/compactor-baseline.md for the full capture procedure.
 
