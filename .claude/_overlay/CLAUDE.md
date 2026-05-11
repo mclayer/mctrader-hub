@@ -93,12 +93,12 @@ mctrader-hub = codeforge plugin family 의 첫 비-dogfood consumer (debut). 본
 ### 의존 plugin (9개) — `/plugins install` 등록 의무
 
 ```
-codeforge@mclayer
+codeforge@mclayer               # 5.10.0 — ADR-014 Amendment 2: deputy mandate 소유권 annotation 갱신 (SecurityArch=credential threat / OpRiskArch=environment containment / DataMigrationArch=§11.6 idempotency primary)
 codeforge-requirements@mclayer
-codeforge-design@mclayer        # 0.5.0 — CFP-319: ArchitectAgent WS stream push_interval 실증 의무; TestContractArch wiretap fixture; change-plan §8.5.1
-codeforge-develop@mclayer       # 0.4.0 — presets/docker-compose.test.yml (IntegrationTestAgent §8.6); CFP-317 PR pre-flight guard
-codeforge-test@mclayer          # REVIVED (ADR-055/CFP-367) — IntegrationTestAgent(Sonnet) active; TestAgent/StatefulTestAgent deprecated (spawn 불가); test-verdict-v2
-codeforge-review@mclayer        # 1.2.0 — CFP-318: 3 ReviewPL bootstrap-labels.sh preflight; review-verdict v4 (CFP-137, v3 Archived)
+codeforge-design@mclayer        # 0.6.0 — ArchitectAgent Phase 3.5 self-lint 추가; §8.5_active spawn param (ArchitectPL→TestContractArch); LiveOps/LiveOrdering reconciliation 경계 확정 (ADR-014 Amendment 2)
+codeforge-develop@mclayer       # 0.5.0 — maintenance scripts 추가 (check-dogfood-artifact-paths / check-marketplace-parity); consumer-breaking 없음
+codeforge-test@mclayer          # 1.1.1 (REVIVED — ADR-055/CFP-367 + Amendment 2/CFP-371) — test-verdict-v2.1 (Epic-level); IntegrationTestAgent(Sonnet) active; TestAgent/StatefulTestAgent deprecated (spawn 불가)
+codeforge-review@mclayer        # 1.2.1 — review-verdict v4 canonical in plugin (CFP-137 sibling sync); v3 Archived; 4-step Orchestrator algorithm
 codeforge-pmo@mclayer
 github@claude-plugins-official
 codex@openai-codex
@@ -138,7 +138,7 @@ HOTFIX_BYPASS_CODEFORGE=1 HOTFIX_BYPASS_REASON='<incident-id>' <명령>
 - **Story 범위 결정**: hub only (governance/ADR/cross-repo policy) / repo only (단일 repo 구현) / hub+repo (cross-repo 구현·rollout)
 - **Cross-repo 참조**: `{repo-name}#MCT-NNN` (예: `mctrader-data#MCT-001`)
 - Story 신규: `.github/ISSUE_TEMPLATE/story.yml` 사용 → `story-init.yml` Action 이 §1-7 자동 scaffold (CFP-105)
-- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 통합테스트 (IntegrationTestAgent, ADR-055, §8.6, test-verdict-v2) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
+- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 통합테스트 (IntegrationTestAgent, ADR-055, §8.6, test-verdict-v2.1, Epic-level CFP-371) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
 - Sonnet decider 의무 (ADR-022) — 모든 design / scope 결정점에서 Sonnet 합성 필수
 
 ### Story 완료 의무 — PMO 회고 자동 dispatch (RETRO-MCT-107-111 §8 ESCALATE 후속)
