@@ -1,16 +1,19 @@
 """Compactor tracemalloc snapshot collector.
 
-Usage:
-    # baseline (A1 적용 전):
-    python tools/compactor-tracemalloc.py --duration-hours 12 --interval-min 10 --out /var/log/compactor-tracemalloc/baseline
+Designed to run INSIDE the mctrader-compactor container via:
+    docker cp tools/compactor-tracemalloc.py mctrader-compactor:/tmp/tracemalloc.py
+    docker exec -d mctrader-compactor python /tmp/tracemalloc.py \\
+        --duration-hours 12 --interval-min 10 \\
+        --out /var/lib/mctrader/data/_tracemalloc/baseline    # or /...after-a1
 
-    # after A1:
-    python tools/compactor-tracemalloc.py --duration-hours 12 --interval-min 10 --out /var/log/compactor-tracemalloc/after-a1
+See docs/runbooks/compactor-baseline.md for the full capture procedure.
+
+Pickle protocol: same-Python-version round-trip only.
+Signal contract: SIGTERM/SIGINT graceful (POSIX/Linux; container env).
 """
 from __future__ import annotations
 
 import argparse
-import os
 import pickle
 import signal
 import sys
@@ -20,6 +23,13 @@ from pathlib import Path
 
 
 def main() -> int:
+    # Ensure UTF-8 stdout for non-ASCII output (em-dash, arrow) when running
+    # the dry-run on Windows consoles (cp949/cp1252). No-op in Linux container.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration-hours", type=float, default=12.0)
     parser.add_argument("--interval-min", type=float, default=10.0)
@@ -64,6 +74,8 @@ def main() -> int:
         n += 1
         time.sleep(interval)
 
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"[tracemalloc] traced bytes — current={current}, peak={peak}")
     print(f"[tracemalloc] completed {n} snapshots → {args.out}")
     return 0
 
