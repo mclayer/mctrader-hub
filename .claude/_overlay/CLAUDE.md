@@ -251,3 +251,30 @@ py -3.12 -m pytest tests/ -v
 | mctrader-web | 의무 | 의무 | 의무 | 의무 |
 
 > `mctrader-data`, `mctrader-engine`: MCT-110에서 stale wheel 문제 직접 확인 → D3 우선순위 HIGH
+
+## Compactor 운영 (MCT-132 Phase 1)
+
+- 컨테이너: `mctrader-compactor` (mctrader-data compose service)
+- `mem_limit: 32G` (호스트 62.73GiB 의 절반), `memswap_limit: 32G` (swap disabled)
+- 환경변수:
+  - `MALLOC_TRIM_THRESHOLD_=131072` (glibc free 후 OS 반환 trigger)
+  - `ARROW_DEFAULT_MEMORY_POOL=system` (PyArrow jemalloc → glibc 전환)
+  - `MCTRADER_COMPACTOR_GC_INTERVAL_SECONDS=300` (runner 가 5분 주기 `gc.collect()` 호출)
+  - `MCTRADER_COMPACTOR_METRICS_PORT=8080`
+- mem_limit 초과 시 `restart: unless-stopped` — A2 metric (`compactor_process_rss_bytes`) 으로 즉시 감지
+- L1/L2/L3 ParquetWriter `with` context manager + tmp 파일 cleanup on exception
+
+## Compactor 관측 (MCT-134 Phase 1)
+
+- `/metrics`: `http://mctrader-compactor:8080/metrics` (host expose: `localhost:8080`)
+- Prometheus scrape job: `mctrader-data-compactor` (`monitoring/prometheus.yml`)
+- Grafana dashboard: `mctrader/Compactor Memory & Throughput` (uid: `mctrader-compactor`)
+- 5 metric:
+  - `compactor_process_rss_bytes` — process RSS (procfs primary, resource/ctypes fallback)
+  - `compactor_pyarrow_total_allocated_bytes` — PyArrow default memory pool
+  - `compactor_python_gc_gen_count{generation="0|1|2"}` — Python GC generation counts
+  - `compactor_tier_pending_segments{tier="L1|L2|L3"}` — L1: sealed segment count, L2/L3: elapsed/interval (epoch 0 인 경우 0)
+  - `compactor_writer_open_count{tier="L1|L2|L3"}` — paired inc/dec around ParquetWriter
+- Phase 1 land report: `docs/runbooks/compactor-mct132-phase1-land.md`
+- Baseline capture runbook: `docs/runbooks/compactor-baseline.md`
+- tracemalloc collector: `tools/compactor-tracemalloc.py` (컨테이너 내 `/tmp/compactor_capture.py` 로 cp — shadowing 회피)
