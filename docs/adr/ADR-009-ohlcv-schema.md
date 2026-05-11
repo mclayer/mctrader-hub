@@ -19,6 +19,10 @@ Accepted — 2026-05-02. MCT-9 Phase 1 PR.
 - 2026-05-08 — §D12 (Docker-first persistence: named volume `mctrader_data` + forward-only invariant + DR backup recipe) NEW. MCT-98 Phase 2 entry (mctrader Docker-first Migration Epic, Pilot reference 박제).
 - 2026-05-09 — §D9 amendment (L3 reservation = future exchanges only, Bithumb KRW 한정 L2-30 only) + §D13 (`exchange_metadata.v1`) NEW + §D14 (`orderbook_snapshot.v1` L2 30-level snapshot stream + ordering invariant) NEW. MCT-104 Phase 1 (Bithumb 데이터 surface 전수 탐색 + P1 metadata + P2 orderbook snapshot 채택).
 - 2026-05-09 — §D13/§D14 wiretap-based amendment (MCT-104 Phase 2 entry): §D13 의 tick_size / min_order_qty / fee_maker / fee_taker / min_order_notional_krw 모두 nullable (P2-F-003: public REST 미노출 검증) — Phase 2 = public-fillable subset only, private column 은 Live Epic 진입 시 채움. §D14 baseline_seq 모델 datetime-micro-epoch 으로 변경 (Bithumb 실측: 16-digit micro epoch string 노출, sequence number 부재 — P2-F-002/004). §D14.10 신설 = 1-sec subsample throttle (실측 push interval ≈200ms, ArchitectPL 30s 가정 대비 150x 차이, C1 storage 정책 재설계). §D13.7 rate-limit 135→150 r/s 정확화 (Codex P2-F-007).
+- 2026-05-12 — **Major amendment** (MCT-135, Epic MCT-112 Story-1):
+  - **§D10 amendment** — tick.v1 → tick.v1.1 minor extension: `ingest_seq` (uint64) + `payload_hash` (string) + `validation_status` (string) 3 column 추가. Bithumb WS transaction stream 의 sequence hole / content-mismatch / GAP 검출 의무화. fallback dedup key 확장 (§D10.7 reference, `ingest_seq` 추가로 6-tuple → 8-tuple).
+  - **§D15 신설** — Information bar contract (`time_5m` / `vol_1000000krw` / `tick_1000` / `dollar_5000000krw` label format) + immutable contract metadata (genesis_ts / threshold / precision / rounding_rule / source_cutoff / tie_breaking / version / contract_id SHA256). **Candle = stored entity 에서 derived view 로 격하** (transaction tick = Bronze SSOT, candle = Silver derived). Aggregation Core Lib (ADR-025) reference.
+  - **§D16 신설** — `provenance` column (`legacy_candle` cutoff 이전 immutable / `transaction_derived` cutoff 이후 derive). Legacy Candle Provenance & Retirement Policy (ADR-026) reference.
 
 ## Context
 
@@ -257,6 +261,46 @@ T2 tick stream 의 active-active multi-node dedup logical key — §D2.1 의 con
 **Dedup 정확도 목표**: > 99% (T2 tick = same Bithumb stream 이라 byte-identical 기대 매우 높음). MCT-X3 Calibration C2 측정 의무.
 
 **raw_json column 정책**: `raw_json` (§D10.1 nullable, debug optional) 은 content 비교 제외 (양 node 의 WS frame 직렬화 형식 차이 가능). dedup 후 살아남은 row 의 `raw_json` 은 node priority 우선 row 의 값 채택.
+
+#### D10.8 tick.v1 → tick.v1.1 minor extension (NEW, MCT-135, Epic MCT-112 Story-1, 2026-05-12 amendment)
+
+Transaction SSOT & Information-Driven Bar Architecture (Epic MCT-112) 의 foundation. tick = Bronze SSOT, candle = Silver derived view (§D15 격하) 로 의미가 변경됨에 따라 tick stream 의 record-level invariants 강화 의무. ADR-009 §D7 (Schema versioning) 의 minor 정의 (추가 column = compatible) 정합 — v1 reader 는 v1.1 의 신규 column 무시하면 그대로 동작 (backward compat).
+
+**추가 column (3)**:
+
+| Column | Type | Nullable | 의미 |
+|---|---|---|---|
+| ingest_seq | uint64 | no | collector 측 monotonic 발급 sequence. dedup + 결정론적 replay key. process restart 시 reset 허용 (collector_run_id 와 결합 시 monotonic). |
+| payload_hash | string | no | raw WS frame SHA256 16-hex prefix. content-mismatch 검출 + active-active dedup tie-breaker. raw_json 보존 여부와 무관 — frame 도착 시점에 계산. |
+| validation_status | string | no | `"OK"` / `"GAP"` / `"MALFORMED"` / `"RECONNECT_BOUNDARY"`. Bithumb WS reconnect 시 sequence hole 검출 + 박제 의무. |
+
+**Rationale (3 column 별)**:
+
+- **`ingest_seq`** — Bithumb WS transaction stream 의 unique trade_id 부재 (§D2.1 / §D10.7 anchor) 가정 하에 collector 측 monotonic seq 발급으로 결정론적 ordering 확보. process restart 후 reset 발생하지만 `collector_run_id` 와 결합 시 (run_id, ingest_seq) tuple 이 monotonic — backtest replay 결정성 확보.
+- **`payload_hash`** — content-based dedup + active-active mismatch 검출. ADR-017 §Transaction-tier WAL (amendment 2026-05-12) 의 fsync window 내 process crash 후 재시작 시 in-flight WAL buffer 의 일부 row 가 다음 sealed segment 에 재기록되는 경우 content equality 로 자연 dedup. raw_json column 이 nullable (debug optional) 인 환경에서도 hash 는 항상 기록.
+- **`validation_status`** — Bithumb WS forward-only invariant (D12.2) 위반 사건 (gap / malformed / reconnect boundary) 의 row-level 박제 의무. `GAP` 박제 = backfill 불가 명시화. `MALFORMED` = schema mismatch 후 quarantine (§D10.6 정책 답습 + row-level visibility). `RECONNECT_BOUNDARY` = collector 측 reconnect 직후 첫 frame, dedup 의 ms-tolerance 적용 대상 marker.
+
+**Fallback dedup key 확장**:
+
+§D10.7 의 fallback tuple `(exchange, symbol, ts_utc, price, quantity, side)` 6-tuple 에 `ingest_seq` + `payload_hash` 추가:
+
+- **Logical key (확장)**: `(exchange, symbol, ts_utc, price, quantity, side, raw_json_hash, ingest_seq)` — 단, `raw_json_hash` 는 v1.1 의 `payload_hash` 와 의미 일치 (`raw_json` 의 SHA256 이지만 v1.1 부터는 payload 직접 hash 도 동치, raw_json nullable 시 payload 직접 hash 채택)
+- **Tie-breaking**: `payload_hash` 일치 → idempotent skip. mismatch → `active-active mismatch` quarantine (§D10.7 정책 유지) + `validation_status` 변경 (`OK` → `MALFORMED`) 박제.
+
+**Hive partition layout — 변경 없음**: §D10.2 그대로 (`market/ticks/schema_version=tick.v1/...`). schema_version label = `tick.v1` (minor `tick.v1.1` 은 column 추가만 — partition label 변경 트리거 아님, §D7 minor compatibility 규칙). 단 reader 가 신규 3 column 의 존재 여부로 `tick.v1` vs `tick.v1.1` 자연 분기.
+
+**Backward compat**:
+
+- 기존 `tick.v1` Parquet (legacy, 신규 3 column 부재) → v1.1 reader 는 신규 column 을 `validation_status=NULL` / `payload_hash=NULL` / `ingest_seq=NULL` 로 보거나, `validation_status="OK"` default 적용 (caller 정책). Story-4 (mctrader-market-bithumb transaction WS subscriber 강화) 가 신규 row 부터 3 column 의무 채움.
+- 신규 row 부터 3 column non-null write 의무 (Story-4 implementation seal). legacy row 는 ADR-026 §D1 legacy candle 자산 정책 (immutable 유지) 동형 — `tick.v1` legacy partition 도 immutable 유지 + dual-namespace operation 가능.
+
+References:
+- Spec: [transaction-ssot-information-bar-design.md](../superpowers/specs/2026-05-12-transaction-ssot-information-bar-design.md) §3 D8 (tick.v1 schema 확장)
+- §D15 (Information bar contract) — tick 이 bronze SSOT 임을 박제하는 동위 amendment
+- §D16 (Provenance column) — legacy_candle vs transaction_derived 의 row-level provenance
+- ADR-017 §Transaction-tier WAL (amendment 2026-05-12) — at-least-once + batch fsync + WAL buffer policy
+- ADR-025 (Aggregation Core Lib Contract) — tick.v1.1 row 를 입력으로 받는 bar aggregation algorithm SSOT
+- ADR-026 (Legacy Candle Provenance & Retirement Policy) — cutoff timestamp 후 retirement 의 prerequisite
 
 ### D11. Orderbook event stream v1 (NEW, MCT-63 Epic Phase 1, 2026-05-04 amendment)
 
@@ -742,6 +786,107 @@ class OrderbookSnapshotWriter:
 
 **Calibration C2 의무**: throttle drop ratio + reconstruction gap distribution 측정 후 정책 lock-in. Phase 3 entry 시 (50 sym × 7-day 측정) 결과 박제.
 
+### D15. Information bar contract (NEW, MCT-135, Epic MCT-112 Story-1, 2026-05-12)
+
+**Candle = derived view 격하 — ADR-009 의 정체성 변경**:
+
+본 amendment 는 candle (§D8 Candle Protocol) 을 stored entity 에서 **derived view** 로 격하한다. transaction tick (§D10 tick.v1.1) 이 유일한 Bronze SSOT, candle 은 Silver derived view (aggregation result). 거래소 candle API 의존 완전 제거 (Bithumb / Upbit / 모든 거래소). 1차 동기 = 비표준 timeframe 유연성 + information-driven bar (Lopez de Prado AFML) 자유도.
+
+**의미 변경 boundary**:
+
+| 측면 | Before (이전 §D1-§D8) | After (본 §D15 amendment) |
+|---|---|---|
+| Candle 정의 | stored entity (거래소 candle API → §D1 schema 저장) | derived view (aggregation function of tick.v1.1 stream) |
+| Primary source | 거래소 candle endpoint + §D1 16-column Parquet | tick.v1.1 (Bronze SSOT) |
+| Candle Protocol (§D8) | scan_candles → stored Parquet read | scan_candles → on-demand aggregation (또는 materialized cache, contract metadata 의무) |
+| Backfill 가능성 | candle endpoint 호출 | tick stream 누적 시점부터만 가능 (legacy candle 은 §D16 / ADR-026 정책 적용) |
+
+**Information bar contract — 4 알고리즘 (ADR-025 SSOT)**:
+
+본 §D15 는 information bar 의 **label format + metadata contract** 만 정의 (alg 구현 SSOT 는 ADR-025 Aggregation Core Lib Contract). 4 알고리즘:
+
+| 알고리즘 | Label format | 의미 |
+|---|---|---|
+| Time bar | `time_5m` / `time_15m` / `time_1h` / `time_47s` (임의 timeframe) | tick 도착 시각 의 fixed time window aggregation. `[start, end)` inclusion (ADR-005 동형). |
+| Volume bar | `vol_1000000krw` / `vol_100btc` | cumulative volume threshold 도달 시 bar close. quantity 단위 (base asset) 또는 KRW notional. |
+| Tick bar | `tick_1000` / `tick_500` | cumulative tick count threshold 도달 시 bar close. order arrival rate 균일화. |
+| Dollar bar | `dollar_5000000krw` / `dollar_100000000krw` | cumulative KRW notional threshold 도달 시 bar close. trade value (price × quantity) 누적. |
+
+**Label format invariants**:
+
+- Format: `<algorithm>_<threshold><unit>` (snake_case + unit 명시).
+- Algorithm = `time` / `vol` / `tick` / `dollar` (4 종, ADR-025 SSOT).
+- Threshold = positive integer + unit suffix. `time` = `s` / `m` / `h` / `d` (seconds/minutes/hours/days), `vol` = `krw` (KRW notional) / `<base>` (base asset 명, e.g., `btc`), `tick` = no unit (count), `dollar` = `krw`.
+- Backward compat: 기존 `1m` / `5m` / `15m` / `1h` / `4h` / `1d` (§D1 timeframe column) 는 implicit `time_*` 으로 해석 (`1m` ≡ `time_1m`).
+
+**Immutable contract metadata (8 필드)**:
+
+각 information bar instance 가 발급된 시점에 **immutable contract metadata** 박제 의무. 본 metadata 가 backtest 결정성 + Hot/Cold consistency (ADR-025 §D5 SLO) 의 alignment 기준.
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| genesis_ts | timestamp[ns, UTC] | 본 bar contract 가 처음 발급된 시각 (= 첫 tick 의 ts_utc) |
+| threshold | string | algorithm 의 threshold parameter (e.g., `"5m"` / `"1000000"` / `"1000"` / `"5000000"`) |
+| precision | string | 수치 표현 정밀도 (e.g., `"krw_scaled_int"` / `"decimal_38_18"`) — ADR-025 §D3 reference |
+| rounding_rule | string | boundary rounding policy (e.g., `"ROUND_HALF_EVEN"` / `"ROUND_DOWN"`) |
+| source_cutoff | timestamp[ns, UTC] | 본 bar 가 의존하는 tick 의 cutoff (§D16 provenance + ADR-026 cutoff timestamp 정합) |
+| tie_breaking | string | 동일 threshold-crossing tick 처리 정책 (e.g., `"include_in_current"` / `"include_in_next"`) |
+| version | string | contract metadata schema version (e.g., `"contract_metadata.v1"`) |
+| contract_id | string | 위 7 필드의 canonical JSON → SHA256 hex. immutable hash. |
+
+**`contract_id` 결정성 의무**: 동일 (genesis_ts, threshold, precision, rounding_rule, source_cutoff, tie_breaking, version) tuple → 동일 contract_id. Hot/Cold 양 path (ADR-025 §D1) 가 동일 contract_id 발급 의무. mismatch detected 시 strategy 입력 reject + fail-closed.
+
+**수치 표현**:
+
+ADR-025 §D3 SSOT. KRW pair 는 원 단위 = naturally integer-friendly → KRW scaled integer 채택. boundary 에서만 Decimal(38,18) ↔ scaled int 변환. backtest 누적 정확도 + Hot/Cold 양 path 의 rounding alignment 확보. 본 §D15 의 `precision` metadata 가 알고리즘 별 수치 표현 박제.
+
+**Hot/Cold consistency**:
+
+- Hot path (Python asyncio per-symbol state machine) ↔ Cold path (DuckDB SQL over Parquet) 양 path 가 ADR-025 Aggregation Core Lib import 의무
+- SLO: drift < 0.01% bar count mismatch (ADR-025 §D5)
+- 위반 시: strategy 입력 Cold fallback (Hot path bar reject)
+
+References:
+- ADR-025 (Aggregation Core Lib Contract) — 4 알고리즘 SSOT + Hot/Cold consistency SLO
+- ADR-026 (Legacy Candle Provenance & Retirement Policy) — cutoff timestamp + dual-write period
+- §D8 (Candle Protocol) — derived view 격하 후 의미 변경 (consumer 코드 영향, Story-9 owner)
+- §D16 (Provenance column) — legacy_candle vs transaction_derived row-level provenance
+- Lopez de Prado, "Advances in Financial Machine Learning" Ch.2 — information-driven bar
+
+### D16. Provenance column (NEW, MCT-135, Epic MCT-112 Story-1, 2026-05-12)
+
+**`provenance` column 신설** — ohlcv.v1 (§D1) + tick.v1.1 (§D10) + 신규 information bar materialized output 모두에 row-level provenance 박제 의무. ADR-026 (Legacy Candle Provenance & Retirement Policy) 의 cutoff timestamp policy 의 row-level visibility.
+
+**Column 정의**:
+
+| Column | Type | Nullable | Allowed values | 의미 |
+|---|---|---|---|---|
+| provenance | string | no | `"legacy_candle"` / `"transaction_derived"` | row 가 cutoff 이전 legacy candle Parquet 에서 유래했는지, cutoff 이후 transaction tick aggregation 으로 derive 됐는지 박제 |
+
+**Semantic**:
+
+- **`"legacy_candle"`**: ADR-026 §D2 의 cutoff timestamp 이전 historic 구간의 candle Parquet row. 거래소 candle API 또는 기존 collector polling 으로 수집된 row. immutable SSOT 유지 (ADR-026 §D1). transaction 으로 재계산 불가 (Bithumb backfill 불가 §D12.2). strategy / backtest 가 dataset 별로 본 provenance 인지 의무.
+- **`"transaction_derived"`**: ADR-026 §D2 의 cutoff timestamp 이후 transaction tick (§D10 tick.v1.1) aggregation 으로 derive 된 row. Aggregation Core Lib (ADR-025) algorithm 채택 + immutable contract metadata (§D15) 박제.
+
+**Provenance 분기 정책**:
+
+- 동일 partition (e.g., `market/ohlcv/schema_version=ohlcv.v1/exchange=bithumb/symbol=KRW-BTC/timeframe=1m/date=...`) 내에 두 provenance 가 공존 불가 — cutoff timestamp 가 row-level boundary. cutoff 이전 row = `legacy_candle`, cutoff 이후 row = `transaction_derived`. 동일 (exchange, symbol, timeframe, ts_utc) tuple 의 양 provenance row 가 동시 존재 시 = dual-write 기간 (ADR-026 §D4) — reconciliation harness (Story-11) 의 drift 측정 대상.
+- `legacy_candle` row 의 `data_hash` / `data_snapshot_id` (§D1 schema) 는 legacy collector 발급 그대로 보존 (immutable).
+- `transaction_derived` row 의 `data_hash` / `data_snapshot_id` 는 ADR-025 contract_id 의 prefix 또는 별도 hash (Story-3 / Story-5 implementation 정책 박제).
+
+**Hive partition layout — 변경 없음**: §D1 (`market/ohlcv/...`) + §D10.2 (`market/ticks/...`) 그대로. `provenance` 는 partition key 아님 — column 화. partition key 추가 시 Hive 의 directory cardinality 폭증 + ADR-026 §D4 dual-write 기간 의 양 provenance 동시 존재가 partition layout 의 directory split 을 강요 — 거부.
+
+**Backward compat**:
+
+- 기존 ohlcv.v1 / tick.v1 Parquet (provenance column 부재, 본 amendment 이전 land) → reader 가 `provenance="legacy_candle"` default 적용. Story-9 (engine candle consumer derived view 전환) 가 reader 측 default 박제.
+- 신규 row 부터 `provenance` non-null write 의무 (Story-3 / Story-5 / Story-12 implementation seal).
+
+References:
+- ADR-026 (Legacy Candle Provenance & Retirement Policy) — cutoff timestamp 정의 + dual-write period + retirement procedure
+- §D15 (Information bar contract) — `transaction_derived` row 의 contract metadata SSOT
+- §D7 (Schema versioning) — `provenance` column 추가는 minor (compatible)
+- Spec: [transaction-ssot-information-bar-design.md](../superpowers/specs/2026-05-12-transaction-ssot-information-bar-design.md) §3 D7 (Legacy candle 처리)
+
 ## §D2 amendment — Tier partition for compaction (MCT-106, 2026-05-09)
 
 All Parquet layouts under `market/` gain a mandatory `tier=L{1,2,3}` partition key
@@ -803,3 +948,8 @@ Candle Protocol contract = MCT-13 구현의 input.
 - ADR-002 D2 / ADR-003 H1 / ADR-005 path (c) / ADR-006 D10
 - ADR-004 D2 L3 — orderbook snapshot future activation
 - MCT-13 (mctrader-market interface) — Candle Protocol 구현
+- ADR-017 — Zero-loss ingestion + WAL + tiered compaction (transaction-tier WAL policy)
+- ADR-025 — Aggregation Core Lib Contract (Hot/Cold shared aggregation core, 4 알고리즘 SSOT)
+- ADR-026 — Legacy Candle Provenance & Retirement Policy (cutoff timestamp + dual-write + retirement)
+- MCT-112 (Epic) — Transaction SSOT & Information-Driven Bar Architecture
+- MCT-135 (Story-1) — 본 amendment Major + ADR-017 amendment + 2 신규 ADR draft Story
