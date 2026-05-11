@@ -1,0 +1,60 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "schemaVersion": 38,
+  "tags": ["mctrader", "compactor", "memory"],
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "Compactor Memory & Throughput",
+  "uid": "mctrader-compactor",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Process RSS",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "compactor_process_rss_bytes", "legendFormat": "RSS"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "PyArrow Allocated",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "compactor_pyarrow_total_allocated_bytes", "legendFormat": "pyarrow_total"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Python GC Generations",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "compactor_python_gc_gen_count{generation=\"0\"}", "legendFormat": "gen0"},
+        {"expr": "compactor_python_gc_gen_count{generation=\"1\"}", "legendFormat": "gen1"},
+        {"expr": "compactor_python_gc_gen_count{generation=\"2\"}", "legendFormat": "gen2"}
+      ],
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Tier Pending Segments",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "compactor_tier_pending_segments{tier=\"L1\"}", "legendFormat": "L1"},
+        {"expr": "compactor_tier_pending_segments{tier=\"L2\"}", "legendFormat": "L2"},
+        {"expr": "compactor_tier_pending_segments{tier=\"L3\"}", "legendFormat": "L3"}
+      ],
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Open ParquetWriters",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "compactor_writer_open_count{tier=\"L1\"}", "legendFormat": "L1"},
+        {"expr": "compactor_writer_open_count{tier=\"L2\"}", "legendFormat": "L2"},
+        {"expr": "compactor_writer_open_count{tier=\"L3\"}", "legendFormat": "L3"}
+      ],
+      "gridPos": {"x": 0, "y": 16, "w": 24, "h": 8}
+    }
+  ]
+}
