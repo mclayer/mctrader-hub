@@ -2,7 +2,7 @@
   "version": 1,
   "prefix": "MCT",
   "counters": {
-    "mctrader-hub":            { "next": 141 },
+    "mctrader-hub":            { "next": 142 },
     "mctrader-data":           { "next": 1 },
     "mctrader-market":         { "next": 1 },
     "mctrader-market-bithumb": { "next": 1 },
