@@ -93,18 +93,40 @@ mctrader-hub = codeforge plugin family 의 첫 비-dogfood consumer (debut). 본
 ### 의존 plugin (9개) — `/plugins install` 등록 의무
 
 ```
-codeforge@mclayer               # 5.10.0 — ADR-014 Amendment 2: deputy mandate 소유권 annotation 갱신 (SecurityArch=credential threat / OpRiskArch=environment containment / DataMigrationArch=§11.6 idempotency primary)
-codeforge-requirements@mclayer
-codeforge-design@mclayer        # 0.6.0 — ArchitectAgent Phase 3.5 self-lint 추가; §8.5_active spawn param (ArchitectPL→TestContractArch); LiveOps/LiveOrdering reconciliation 경계 확정 (ADR-014 Amendment 2)
+codeforge@mclayer               # 5.14.0 — CFP-411 ADR-052 Am1 Requirements lane multi-round debate (touchpoint #4 격상) / CFP-389 ADR-060 evidence-enforceable framework + ADR-024 Am3 hotfix-bypass:* label family + 4th wrapper registry (evidence-check-registry-v1) / CFP-391 ADR-059 debate-protocol-v1 + ADR-044 Am1 auto_on_divergence / CFP-387 ADR-058 is_transitional frontmatter + 해소 기준 섹션 의무
+codeforge-requirements@mclayer  # 0.5.0 — CFP-411 codex-proactive-check worker 신설 (dispatch_mode: auto_on_divergence) + RequirementsPLAgent semantic divergence 3 criteria (AC 의미 / Edge Case 누락 / Why 해석 mismatch). Wire: codeforge >= 5.13.0 의무
+codeforge-design@mclayer        # 0.7.0 — CFP-387 templates/adr.md frontmatter is_transitional + amendments[].sunset_justification + body ## 해소 기준 섹션 schema (보안 ADR default presumption = false)
 codeforge-develop@mclayer       # 0.5.0 — maintenance scripts 추가 (check-dogfood-artifact-paths / check-marketplace-parity); consumer-breaking 없음
 codeforge-test@mclayer          # 1.1.1 (REVIVED — ADR-055/CFP-367 + Amendment 2/CFP-371) — test-verdict-v2.1 (Epic-level); IntegrationTestAgent(Sonnet) active; TestAgent/StatefulTestAgent deprecated (spawn 불가)
-codeforge-review@mclayer        # 1.2.1 — review-verdict v4 canonical in plugin (CFP-137 sibling sync); v3 Archived; 4-step Orchestrator algorithm
-codeforge-pmo@mclayer
+codeforge-review@mclayer        # 1.3.0 — CFP-391 review-pl-base §3.0~§3.3 debate-protocol-v1 dispatch SOP + review-verdict v4.0→v4.1 (findings[].anchor_id optional field)
+codeforge-pmo@mclayer           # 0.1.0
 github@claude-plugins-official
 codex@openai-codex
 superpowers@claude-plugins-official
 claude-md-management@claude-plugins-official
 ```
+
+### Adversarial Debate Protocol auto-trigger (CFP-391/411 — debate-protocol-v1)
+
+ADR-059 lane-agnostic debate protocol + ADR-044 Amendment 1 `auto_on_divergence` dispatch mode (codeforge 5.12 + 5.14, codeforge-review 1.3.0, codeforge-requirements 0.5.0):
+
+- **DesignReview lane**: review-verdict v4 `findings[].anchor_id` 기반 worker divergence 감지 시 자동 multi-round debate 진입 (min 3 / max 5 / soft default 4 rounds)
+- **Requirements lane**: RequirementsPLAgent §1~§6 완료 후 Codex proactive check (touchpoint #4) 가 semantic divergence (AC 의미 차이 / Edge Case 누락 / Why 해석 mismatch 중 1+ hit) 감지 시 동일 debate 진입
+- **Anchor 재발 escalation**: 같은 `anchor_id` 가 Story §9 에서 2회 이상 발견되면 즉시 `AskUserQuestion` escalation (ADR-059 §결정 4)
+- **Token 비용 인지**: divergence 미검출 시 single-shot 유지 — 새 동작은 superset, backward-compat
+- **FIX 통합**: ArchitectAgent re-run prompt 에 transcript 자동 주입, Story §9 inline append + §10 FIX Ledger `debate_artifact_ref` field
+
+### 도메인 ADR 작성 schema (CFP-387/ADR-058 — codeforge-design 0.7.0)
+
+본 repo `docs/adr/ADR-NN-*.md` 신규 작성 시 frontmatter + body schema:
+
+- **frontmatter `is_transitional: true | false`** 의무 (미선언 default = `true` 안전망 추정, ADR-058 §결정 4)
+- **`## 해소 기준` 섹션** 의무 (`## 결과` 직후, `## 다이어그램 (선택)` 직전):
+  - `is_transitional: true` → 측정성 3-tuple (metric / who / how) 정량 명시 의무
+  - `is_transitional: false` → `N/A — permanent policy` 1줄
+- **모달 어휘 금지**: "충분히 안정화되면" / "임시로" / "한시적" / "until further notice"
+- **보안 ADR default presumption** = `is_transitional: false` (ADR-058 §결정 7)
+- **Amendment 시 `sunset_justification`** 의무 (ratchet 차단, ADR-058 §결정 5)
 
 ### codeforge 업그레이드 프로세스
 
