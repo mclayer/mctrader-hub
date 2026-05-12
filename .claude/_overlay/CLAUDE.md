@@ -93,11 +93,11 @@ mctrader-hub = codeforge plugin family 의 첫 비-dogfood consumer (debut). 본
 ### 의존 plugin (9개) — `/plugins install` 등록 의무
 
 ```
-codeforge@mclayer               # 5.14.0 — CFP-411 ADR-052 Am1 Requirements lane multi-round debate (touchpoint #4 격상) / CFP-389 ADR-060 evidence-enforceable framework + ADR-024 Am3 hotfix-bypass:* label family + 4th wrapper registry (evidence-check-registry-v1) / CFP-391 ADR-059 debate-protocol-v1 + ADR-044 Am1 auto_on_divergence / CFP-387 ADR-058 is_transitional frontmatter + 해소 기준 섹션 의무
-codeforge-requirements@mclayer  # 0.5.0 — CFP-411 codex-proactive-check worker 신설 (dispatch_mode: auto_on_divergence) + RequirementsPLAgent semantic divergence 3 criteria (AC 의미 / Edge Case 누락 / Why 해석 mismatch). Wire: codeforge >= 5.13.0 의무
-codeforge-design@mclayer        # 0.7.0 — CFP-387 templates/adr.md frontmatter is_transitional + amendments[].sunset_justification + body ## 해소 기준 섹션 schema (보안 ADR default presumption = false)
-codeforge-develop@mclayer       # 0.5.0 — maintenance scripts 추가 (check-dogfood-artifact-paths / check-marketplace-parity); consumer-breaking 없음
-codeforge-test@mclayer          # 1.1.1 (REVIVED — ADR-055/CFP-367 + Amendment 2/CFP-371) — test-verdict-v2.1 (Epic-level); IntegrationTestAgent(Sonnet) active; TestAgent/StatefulTestAgent deprecated (spawn 불가)
+codeforge@mclayer               # 5.23.0 — CFP-423 Python script-writing convention; CFP-436 marketplace/plugin.json atomic invariant; CFP-455 evidence-check-registry v1.1 current_tier; CFP-445/449 decision-principle lint; CFP-448/490 selective Sonnet rollback + lane-evidence guard
+codeforge-requirements@mclayer  # 0.5.1 — CFP-411 codex-proactive-check worker + semantic divergence 3 criteria; CFP-448 ChangeImpactAgent Opus→Sonnet rollback. Wire: codeforge >= 5.23.0 의무
+codeforge-design@mclayer        # 0.8.0 — CFP-387 ADR template is_transitional + 해소 기준 schema; CFP-448 CodebaseMapperAgent/RefactorAgent Opus→Sonnet rollback + mandate boundary text
+codeforge-develop@mclayer       # 0.5.0 — CFP-379 DeveloperPLAgent Opus 승격 + Sonnet agent rate-limit→Opus fallback; CFP-317 PR pre-flight guard 유지
+codeforge-test@mclayer          # 1.1.1 (REVIVED — ADR-055/CFP-367 + Amendment 2/CFP-371/CFP-373) — test-verdict-v2.2 story_keys[] + attribution_confidence; IntegrationTestAgent(Sonnet) active; TestAgent/StatefulTestAgent deprecated (spawn 불가)
 codeforge-review@mclayer        # 1.3.0 — CFP-391 review-pl-base §3.0~§3.3 debate-protocol-v1 dispatch SOP + review-verdict v4.0→v4.1 (findings[].anchor_id optional field)
 codeforge-pmo@mclayer           # 0.1.0
 github@claude-plugins-official
@@ -108,7 +108,7 @@ claude-md-management@claude-plugins-official
 
 ### Adversarial Debate Protocol auto-trigger (CFP-391/411 — debate-protocol-v1)
 
-ADR-059 lane-agnostic debate protocol + ADR-044 Amendment 1 `auto_on_divergence` dispatch mode (codeforge 5.12 + 5.14, codeforge-review 1.3.0, codeforge-requirements 0.5.0):
+ADR-059 lane-agnostic debate protocol + ADR-044 Amendment 1 `auto_on_divergence` dispatch mode (codeforge 5.23.0, codeforge-review 1.3.0, codeforge-requirements 0.5.1):
 
 - **DesignReview lane**: review-verdict v4 `findings[].anchor_id` 기반 worker divergence 감지 시 자동 multi-round debate 진입 (min 3 / max 5 / soft default 4 rounds)
 - **Requirements lane**: RequirementsPLAgent §1~§6 완료 후 Codex proactive check (touchpoint #4) 가 semantic divergence (AC 의미 차이 / Edge Case 누락 / Why 해석 mismatch 중 1+ hit) 감지 시 동일 debate 진입
@@ -116,7 +116,7 @@ ADR-059 lane-agnostic debate protocol + ADR-044 Amendment 1 `auto_on_divergence`
 - **Token 비용 인지**: divergence 미검출 시 single-shot 유지 — 새 동작은 superset, backward-compat
 - **FIX 통합**: ArchitectAgent re-run prompt 에 transcript 자동 주입, Story §9 inline append + §10 FIX Ledger `debate_artifact_ref` field
 
-### 도메인 ADR 작성 schema (CFP-387/ADR-058 — codeforge-design 0.7.0)
+### 도메인 ADR 작성 schema (CFP-387/ADR-058 — codeforge-design 0.8.0)
 
 본 repo `docs/adr/ADR-NN-*.md` 신규 작성 시 frontmatter + body schema:
 
@@ -160,7 +160,7 @@ HOTFIX_BYPASS_CODEFORGE=1 HOTFIX_BYPASS_REASON='<incident-id>' <명령>
 - **Story 범위 결정**: hub only (governance/ADR/cross-repo policy) / repo only (단일 repo 구현) / hub+repo (cross-repo 구현·rollout)
 - **Cross-repo 참조**: `{repo-name}#MCT-NNN` (예: `mctrader-data#MCT-001`)
 - Story 신규: `.github/ISSUE_TEMPLATE/story.yml` 사용 → `story-init.yml` Action 이 §1-7 자동 scaffold (CFP-105)
-- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 통합테스트 (IntegrationTestAgent, ADR-055, §8.6, test-verdict-v2.1, Epic-level CFP-371) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
+- Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 통합테스트 (IntegrationTestAgent, ADR-055, §8.6, test-verdict-v2.2, Epic-level CFP-371/CFP-373) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
 - Sonnet decider 의무 (ADR-022) — 모든 design / scope 결정점에서 Sonnet 합성 필수
 
 ### Story 완료 의무 — PMO 회고 자동 dispatch (RETRO-MCT-107-111 §8 ESCALATE 후속)
@@ -193,10 +193,11 @@ CFP-108 Phase 6a 진입 시 hook 확장:
 - `.claude/_overlay/agents/DomainAgent.md` — 자동매매 도메인 전문가 (RequirementsPL sub-agent, CFP-37)
 - `.claude/_overlay/agents/DataEngineerAgent.md` — DuckDB / Parquet / OHLCV 특화 (DeveloperPL sub-agent, CFP-39)
 
-### Agent model tier (ADR-042 Amendment 2 — 2026-05-10)
+### Agent model tier (ADR-042 Amendments 2/5 — 2026-05-10/12)
 
 InfraEngineerAgent·QADeveloperAgent·DataEngineerAgent = `claude-haiku-4-5` (기계적 패턴 실행 카테고리).
-나머지 모든 agent = Sonnet 이상 (ADR-042 §결정-1 3-tier 매트릭스).
+CodebaseMapperAgent·RefactorAgent·ChangeImpactAgent = `claude-sonnet-4-6` selective rollback 대상 (ADR-057 Amendment 3 / ADR-042 Amendment 5, CFP-448).
+나머지 모든 agent = Sonnet 이상, 단 lane PL 중 Opus 지정 agent 는 해당 plugin agent frontmatter 가 SSOT (ADR-042 §결정-1 3-tier 매트릭스).
 롤백 트리거: 해당 agent 의 ESCALATE rate 급증 또는 품질 저하 시 ADR-042 governance re-audit (ADR-042 §결정-5/6).
 
 ## ADR-019 Preflight 표준 시퀀스
@@ -300,3 +301,43 @@ py -3.12 -m pytest tests/ -v
 - Phase 1 land report: `docs/runbooks/compactor-mct132-phase1-land.md`
 - Baseline capture runbook: `docs/runbooks/compactor-baseline.md`
 - tracemalloc collector: `tools/compactor-tracemalloc.py` (컨테이너 내 `/tmp/compactor_capture.py` 로 cp — shadowing 회피)
+
+## ADR Index
+
+본 overlay 의 ADR Index 섹션 — 신규 ADR 추가 시 entry append 의무 (Story `planned_claude_md_sections` 박제 trail). 기존 ADR (ADR-001 ~ ADR-026) entry 는 별 Story (ADR Index housekeeping) scope — 본 섹션은 본 Story 진입 시점 (MCT-149, 2026-05-12) 의 ADR-027 entry 만 신규 추가.
+
+- **ADR-027** — Cold Tier Object Storage on NAS MinIO. status=Accepted (2026-05-12, MCT-149). EPIC-cold-tier-nas-minio Stage 1 종료 governance. ADR-017 successor (cold tier extension), ADR-016 complement. D1~D11 + MCT-148 5 PoC PASS evidence transcribe. Stage 2 (MCT-150~155) 진입 자격 박제. [docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md](../../docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md)
+
+## 인프라 — Cold Tier (MCT-147 ~ MCT-155 EPIC-cold-tier-nas-minio)
+
+`mctrader-data` 의 cold tier (L2/L3 compacted Parquet) 를 외부 Synology NAS Container Manager 위 MinIO 컨테이너로 이관 (ADR-027). 호스트 disk 용량 압박 해소 + ADR-017 zero-loss invariant (collector hot path / WAL / L1 = local 유지) 보존.
+
+### Stage 1 종료 (MCT-149, 2026-05-12)
+
+- **MCT-147** (MERGED, `mctrader-hub#246` 409d076) — NAS MinIO 컨테이너 deploy + `mctrader-market` bucket 초기화 + 90일 credential rotation runbook + 4중 mitigation (.env 0600 / .gitignore / NAS 방화벽 ACL / IAM 분리).
+- **MCT-148** (MERGED, `mctrader-data#40` 168df75) — 5 PoC PASS evidence (T1 HTTP health 2/2 / T2 latency baseline 4/4 / T3 large PUT 50MB sha256 IDENTICAL 3/3 / T4 restart idempotency recovery_ms=30.56 / T5 partial visibility atomic_invariant=true). pytest 10 PASSED in 107.76s.
+- **MCT-149** (본 Story) — ADR-027 본문 publish + Stage 1 종료 governance.
+
+### Stage 1 운영 정책 (ADR-027 §Decision 박제)
+
+- **endpoint protocol (D2 amend)**: **Stage 1 = HTTP** (LAN 내부망 only, NAS 방화벽 port 9000/9001 = mctrader 호스트 IP only + `.env` 0600 + 90일 rotation). **Stage 2 = TLS 재검토** (MCT-155 진입 시 사용자 confirm 의무).
+- **bucket layout (D1)**: 단일 `mctrader-market` + Hive prefix (`schema_version/exchange/node/tier/date`).
+- **credential rotation cadence (D2)**: 90일 (`docs/runbooks/nas-minio-secret-rotation.md`).
+- **NAS 방화벽 룰 audit cadence (R10 신규)**: 90일 rotation 시점 정기 audit 의무.
+
+### Stage 2 진입 (MCT-150 ~ MCT-155, 본 ADR merge 후 brainstorm Phase 0 재실행 권고)
+
+| Story | scope |
+|-------|-------|
+| MCT-150 | `minio_uploader.py` hardening (retry queue + Prometheus metrics + alert) |
+| MCT-151 | dual-write atomic primitives + 3종 invariant 검증 harness (sha256 + object count + parquet row count) |
+| MCT-152 | dual-write window 운영 (2-4주, drift 측정) |
+| MCT-153 | backfill (historic L2/L3 cold tier asset 이관) |
+| MCT-154 | reader endpoint cutover + engine smoke test (read-through LRU/TTL cache) |
+| MCT-155 | local GC (7일 grace + dry-run) + secret rotation 첫 cycle + Stage 2 TLS 재검토 사용자 confirm |
+
+### Hot path 무영향 invariant (D5, ADR-017 정합)
+
+- **collector WAL + L1 ParquetWriter** = local volume 유지 (ADR-017 zero-loss invariant).
+- **NAS unreachable failure mode** = compactor retry queue + backlog alert. WAL / L1 / hot path 무영향 (D5 박제).
+- **alert metric** (MCT-150 산출물): `cold_writer_backlog_segments` + `cold_writer_retry_count_total` (Prometheus) + Grafana dashboard `mctrader/Cold Writer Health`.
