@@ -96,7 +96,7 @@ mctrader-hub = codeforge plugin family 의 첫 비-dogfood consumer (debut). 본
 codeforge@mclayer               # 5.23.0 — CFP-423 Python script-writing convention; CFP-436 marketplace/plugin.json atomic invariant; CFP-455 evidence-check-registry v1.1 current_tier; CFP-445/449 decision-principle lint; CFP-448/490 selective Sonnet rollback + lane-evidence guard
 codeforge-requirements@mclayer  # 0.5.1 — CFP-411 codex-proactive-check worker + semantic divergence 3 criteria; CFP-448 ChangeImpactAgent Opus→Sonnet rollback. Wire: codeforge >= 5.23.0 의무
 codeforge-design@mclayer        # 0.8.0 — CFP-387 ADR template is_transitional + 해소 기준 schema; CFP-448 CodebaseMapperAgent/RefactorAgent Opus→Sonnet rollback + mandate boundary text
-codeforge-develop@mclayer       # 0.5.0 — CFP-379 DeveloperPLAgent Opus 승격 + Sonnet agent rate-limit→Opus fallback; CFP-317 PR pre-flight guard 유지
+codeforge-develop@mclayer       # 0.5.1 — CFP-448 DeveloperPLAgent Opus→Sonnet rollback (ADR-042 Amendment 5 §결정 1 (b)); CFP-317 PR pre-flight guard 유지
 codeforge-test@mclayer          # 1.1.1 (REVIVED — ADR-055/CFP-367 + Amendment 2/CFP-371/CFP-373) — test-verdict-v2.2 story_keys[] + attribution_confidence; IntegrationTestAgent(Sonnet) active; TestAgent/StatefulTestAgent deprecated (spawn 불가)
 codeforge-review@mclayer        # 1.3.0 — CFP-391 review-pl-base §3.0~§3.3 debate-protocol-v1 dispatch SOP + review-verdict v4.0→v4.1 (findings[].anchor_id optional field)
 codeforge-pmo@mclayer           # 0.1.0
@@ -196,7 +196,8 @@ CFP-108 Phase 6a 진입 시 hook 확장:
 ### Agent model tier (ADR-042 Amendments 2/5 — 2026-05-10/12)
 
 InfraEngineerAgent·QADeveloperAgent·DataEngineerAgent = `claude-haiku-4-5` (기계적 패턴 실행 카테고리).
-CodebaseMapperAgent·RefactorAgent·ChangeImpactAgent = `claude-sonnet-4-6` selective rollback 대상 (ADR-057 Amendment 3 / ADR-042 Amendment 5, CFP-448).
+CodebaseMapperAgent·RefactorAgent·ChangeImpactAgent·DeveloperPLAgent = `claude-sonnet-4-6` selective rollback 대상 (ADR-057 Amendment 3 / ADR-042 Amendment 5, CFP-448 — 4 agent 실측 정합).
+FeasibilityAgent·ContinuityAgent = `claude-opus-4-7` 유지 (deep reasoning / cross-Story continuity).
 나머지 모든 agent = Sonnet 이상, 단 lane PL 중 Opus 지정 agent 는 해당 plugin agent frontmatter 가 SSOT (ADR-042 §결정-1 3-tier 매트릭스).
 롤백 트리거: 해당 agent 의 ESCALATE rate 급증 또는 품질 저하 시 ADR-042 governance re-audit (ADR-042 §결정-5/6).
 
