@@ -274,14 +274,17 @@ planned_files:
       - "docs/stories/MCT-149.md"
   MCT-150:
     mctrader-data:
-      - "src/mctrader_data/storage/nas_uploader.py"
-      - "src/mctrader_data/storage/retry_queue.py"
-      - "src/mctrader_data/metrics/prometheus_exporters.py"
+      # FIX#2 P2-1 (2026-05-13): storage/ → nas_storage/, metrics/ → nas_metrics/ rename
+      # 근거: Phase 2 impl 시 mctrader-data 의 기존 storage.py / metrics.py 와 패키지명 충돌 회피
+      # (Story §8.5 Impl Manifest 박제 정합)
+      - "src/mctrader_data/nas_storage/nas_uploader.py"
+      - "src/mctrader_data/nas_storage/retry_queue.py"
+      - "src/mctrader_data/nas_metrics/prometheus_exporters.py"
       - "src/mctrader_data/ops/nas_unreachable_sop.py"
-      - "tests/storage/test_nas_uploader.py"
-      - "tests/storage/test_retry_queue.py"
-      - "tests/storage/test_conditional_write_smoke.py"
-      - "tests/metrics/test_prometheus_exporters.py"
+      - "tests/nas_storage/test_nas_uploader.py"
+      - "tests/nas_storage/test_retry_queue.py"
+      - "tests/nas_storage/test_conditional_write_smoke.py"
+      - "tests/nas_metrics/test_prometheus_exporters.py"
       - "configs/prometheus/nas_uploader_rules.yml"
       - "configs/grafana/cold_writer_health_dashboard.json"  # FIX#1 F3 — AC-4 Grafana dashboard 산출물 명시 (2026-05-13)
     mctrader-hub:
