@@ -24,7 +24,7 @@ related_stories:
 
 ## Status
 
-Accepted — 2026-05-12. MCT-149 (EPIC-cold-tier-nas-minio Stage 1 종료 governance Story) 가 본 ADR 본문을 publish. 본 ADR 은 Epic Stage 1 (Feasibility Spike) 의 종료 gate — MCT-147 (NAS endpoint deploy MERGED, `mctrader-hub#246` 409d076) + MCT-148 (5 PoC PASS MERGED, `mctrader-data#40` 168df75) 의 누적 결과를 본문에 박제 (crystallize) 하여 status=Accepted 충족. Stage 2 (MCT-150~155 cold tier migration) 진입은 본 ADR merge 후 brainstorm Phase 0 재실행 권고.
+Accepted — 2026-05-12. MCT-149 (EPIC-cold-tier-nas-minio Stage 1 종료 governance Story) 가 본 ADR 본문을 publish. 본 ADR 은 Epic Stage 1 (Feasibility Spike) 의 종료 gate — MCT-147 (NAS endpoint deploy MERGED, `mctrader-hub#246` 409d076) + MCT-148 (5 PoC PASS MERGED, `mctrader-data#40` d3e2af5) 의 누적 결과를 본문에 박제 (crystallize) 하여 status=Accepted 충족. Stage 2 (MCT-150~155 cold tier migration) 진입은 본 ADR merge 후 brainstorm Phase 0 재실행 권고.
 
 ## 해소 기준
 
@@ -41,7 +41,7 @@ mctrader-data 의 `mctrader-collector` + `mctrader-compactor` 컨테이너가 fo
 본 ADR 의 Stage 1 종료 gate 충족 evidence:
 
 - **MCT-147 (NAS endpoint deploy, MERGED 2026-05-12, `mctrader-hub#246` 409d076)**: Synology NAS DSM 7.2+ Container Manager 위 MinIO direct deploy (RELEASE.2025-04-08T15-41-24Z) + `mctrader-market` bucket bootstrap (idempotent) + 90일 credential rotation runbook + 4중 mitigation (.env 0600 / .gitignore / NAS 방화벽 ACL / IAM 분리) 박제.
-- **MCT-148 (PoC spike, MERGED 2026-05-12, `mctrader-data#40` 168df75)**: 5 PoC PASS evidence pack (T1 HTTP health 2/2 / T2 latency baseline 4/4 / T3 large PUT 50MB 3/3 / T4 restart idempotency PASS / T5 partial visibility 1/1) — pytest 10 PASSED / 0 FAILED / 0 SKIPPED in 107.76s + T4 manual gate (recovery_ms=30.56). 본 ADR §Decision D8 evidence 직접 인용 source.
+- **MCT-148 (PoC spike, MERGED 2026-05-12, `mctrader-data#40` d3e2af5)**: 5 PoC PASS evidence pack (T1 HTTP health 2/2 / T2 latency baseline 4/4 / T3 large PUT 50MB 3/3 / T4 restart idempotency PASS / T5 partial visibility 1/1) — pytest 10 PASSED / 0 FAILED / 0 SKIPPED in 107.76s + T4 manual gate (recovery_ms=30.56). 본 ADR §Decision D8 evidence 직접 인용 source.
 
 ### WebDAV 우회 결정 (Synology Container Manager 위 MinIO direct deploy)
 
@@ -335,13 +335,13 @@ NAS DSM UI 의 Container Manager STOP/START 후 recovery time = 30.56ms (NFR-3 l
 - **ADR-008** (`docs/adr/ADR-008-secret-management.md`) — **references**. §D7 rotation cadence (90일) + §D8 compromise emergency response. 본 ADR cold-tier-specific rotation runbook (MCT-147 산출물) 의 ADR-level 근거.
 - **ADR-009** (`docs/adr/ADR-009-ohlcv-schema.md`) — **references**. §D12.1 `MCTRADER_DATA_ROOT` SSOT extension + 16-col schema 검증 invariant (D6 source). §D12.2 forward-only invariant 정합.
 - **ADR-026** (`docs/adr/ADR-026-legacy-candle-provenance-retirement-policy.md`) — 배경 link (cold tier immutable invariant 정합). 본 ADR scope 외 — Stage 2 versioning 정책 결정 시 cross-reference.
-- **ADR-033** (`docs/adr/ADR-033-docker-first-named-volume-dr.md`) — 배경 link. NAS Container Manager 위 docker compose 배치 정합 (MCT-147 산출물).
+- **ADR-033** (codeforge plugin — Docker-first named volume DR) — 배경 link (cross-plugin reference, hub `docs/adr/` 부재). NAS Container Manager 위 docker compose 배치 정합 (MCT-147 산출물).
 
 ### Story / Epic
 
 - **MCT-149** (본 Story, hub) — ADR-027 본문 publish + Stage 1 종료 governance Story.
 - **MCT-147** (`docs/stories/MCT-147.md`) — NAS MinIO 컨테이너 deploy + bucket 초기화 + D2 amend 박제 + 4중 mitigation runbook (MERGED 2026-05-12, `mctrader-hub#246` 409d076).
-- **MCT-148** (`mctrader-data/docs/stories/MCT-148.md`) — 5 PoC PASS evidence pack (MERGED 2026-05-12, `mctrader-data#40` 168df75). evidence pack: `mctrader-data/.tmp/evidence-pack-MCT-148.md` (gitignored).
+- **MCT-148** (`mctrader-data/docs/stories/MCT-148.md`) — 5 PoC PASS evidence pack (MERGED 2026-05-12, `mctrader-data#40` d3e2af5). evidence pack: `mctrader-data/.tmp/evidence-pack-MCT-148.md` (gitignored).
 - **MCT-148 retro** (`docs/retros/RETRO-MCT-148.md`) — 5 PoC PASS + T4 manual gate 박제, hub repo 박제 SSOT.
 - **EPIC-cold-tier-nas-minio** — `scope_manifests/EPIC-cold-tier-nas-minio.yaml` (D1~D11 + D2/D8 amend + R10 신규 + R7 재서술 박제).
 

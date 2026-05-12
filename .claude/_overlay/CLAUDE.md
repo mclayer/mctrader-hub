@@ -315,7 +315,7 @@ py -3.12 -m pytest tests/ -v
 ### Stage 1 종료 (MCT-149, 2026-05-12)
 
 - **MCT-147** (MERGED, `mctrader-hub#246` 409d076) — NAS MinIO 컨테이너 deploy + `mctrader-market` bucket 초기화 + 90일 credential rotation runbook + 4중 mitigation (.env 0600 / .gitignore / NAS 방화벽 ACL / IAM 분리).
-- **MCT-148** (MERGED, `mctrader-data#40` 168df75) — 5 PoC PASS evidence (T1 HTTP health 2/2 / T2 latency baseline 4/4 / T3 large PUT 50MB sha256 IDENTICAL 3/3 / T4 restart idempotency recovery_ms=30.56 / T5 partial visibility atomic_invariant=true). pytest 10 PASSED in 107.76s.
+- **MCT-148** (MERGED, `mctrader-data#40` d3e2af5) — 5 PoC PASS evidence (T1 HTTP health 2/2 / T2 latency baseline 4/4 / T3 large PUT 50MB sha256 IDENTICAL 3/3 / T4 restart idempotency recovery_ms=30.56 / T5 partial visibility atomic_invariant=true). pytest 10 PASSED in 107.76s.
 - **MCT-149** (본 Story) — ADR-027 본문 publish + Stage 1 종료 governance.
 
 ### Stage 1 운영 정책 (ADR-027 §Decision 박제)
