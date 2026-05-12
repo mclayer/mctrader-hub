@@ -36,8 +36,10 @@ design_decisions:
     rationale: "현 minio_uploader.py 와 정합 (BUCKET_NAME='mctrader-market' 하드코딩)"
   - id: D2
     title: "TLS / auth"
-    decision: "TLS 강제 (self-signed OK) + credential = Container Manager secret + .env fallback (0600) + 90일 rotation"
-    rationale: "ADR-016 audit/immutability 보안 취지 + ADR-008 secret management 준수"
+    decision: "Stage 1 = HTTP (LAN 내부망 + .env 0600 + 90일 rotation + NAS 방화벽 port 9000 mctrader 호스트 IP only). Stage 2 = TLS 재검토 (MCT-149 ADR-027 본문 작성 시 D2 wording 갱신 의무). credential = Container Manager .env (gitignored) + 90일 rotation runbook"
+    rationale: "사용자 결정 (MCT-147 §6.0 D2 amend) — LAN 내부망 + Stage 1 인프라 한정 scope. 4중 mitigation (LAN 격리·방화벽·.env 0600·rotation) 으로 risk acceptable. Stage 2 escalation 의무 박제."
+    amended_in: MCT-147
+    amended_at: 2026-05-12
   - id: D3
     title: "ADR 형태"
     decision: "신규 ADR-027 신설 (ADR-017 amendment 아님)"
@@ -60,8 +62,10 @@ design_decisions:
     rationale: "data loss 방지 3중 lock"
   - id: D8
     title: "Spike scope"
-    decision: "TLS handshake / latency baseline / large PUT 50MB / restart idempotency / partial object visibility 5종 PoC"
-    rationale: "write-then-rename ↔ S3 PUT semantic 매핑 검증 + Synology Container Manager 가용성 검증"
+    decision: "HTTP 200 health check / latency baseline / large PUT 50MB / restart idempotency / partial object visibility 5종 PoC (D2 amend 정합 — TLS handshake → HTTP health 로 amend)"
+    rationale: "write-then-rename ↔ S3 PUT semantic 매핑 검증 + Synology Container Manager 가용성 검증. D2 Stage 1 HTTP 운영과 정합."
+    amended_in: MCT-147
+    amended_at: 2026-05-12
   - id: D9
     title: "Reader 측"
     decision: "mctrader-engine read-through cache (NAS = SoT, local = LRU/TTL cache)"
@@ -212,7 +216,7 @@ planned_files:
 planned_claude_md_sections:
   "mctrader-hub/CLAUDE.md":
     - section: "## 인프라 — Cold Tier"
-      change: "NAS MinIO endpoint 도입, TLS 강제, secret rotation 90일 cadence 명시"
+      change: "NAS MinIO endpoint 도입, Stage 1 HTTP 운영 (D2 amend, LAN 내부망 + 90일 rotation + 방화벽), Stage 2 TLS 재검토, secret rotation 90일 cadence 명시"
       stories: [MCT-147, MCT-155]
     - section: "## ADR Index"
       change: "ADR-027 추가"
@@ -311,12 +315,26 @@ risk_register:
       - "MCT-147 runbook: credential 은 hub .env (gitignored) + ADR-008 secret management 준수"
       - "MCT-155 runbook: 90일 rotation cadence + audit log"
   - id: R7
-    title: "TLS handshake 실패 — self-signed cert"
+    title: "Credential leak via HTTP 평문 전송 (Stage 1 D2 amend 후 재서술)"
     likelihood: medium
-    impact: medium
+    impact: high
     mitigation:
-      - "MCT-148 PoC TLS handshake 검증 의무"
-      - "MCT-147 cert chain 명시 (CA 또는 self-signed + truststore 등록 절차)"
+      - "MCT-147 NAS 방화벽 port 9000 mctrader 호스트 IP only (LAN 격리)"
+      - "MCT-147 .env 0600 + gitignored + 90일 rotation runbook"
+      - "MCT-147 emergency rotation 절차 (credential leak 의심 시 즉시)"
+      - "MCT-149 ADR-027 본문에서 Stage 2 (MCT-155) 진입 시 TLS 활성화 재검토 의무 박제"
+    amended_in: MCT-147
+    amended_at: 2026-05-12
+  - id: R10
+    title: "NAS 방화벽 룰 drift — port 9000 외부 노출 시 credential leak surface 확장"
+    likelihood: low
+    impact: critical
+    mitigation:
+      - "MCT-147 deploy runbook: 방화벽 룰 명시 (mctrader 호스트 IP only)"
+      - "MCT-155 cutover 시 방화벽 룰 monitoring 의무 (NAS Container Manager UI 또는 cli check)"
+      - "정기 audit: 90일 rotation 시점에 방화벽 룰 재검증"
+    added_in: MCT-147
+    added_at: 2026-05-12
   - id: R8
     title: "PoC 결과로 결정점 번복 시 ADR-027 rework"
     likelihood: medium
