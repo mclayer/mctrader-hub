@@ -283,8 +283,10 @@ planned_files:
       - "tests/storage/test_conditional_write_smoke.py"
       - "tests/metrics/test_prometheus_exporters.py"
       - "configs/prometheus/nas_uploader_rules.yml"
+      - "configs/grafana/cold_writer_health_dashboard.json"  # FIX#1 F3 — AC-4 Grafana dashboard 산출물 명시 (2026-05-13)
     mctrader-hub:
       - "docs/stories/MCT-150.md"
+      - "docs/runbooks/nas-minio-secret-rotation.md"  # FIX#1 F1 (MODIFY) — Step 7 IP-allowlist re-audit append (2026-05-13)
   MCT-151:
     mctrader-data:
       - "src/mctrader_data/storage/dual_writer.py"

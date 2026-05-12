@@ -138,6 +138,59 @@ sudo rm .env.bak.YYYYMMDD   # 1주일 이상 지난 파일만
 
 ---
 
+## Step 7. NAS firewall 9000/9001 IP-allowlist re-audit
+
+> **추가 trail**: MCT-150 FIX#1 F1 (2026-05-13) — AC-5 IP-allowlist re-audit 박제 위치 결정 = 본 runbook Step 7 신설 (90d rotation cadence 자연 정합).
+> **cross-ref**: MCT-147 4중 mitigation 의 IP-allowlist 축 + R10 (방화벽 룰 drift) Stage 2 진입 시 사전 차단.
+
+매 rotation 시점에 NAS 측 방화벽 port 9000/9001 의 IP-allowlist 무결성 audit 의무.
+
+### 7.1 Re-audit 절차 (NAS Synology DSM UI)
+
+1. NAS DSM 접속: `https://<NAS_HOST>:5001`
+2. Control Panel → Security → Firewall → Edit Rules
+3. port 9000 (MinIO API) + 9001 (MinIO Console) rule 확인:
+   - **Source IP**: mctrader 호스트 IP **only** (단일 IP 또는 LAN /24 subnet)
+   - **Action**: Allow
+   - **외부 IP / 0.0.0.0/0 / wildcard 발견 0**
+
+### 7.2 Re-audit 절차 (CLI alternative)
+
+DSM UI 접근 불가 시:
+
+```bash
+ssh admin@<NAS_HOST>
+sudo /usr/syno/bin/synofirewall list | grep -E "9000|9001"
+# 기대 출력: 단일 mctrader 호스트 IP 만 listed
+```
+
+또는 외부 connectivity probe (LAN 외부 host 에서):
+
+```bash
+# mctrader 호스트 외 환경에서 실행
+curl -sI --max-time 5 http://<NAS_HOST>:9000 || echo "BLOCKED (expected)"
+# 기대 출력: BLOCKED — 외부 IP 에서 NAS:9000 unreachable
+```
+
+### 7.3 Audit cadence record 표 갱신 의무
+
+본 runbook 의 "Last rotation log" 표 의 Note 열에 audit 결과 박제:
+
+```markdown
+| 2026-XX-XX | mccho | 2026-YY-YY | Routine 90d rotation + IP-allowlist re-audit PASS (단일 mctrader 호스트 IP only 확인) |
+```
+
+### 7.4 Failure mode (외부 IP 발견 시)
+
+audit 중 외부 IP 또는 wildcard rule 발견:
+
+1. **즉시 방화벽 rule 갱신** — DSM UI 또는 `synofirewall` cli 로 외부 IP 삭제
+2. **긴급 credential rotation trigger** — Step 1~5 즉시 재실행 (외부 노출 기간 동안 credential leak 의심 가정)
+3. **leak 원인 분석** — `긴급 Rotation` 절차 3번 (MinIO access log 회수) 동일 적용
+4. **PMO Story trigger** — finding 박제 + R10 (방화벽 룰 drift) 사례 누적, ADR-027 mitigation 강화 후보
+
+---
+
 ## 긴급 Rotation (Emergency)
 
 credential leak 의심 시 (예: `.env` 파일이 git 에 commit 됨, 로그에 평문 노출, NAS 외부 노출 발견):
@@ -164,5 +217,6 @@ credential leak 의심 시 (예: `.env` 파일이 git 에 commit 됨, 로그에 
 - [x] Step 4: mctrader-data 측 갱신 (Stage 2 land 이후만 적용)
 - [x] Step 5: rotation log row append + git commit
 - [x] Step 6: 백업 .env.bak 정리 (1주일 후)
+- [x] Step 7: NAS firewall 9000/9001 IP-allowlist re-audit (MCT-150 FIX#1 F1 신설, 2026-05-13 — Stage 2 진입 시 + 매 90d rotation 동반)
 
-본 6 step PASS = 1 rotation cycle 완료. 다음 rotation due date 를 calendar 에 등록.
+본 7 step PASS = 1 rotation cycle 완료. 다음 rotation due date 를 calendar 에 등록.

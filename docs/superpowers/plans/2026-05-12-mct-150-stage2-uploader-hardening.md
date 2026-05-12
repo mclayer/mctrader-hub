@@ -206,7 +206,7 @@ Expected: 3건 모두 closed, milestone #4 "Epic-cold-tier-stage-2-migration" op
       - "tests/storage/test_conditional_write_smoke.py"
       - "tests/metrics/test_prometheus_exporters.py"
       - "configs/prometheus/nas_uploader_rules.yml"
-      - "docs/stories/MCT-150.md"
+      # FIX#1 F4 (2026-05-13): docs/stories/MCT-150.md 제거 — mctrader-hub block 에만 박제 (hub SSOT)
     mctrader-hub:
       - "docs/stories/MCT-150.md"  # cross-repo Story header (hub SSOT)
   MCT-151:
