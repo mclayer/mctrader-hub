@@ -372,6 +372,44 @@ epic_milestones:
       - "local L2/L3 디스크 사용량 사전/사후 비교 — 압박 해소 확인"
     on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch"
     on_fail: "rollback runbook 발동 — MINIO_ENDPOINT local 복귀, 7일 grace 내 local 데이터 잔존 활용"
+    progress:
+      stories_complete: 1
+      stories_total: 6
+      sp_burned: 5
+      sp_total: 36
+      sp_progress_pct: 13.9
+      complete:
+        - story: MCT-150
+          sp: 5
+          phase_pair: phase1_phase2
+          merged_at: 2026-05-12T21:33:24Z
+          phase1_pr: mclayer/mctrader-hub#254
+          phase2_pr_data: mclayer/mctrader-data#42
+          phase2_pr_hub: mclayer/mctrader-hub#255
+          retro: docs/retros/RETRO-MCT-150.md
+          fix_cycle_total: 5
+          escalate_count: 1
+          codeforge_escalation: mclayer/plugin-codeforge#525
+          addresses_decisions: [S4, S10, S11, S12]
+      next: MCT-151  # 8 SP, parallel_with_handoff, depends_on MCT-150 ✅
+      adr_amendment_status:
+        - decision: D2
+          trigger_story: MCT-155
+          mandatory: true
+          status: pending
+        - decision: D5
+          trigger_story: MCT-150
+          mandatory: false
+          status: deferred  # MCT-155 retro 시점 reopen, RETRO-MCT-150.md §5.1 결정
+          deferred_reason: "MCT-152 dual-write 실 운영 데이터 (false positive rate / SOP MANUAL_GATE 발동 빈도) 박제 후 amend 가 의미 있음. 현시점 amend = speculative."
+        - decision: D6
+          trigger_story: MCT-151
+          mandatory: true
+          status: pending
+        - decision: D4
+          trigger_story: MCT-154
+          mandatory: false
+          status: pending
 
 parallelism_decision:
   stage_1: serial  # MCT-147 → MCT-148 → MCT-149
