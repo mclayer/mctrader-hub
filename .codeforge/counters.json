@@ -2,12 +2,22 @@
   "version": 1,
   "prefix": "MCT",
   "counters": {
-    "mctrader-hub":            { "next": 147 },
+    "mctrader-hub":            { "next": 156 },
     "mctrader-data":           { "next": 1 },
     "mctrader-market":         { "next": 1 },
     "mctrader-market-bithumb": { "next": 1 },
     "mctrader-engine":         { "next": 1 },
     "mctrader-web":            { "next": 1 }
   },
-  "reservations": {}
+  "reservations": {
+    "MCT-147": { "title": "NAS MinIO 컨테이너 deploy + bucket 초기화 (Stage 1)", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-hub", "phase_pair": "phase1_only" },
+    "MCT-148": { "title": "Cold tier PoC spike — 5종 검증", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_only" },
+    "MCT-149": { "title": "ADR-027 Cold Tier Object Storage on NAS MinIO", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-hub", "phase_pair": "phase1_only" },
+    "MCT-150": { "title": "minio_uploader hardening — retry queue + Prometheus metrics + alert", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_phase2" },
+    "MCT-151": { "title": "Dual-write + 3-종 invariant gate", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_phase2" },
+    "MCT-152": { "title": "L2/L3 일괄 이관 — mc-mirror forward-only", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_only" },
+    "MCT-153": { "title": "Local L2/L3 GC — dry-run + 7일 grace", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_phase2" },
+    "MCT-154": { "title": "engine reader read-through cache (NAS = SoT)", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-engine", "phase_pair": "phase1_phase2" },
+    "MCT-155": { "title": "hub compose MINIO_ENDPOINT cutover + secret rotation runbook", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-hub", "phase_pair": "phase1_only" }
+  }
 }

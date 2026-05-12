@@ -1,0 +1,346 @@
+# scope_manifest v1 — Epic A + Epic B (Cold Tier on NAS MinIO)
+# Authored by PMOAgent (Phase 2), decided by Orchestrator.
+# Brainstorm source: .tmp/brainstorm-cold-tier-nas-minio.md
+# Plan source:       .tmp/plan-cold-tier-nas-minio.md
+
+epic:
+  key: EPIC-cold-tier-nas-minio
+  title: "Cold Tier on NAS MinIO — Spike + Migration"
+  why: "호스트 디스크 용량 부족 해소 — cold tier (L2/L3 compacted parquet) 를 외부 Synology NAS 위 MinIO 컨테이너로 이관. ADR-017 zero-loss invariant 보존."
+  stages:
+    - stage: 1
+      label: "Feasibility Spike"
+      stories: [MCT-147, MCT-148, MCT-149]
+      gate: "ADR-027 Accepted + PoC 5종 검증 ALL-PASS evidence pack land"
+      milestone: "Epic-cold-tier-stage-1-spike"
+    - stage: 2
+      label: "Cold Tier Migration"
+      stories: [MCT-150, MCT-151, MCT-152, MCT-153, MCT-154, MCT-155]
+      gate: "MCT-155 cutover MERGED + 3종 invariant 7일 PASS + engine NAS hit dashboard PASS"
+      milestone: "Epic-cold-tier-stage-2-migration"
+  prerequisites:
+    - "ADR-017 zero-loss invariant 보존 (collector hot path / WAL / L1 = local 유지)"
+    - "ADR-016 audit log immutability 별도 Epic 으로 분리 (이번 scope 외)"
+    - "Synology NAS Container Manager 설치 + Docker package enabled"
+    - "NAS 측 btrfs/ext4 volume 가용 (MinIO data dir 용)"
+  out_of_scope:
+    - "mctrader-web admin_audit.sqlite cold archive (별도 Epic, ADR-016 별도)"
+    - "mctrader-market / market-bithumb / web 코드 변경"
+    - "hot tick path / WAL 위치 변경 (ADR-017 보존)"
+
+design_decisions:
+  # 11 결정점 (D1~D11) — ADR-027 MCT-149 본문에 박제 의무
+  - id: D1
+    title: "Bucket layout"
+    decision: "단일 'mctrader-market' bucket + Hive prefix (schema_version/exchange/node/tier/date)"
+    rationale: "현 minio_uploader.py 와 정합 (BUCKET_NAME='mctrader-market' 하드코딩)"
+  - id: D2
+    title: "TLS / auth"
+    decision: "TLS 강제 (self-signed OK) + credential = Container Manager secret + .env fallback (0600) + 90일 rotation"
+    rationale: "ADR-016 audit/immutability 보안 취지 + ADR-008 secret management 준수"
+  - id: D3
+    title: "ADR 형태"
+    decision: "신규 ADR-027 신설 (ADR-017 amendment 아님)"
+    rationale: "외부 NAS 배치·보안·cutover·GC 까지 별도 운영 아키텍처"
+  - id: D4
+    title: "Cutover 전략"
+    decision: "dual-write window → 검증 통과 → reader endpoint 전환 → local GC"
+    rationale: "write-then-rename 완료 후 NAS PUT, atomic switch 직전 검증"
+  - id: D5
+    title: "Failure mode"
+    decision: "NAS unreachable 시 compactor 만 retry queue + backlog alert. WAL/L1/hot path 무영향"
+    rationale: "scope = cold only. ADR-017 hot durability 보존"
+  - id: D6
+    title: "이관 검증 invariant"
+    decision: "sha256 + object count + parquet row count 3종 ALL PASS"
+    rationale: "ADR-009 16-col schema 검증, forward-only 일관성"
+  - id: D7
+    title: "Local GC"
+    decision: "검증 후 7일 grace + dry-run 선행 → 실 삭제. 디스크 압박 시 tier/date 순차 GC"
+    rationale: "data loss 방지 3중 lock"
+  - id: D8
+    title: "Spike scope"
+    decision: "TLS handshake / latency baseline / large PUT 50MB / restart idempotency / partial object visibility 5종 PoC"
+    rationale: "write-then-rename ↔ S3 PUT semantic 매핑 검증 + Synology Container Manager 가용성 검증"
+  - id: D9
+    title: "Reader 측"
+    decision: "mctrader-engine read-through cache (NAS = SoT, local = LRU/TTL cache)"
+    rationale: "scope = cold only L2/L3, partition path 호환 유지"
+  - id: D10
+    title: "영향 repo"
+    decision: "mctrader-data + mctrader-engine + mctrader-hub. market/market-bithumb/web 제외"
+    rationale: "업로드 구현 위치 + reader 위치 + 인프라 위치"
+  - id: D11
+    title: "admin_audit.sqlite scope"
+    decision: "본 epic 제외, 별도 epic"
+    rationale: "sqlite WAL ↔ parquet cold archive 운영 모델 상이"
+
+planned_stories:
+  - key: MCT-147
+    title: "NAS MinIO 컨테이너 deploy + bucket 초기화 (Stage 1)"
+    repo: mctrader-hub
+    phase_pair: phase1_only
+    depends_on: []
+    stage: 1
+  - key: MCT-148
+    title: "Cold tier PoC spike — 5종 검증"
+    repo: mctrader-data
+    phase_pair: phase1_only
+    depends_on: [MCT-147]
+    stage: 1
+  - key: MCT-149
+    title: "ADR-027 Cold Tier Object Storage on NAS MinIO"
+    repo: mctrader-hub
+    phase_pair: phase1_only
+    depends_on: [MCT-147, MCT-148]
+    stage: 1
+  - key: MCT-150
+    title: "minio_uploader hardening — retry queue + Prometheus metrics + alert"
+    repo: mctrader-data
+    phase_pair: phase1_phase2
+    depends_on: [MCT-149]
+    stage: 2
+  - key: MCT-151
+    title: "Dual-write + 3-종 invariant gate"
+    repo: mctrader-data
+    phase_pair: phase1_phase2
+    depends_on: [MCT-150]
+    stage: 2
+  - key: MCT-152
+    title: "L2/L3 일괄 이관 — mc-mirror forward-only"
+    repo: mctrader-data
+    phase_pair: phase1_only
+    depends_on: [MCT-151]
+    parallel_with: [MCT-154]
+    stage: 2
+  - key: MCT-153
+    title: "Local L2/L3 GC — dry-run + 7일 grace"
+    repo: mctrader-data
+    phase_pair: phase1_phase2
+    depends_on: [MCT-152]
+    stage: 2
+  - key: MCT-154
+    title: "engine reader read-through cache (NAS = SoT)"
+    repo: mctrader-engine
+    phase_pair: phase1_phase2
+    depends_on: [MCT-151]
+    parallel_with: [MCT-152]
+    stage: 2
+  - key: MCT-155
+    title: "hub compose MINIO_ENDPOINT cutover + secret rotation runbook"
+    repo: mctrader-hub
+    phase_pair: phase1_only
+    depends_on: [MCT-150, MCT-151, MCT-152, MCT-153, MCT-154]
+    stage: 2
+
+planned_adrs:
+  - number: 27
+    title: "Cold Tier Object Storage on NAS MinIO"
+    repo: mctrader-hub
+    path: "docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md"
+    status_target: Accepted
+    authored_in_story: MCT-149
+    relationships:
+      successor_of: [ADR-017]
+      complements: [ADR-016]
+      references: [ADR-008, ADR-009]
+
+planned_files:
+  MCT-147:
+    mctrader-hub:
+      - "docker/minio/docker-compose.yml"
+      - "docker/minio/README.md"
+      - "docs/runbooks/nas-minio-deploy.md"
+      - "docs/runbooks/nas-minio-secret-rotation.md"
+      - "docs/stories/MCT-147.md"
+  MCT-148:
+    mctrader-data:
+      - "tests/spike/test_nas_minio_tls_handshake.py"
+      - "tests/spike/test_nas_minio_latency_baseline.py"
+      - "tests/spike/test_nas_minio_large_put_50mb.py"
+      - "tests/spike/test_nas_minio_restart_idempotency.py"
+      - "tests/spike/test_nas_minio_partial_visibility.py"
+      - "docs/stories/MCT-148.md"
+  MCT-149:
+    mctrader-hub:
+      - "docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md"
+      - "docs/stories/MCT-149.md"
+  MCT-150:
+    mctrader-data:
+      - "src/mctrader_data/compactor/minio_uploader.py"
+      - "src/mctrader_data/compactor/minio_retry_queue.py"
+      - "src/mctrader_data/compactor/minio_metrics.py"
+      - "tests/unit/compactor/test_minio_uploader.py"
+      - "tests/integration/compactor/test_minio_retry_queue.py"
+      - "deploy/prometheus/alerts/minio-uploader.yml"
+      - "docs/stories/MCT-150.md"
+  MCT-151:
+    mctrader-data:
+      - "src/mctrader_data/compactor/dual_writer.py"
+      - "src/mctrader_data/compactor/invariant_checker.py"
+      - "src/mctrader_data/compactor/l2.py"
+      - "src/mctrader_data/compactor/l3.py"
+      - "tests/integration/compactor/test_dual_write_invariant.py"
+      - "docs/stories/MCT-151.md"
+  MCT-152:
+    mctrader-data:
+      - "scripts/migration/migrate_l2_l3_to_nas.py"
+      - "scripts/migration/README.md"
+      - "tests/integration/migration/test_forward_only_invariant.py"
+      - "docs/stories/MCT-152.md"
+  MCT-153:
+    mctrader-data:
+      - "scripts/gc/local_cold_tier_gc.py"
+      - "scripts/gc/README.md"
+      - "tests/integration/gc/test_gc_dry_run_grace.py"
+      - "docs/stories/MCT-153.md"
+  MCT-154:
+    mctrader-engine:
+      - "src/mctrader_engine/storage/cold_reader.py"
+      - "src/mctrader_engine/storage/local_cache.py"
+      - "tests/integration/storage/test_read_through_cache.py"
+      - "docs/stories/MCT-154.md"
+  MCT-155:
+    mctrader-hub:
+      - "docker/compose/.env.example"
+      - "docker/compose/docker-compose.live.yml"
+      - "docker/compose/docker-compose.paper.yml"
+      - "docs/runbooks/cold-tier-cutover.md"
+      - "docs/runbooks/nas-minio-availability-alert.md"
+      - "docs/stories/MCT-155.md"
+
+planned_claude_md_sections:
+  "mctrader-hub/CLAUDE.md":
+    - section: "## 인프라 — Cold Tier"
+      change: "NAS MinIO endpoint 도입, TLS 강제, secret rotation 90일 cadence 명시"
+      stories: [MCT-147, MCT-155]
+    - section: "## ADR Index"
+      change: "ADR-027 추가"
+      stories: [MCT-149]
+  "mctrader-data/CLAUDE.md":
+    - section: "## Cold Tier Storage"
+      change: "local volume → NAS MinIO SoT, dual-write 검증 invariant 3종, retry queue/metrics 운영 의무"
+      stories: [MCT-150, MCT-151, MCT-152, MCT-153]
+  "mctrader-engine/CLAUDE.md":
+    - section: "## Cold Read Path"
+      change: "NAS MinIO = SoT, local = read-through cache, partition path 호환 invariant, cache invalidation 정책"
+      stories: [MCT-154]
+
+epic_milestones:
+  stage_1_complete:
+    gate:
+      - "MCT-147 MERGED — NAS MinIO endpoint 가용"
+      - "MCT-148 MERGED — PoC 5종 PASS evidence pack land"
+      - "MCT-149 MERGED — ADR-027 status=Accepted"
+    on_pass: "Stage 2 진입 자격 획득 + Stage 2 brainstorm 재실행 권고"
+    on_fail: "Stage 2 진입 금지, Codex review + 사용자 escalate"
+  stage_2_complete:
+    gate:
+      - "MCT-150 ~ MCT-155 ALL MERGED"
+      - "3-종 invariant (sha256 + object count + parquet rowcount) 7일 연속 PASS"
+      - "engine cold-read NAS hit dashboard PASS"
+      - "local L2/L3 디스크 사용량 사전/사후 비교 — 압박 해소 확인"
+    on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch"
+    on_fail: "rollback runbook 발동 — MINIO_ENDPOINT local 복귀, 7일 grace 내 local 데이터 잔존 활용"
+
+parallelism_decision:
+  stage_1: serial  # MCT-147 → MCT-148 → MCT-149
+  stage_2:
+    - phase: 2A
+      sequence: [MCT-150]
+      mode: serial
+    - phase: 2B
+      sequence: [MCT-151]
+      mode: serial
+      reason: "동일 minio_uploader.py 수정 + uploader contract 의존 (규칙 3)"
+    - phase: 2C
+      parallel: [MCT-152, MCT-154]
+      reason: "파일 경로 disjoint — mctrader-data/scripts ↔ mctrader-engine (규칙 1)"
+      isolation: "별도 worktree 의무 (memory feedback_parallel_session_branch_race)"
+    - phase: 2D
+      sequence: [MCT-153]
+      mode: serial
+      reason: "MCT-152 migration 완료 + 7일 grace 의존"
+    - phase: 2E
+      sequence: [MCT-155]
+      mode: serial
+      reason: "cutover = 위 ALL MERGED 필요, env 변경 후 rollback 비용 (규칙 4 통합 gate 흡수)"
+
+risk_register:
+  - id: R1
+    title: "NAS 가용성 SLA 부재"
+    likelihood: medium
+    impact: high
+    mitigation:
+      - "MCT-148 PoC 단계 restart-idempotency 5분 통과 확인"
+      - "MCT-155 runbook: NAS down 시 MINIO_ENDPOINT local 복귀 절차 명시"
+      - "MCT-150 Prometheus alert: minio_uploader_fail rate > 1/min → page"
+  - id: R2
+    title: "dual-write window 의 metric coverage 누락"
+    likelihood: medium
+    impact: high
+    mitigation:
+      - "MCT-151 invariant_checker 가 매 PUT 직후 3종 check, 불일치 시 alert + dual-write 자동 연장"
+      - "MCT-150 metrics 4종 (success/fail/latency/queue_depth) 모두 dual-write path 통과"
+  - id: R3
+    title: "engine reader cache invalidation 실패 → stale read"
+    likelihood: medium
+    impact: medium
+    mitigation:
+      - "MCT-154 cache TTL 명시, NAS object ETag 기반 invalidation"
+      - "MCT-154 integration test: NAS update → local cache stale 검출"
+  - id: R4
+    title: "L2/L3 migration 중단 시 partial state"
+    likelihood: low
+    impact: high
+    mitigation:
+      - "MCT-152 idempotent resume — manifest file 기반 chunk-by-chunk checkpoint"
+      - "forward-only invariant — source 보존, target 미완 시 rerun 안전"
+  - id: R5
+    title: "GC 가 검증 전 데이터 삭제 (data loss)"
+    likelihood: low
+    impact: critical
+    mitigation:
+      - "MCT-153 dry-run flag 의무 + 7일 grace + invariant PASS gate 3중 lock"
+      - "MCT-153 deletion log + 24h 지연 batch delete"
+  - id: R6
+    title: "Secret leak — MinIO credential"
+    likelihood: low
+    impact: high
+    mitigation:
+      - "MCT-147 runbook: credential 은 hub .env (gitignored) + ADR-008 secret management 준수"
+      - "MCT-155 runbook: 90일 rotation cadence + audit log"
+  - id: R7
+    title: "TLS handshake 실패 — self-signed cert"
+    likelihood: medium
+    impact: medium
+    mitigation:
+      - "MCT-148 PoC TLS handshake 검증 의무"
+      - "MCT-147 cert chain 명시 (CA 또는 self-signed + truststore 등록 절차)"
+  - id: R8
+    title: "PoC 결과로 결정점 번복 시 ADR-027 rework"
+    likelihood: medium
+    impact: medium
+    mitigation:
+      - "MCT-149 진입 전 PMOAgent quick audit gate (MCT-148 evidence 검토)"
+      - "번복 발생 시 brainstorm Phase 0 재실행"
+  - id: R9
+    title: "Phase 2 PR pair 와 spike Story 의 evidence reuse 충돌"
+    likelihood: low
+    impact: low
+    mitigation:
+      - "MCT-148 = spike 결과 박제 후 종료, MCT-150 Phase 2 evidence 와 분리"
+      - "PMO 모니터"
+
+ownership:
+  proposer: PMOAgent
+  decider: Orchestrator
+  design_authority: ArchitectPLAgent  # Story 별 Change Plan 권한
+  retro_authority: PMOAgent            # Story 완료 + Epic 종료 회고
+  user: mccho                          # mclayer org owner, blocking 결정
+
+references:
+  brainstorm_spec: ".tmp/brainstorm-cold-tier-nas-minio.md"
+  plan: ".tmp/plan-cold-tier-nas-minio.md"
+  adr_reservation: "docs/adr/.reservation-ADR-027.md"
+  related_adrs: [ADR-008, ADR-009, ADR-016, ADR-017]
