@@ -27,5 +27,8 @@ out/
 # Environment secrets (never commit — use .env.example as template)
 .env
 
+# MinIO cold tier credentials (do NOT commit)
+docker/minio/.env
+
 # git worktrees (ADR-019)
 .worktrees/
