@@ -8,7 +8,7 @@ phase_pair: phase1_only
 story_file: mctrader-data/docs/stories/MCT-148.md
 issue: mclayer/mctrader-hub#248
 pr: mclayer/mctrader-data#40
-pr_merge_sha: 168df75e2623b2b8a47f29d83c8ec709c0bce150
+pr_merge_sha: d3e2af5dfcdacc4a0fd96f1372ba3eaa1b96fcf8
 pr_merged_at: 2026-05-12T11:48:54Z
 retro_author: PMOAgent
 retro_date: 2026-05-12
