@@ -338,12 +338,15 @@ planned_files:
       - "docs/runbooks/nas-minio-cutover-checklist.md"
   MCT-155:
     mctrader-data:
-      - "src/mctrader_data/migration/cutover_verifier.py"
-      - "src/mctrader_data/migration/gc_runner.py"
-      - "scripts/migration/verify_rpo_zero.py"
-      - "scripts/ops/rotate_minio_secret.py"
-      - "tests/migration/test_cutover_verifier.py"
-      - "tests/migration/test_gc_runner.py"
+      # MCT-150~154 lesson 정합 (RequirementsPL/ArchitectPL pre-emptive sync 2026-05-13):
+      # nas_migration/ namespace = MCT-151+153 land 직접 활용 (자연 module 그룹화)
+      # nas_* prefix convention enforce (MCT-150 P2-1 + MCT-151 ESCALATE #1 lesson 정합)
+      - "src/mctrader_data/nas_migration/cutover_verifier.py"
+      - "src/mctrader_data/nas_migration/gc_runner.py"
+      - "scripts/migration/verify_rpo_zero.py"  # CLI script — scripts/migration/ 유지 (MCT-153 동일 prefix)
+      - "scripts/ops/rotate_minio_secret.py"  # CLI script — scripts/ops/ (MCT-150 동일 prefix)
+      - "tests/nas_migration/test_cutover_verifier.py"
+      - "tests/nas_migration/test_gc_runner.py"
     mctrader-hub:
       - "docs/stories/MCT-155.md"
       - "docs/runbooks/nas-minio-tls-review.md"
