@@ -116,6 +116,28 @@ MinIO 의 `format.json` 등 atomic operation 은 **POSIX-compliant filesystem** 
 
 **MCT-159 amendment 박제 (2026-05-13)** — L2/L3 cold tier backlog migration obligation. Stage 3 wiring (MCT-156 LAND `mctrader-data#47` + `mctrader-hub#279`) 후 hot pipeline NAS PUT 정상화 (compactor 09:22 restart 후 09:24 부터 신규 schema `tier=L{2,3}/.../date=D/hour=HH/node=MERGED/` 로 PUT 시작). 그러나 wiring _이전_ 로컬 누적 L2/L3 backlog (orderbooksnapshot L2 6.1 GiB / 2305 file + L3 2.4 GiB / 429 file + transaction L2 186 MiB / 3335 file + L3 154 MiB / 1049 file = 총 **8.85 GiB / 7118 file**) 은 자연 cadence 적용 외 영역 — `orderbookdepth` channel NotImplementedError 영구 fail 로 L2 자연 trigger ETA 9.2h 무효 (RETRO-MCT-156 §13.4 박제). 본 amendment = MCT-153 `BackfillOrchestrator` 의 (a) channel parametrize (`orderbooksnapshot` + `transaction` 양 channel) + (b) hour key 처리 (`_build_chunk_spec` `hour` 축 추가, `nas_object_key` 에 `/hour=HH/node=MERGED/` 박제) 2 amendment 후 재호출하여 LAND-이전 backlog 강제 이관. forward-only invariant + 7d grace + 7종 invariant ALL PASS gate 정합 의무. L1 sealed backlog (76,200 file / ~115 GiB) + WAL (59 GiB) = 본 amendment scope 외 (MCT-160 책임, orderbookdepth FIX + L2 offset overflow FIX prerequisite). 사용자 명시 동기 (disk 압박 해소) 본 amendment 만으로 미달성 (4.8% only, 8.85 GiB / 전체 ~183 GiB) — MCT-160 sequential 의무 박제. MCT-153 손실 재발 방지 = MCT-161 reserve (bucket versioning 활성화 + replication 정책) 별 Story 책임 (D9 amendment 정합).
 
+**MCT-162 amendment 박제 (2026-05-13)** — channel parity 정책 + fail-fast invariant. EPIC-compactor-operations Story-1 (post-MCT-156 deploy 5중 차단 #1+#4 cycle).
+
+**Background — silent skip catastrophe**: MCT-156 (Stage 3 wiring) production deploy 후 사용자 NAS bucket 실측에서 L1Compactor 의 `_schema_version` allowlist (`("transaction", "orderbooksnapshot")` 만) 와 bithumb collector emit channel `orderbookdepth` mismatch 발견. L1Compactor 가 sealed segment 마다 `NotImplementedError` 100% throw → **`compact_segment` outer try/except 가 catch 후 silent skip** → 48,629 sealed segment 가 sealed lifecycle stuck (delete 0, L1 partition 0, NAS upload 0). Prometheus alert 0 (channel-blind path 의 invariant 부재) → operator 인지 0 → ingester emission 분당 ~12 sealed 추가 → backlog 영구 monotonic 증가 (MCT-156 deploy 2026-05-13 09:22 ~ MCT-159 deploy 11:40 도착 시점 +3,227 file = 76,200 → 79,427). RETRO-MCT-156 §13.4 cross-ref.
+
+**Channel parity 정책 박제**:
+
+1. **모든 collector emit channel 은 L1/L2/L3 layer parity 의무** — 신규 channel 추가 시 ADR-009 §D11 (또는 §D10 / §D14 / §D11.9 등) amendment + L1Compactor converter dispatch 함수 추가 + integration test 동시 land 의무. 본 의무는 ADR-009 §D2.6 `ADR009_CHANNEL_SCHEMA_MATRIX` SSOT amendment 와 dual-binding (MCT-159 FIX Iter 1 amendment 정합 — 신규 schema_version row 의무 추가).
+2. **Unsupported channel = fail-fast invariant** — `_schema_version(channel)` 의 unsupported branch 가 `NotImplementedError` raise (silent skip 금지) + Prometheus counter `compactor_unsupported_channel_total{channel}` Counter +1 emit. silent skip 차단 invariant.
+3. **Cardinality risk 검토 (SecurityArch + OperationalRiskArch deputy 통합 박제)**: counter label `channel` cardinality = collector emit channel 종류만 (bithumb `transaction` / `orderbooksnapshot` / `orderbookdepth`, upbit `transaction` / `orderbooksnapshot` + future exchange) → bounded low cardinality. attacker-controlled label injection 0 (collector code path 만 emit source). Prometheus high-cardinality risk = N/A.
+4. **신규 channel 추가 절차 (3-step ALL 의무)**:
+   - (a) **ADR-009 schema 정의 amendment** — column count/order/dtype 박제 + §D2.6 `ADR009_CHANNEL_SCHEMA_MATRIX` row 추가 (CFP-26 sibling sync 정합)
+   - (b) **L1Compactor `_CHANNEL_SCHEMA_VERSION` allowlist 추가** + converter dispatch 함수 추가 + path derive 정합 (`market/{channel}/schema_version=*/tier=L1/...` partition root 정합)
+   - (c) **integration test 의무** — `tests/integration/test_l1_compactor_channel_parity.py` 에 신규 channel converter PASS + fail-fast unsupported channel + Prometheus emit + parquet schema 정합 의무 4 test 추가
+5. **fail-fast 의도 (silent skip 사례 재발 방지)**: backlog 영구 monotonic 누적 차단. operator 가 Prometheus `compactor_unsupported_channel_total{channel}` Counter spike 즉시 감지 가능 (Grafana alert 임계 1+ 추가 의무 — Phase 2 또는 후속 ops Story scope). MCT-156 silent skip catastrophe 재발 차단 invariant.
+6. **MCT-162 Phase 2 scope (구현 land 의무)**: `orderbookdepth → orderbook_depth.v1` allowlist 추가 + WAL delta `changes` payload → per-level flatten converter (ADR-009 §D11.9 정합) + `raw_json` column `large_string` cast 의무. L1 hot path = 본 amendment scope 정합 (ADR-027 §D5 L1 NAS upload 0 invariant 유지 — compactor local write 단계 변경, NAS PUT 영역 무관).
+
+**Out-of-scope (본 amendment 한계)**:
+
+- **upbit L1 partition 0 별 root cause** = upbit collector WAL sample 실측 결과 (`/var/lib/mctrader/data/wal/upbit/` = `orderbooksnapshot` / `transaction` only, **`orderbookdepth` 0**) → upbit ingester 가 emit 한 `transaction` / `orderbooksnapshot` sealed segment (4,749 today + 13,810 모든 date) 가 있음에도 L1 partition 0 = **별 진단 의무** (MCT-160 또는 별 Story scope). orderbookdepth allowlist 와 무관 사실 명시 박제.
+- **L1 backlog 79,427 file natural drainage** = MCT-162 Phase 2 land 후 자연 drainage 의존 (D5 MCT-160 scope). 본 amendment = root cause 차단 invariant 박제만, 기존 누적 backlog 의 active cleanup 의무 0.
+- **L2 `pa.concat_tables` OOM exit 137 fix** = MCT-160 Phase 1 scope (D3 streaming `ParquetWriter.write_table` per-file loop). 본 amendment 의 `large_string` cast 의무 (§D11.9.6) 는 OOM root cause 의 일부 (raw_json column i32 offset overflow) 차단 — MCT-160 의 streaming write 와 결합 시 단일 buffer 누적 0 보장.
+
 ### D5. Failure mode — compactor retry queue + alert, hot path 무영향
 
 NAS unreachable 시:
