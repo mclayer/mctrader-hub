@@ -347,15 +347,30 @@ py -3.12 -m pytest tests/ -v
 
 Stage 2 EPIC CLOSED 2026-05-13 (mctrader-hub#277) 후 사용자 NAS bucket 실측에서 발견된 핵심 gap — hot pipeline (compactor) NAS wiring 부재 해소. bucket `mctrader-market` 실측 결과 `tier=L3/` prefix 0개 + `tier=L2/` 안 `hour=HH/` partition 0개 = Stage 2 production-grade primitive (NAS+DualWriter+InvariantHarness+SOPRunner+BackfillOrchestrator) 가 완성됐음에도 hot pipeline 자체가 NAS endpoint 안 가는 환경에서 운영 중이었음.
 
-**Stage 3 milestone progression** (post-MCT-156 LAND):
+**Stage 3 milestone progression** (post-MCT-156 LAND + MCT-159 spawn):
 
 | Story | scope | 상태 |
 |-------|-------|-----|
-| **MCT-156** ✅ | compactor NAS wiring + L2/L3 DualWriter injection (entrypoint vertical slice) | **COMPLETED 2026-05-13** (#279 Phase 1 + mctrader-data#47 Phase 2 + 본 Phase 2 hub PR) |
+| **MCT-156** ✅ | compactor NAS wiring + L2/L3 DualWriter injection (entrypoint vertical slice) | **COMPLETED 2026-05-13** (#279 Phase 1 + mctrader-data#47 Phase 2 + #280 hub Phase 2) |
 | MCT-157 | Prometheus layout label 분리 + observability (legacy_node_default vs new_node_merged) | PROPOSED |
 | MCT-158 | release gate smoke test + cutover runbook + EPIC CLOSED gate (6h bucket prefix 출현 verify) | PROPOSED (depends_on: 156, 157) |
+| **MCT-159** | **L2/L3 cold tier backlog NAS migration (~8.85 GiB / 7118 file, channel parametrize + hour key amend)** | **PROPOSED 2026-05-13** (sibling, parallel_after_156) |
 
-milestone 1/3 = 33.3% (post-MCT-156 LAND).
+milestone 1/4 = 25% (post-MCT-156 LAND, MCT-159 sibling 추가 후).
+
+### Stage 3 backlog migration follow-up (MCT-159, post-MCT-156 wiring)
+
+MCT-156 Phase 2 LAND (`mctrader-data#47` dff8aa5) 후 compactor 09:22 restart → 09:24 부터 NAS dual-write 정상화. **그러나** wiring _이전_ 로컬 누적 L2/L3 backlog (8.85 GiB / 7118 file, 신규 schema `tier=L{2,3}/.../date=D/hour=HH/node=MERGED/`) 는 자연 cadence 적용 외 영역 (orderbookdepth NotImplementedError 영구 fail → L2 자연 trigger ETA 9.2h 무효, RETRO-MCT-156 §13.4 박제). MCT-159 = MCT-153 `BackfillOrchestrator` 의 2 amendment (channel parametrize + hour key 처리) 후 재호출하여 LAND-이전 backlog 강제 이관.
+
+**Sequential 3-step disk 압박 해소 박제**:
+
+| Step | Story | Scope | Disk 추정 |
+|------|-------|-------|----------|
+| 1 | **MCT-159 (active)** | L2/L3 cold tier 8.85 GiB / 7118 file | ~4.8% |
+| 2 | MCT-160 (reserve, EPIC-compactor-operations) | compactor L1 backlog cleanup (orderbookdepth FIX + L2 offset overflow FIX + MCT-153 손실 retrofit) | ~62% (L1 ~115 GiB) |
+| 3 | MCT-161 (reserve, EPIC-compactor-operations) | NAS bucket versioning 활성화 + replication 정책 + 손실 재발 방지 | 0% (정책) |
+
+**MCT-159 만으로 disk 압박 즉시 해소 미달성 (4.8% only)** — MCT-160/MCT-161 sequential 의무 박제 (Story §1 R3 first surface).
 
 ### Stage 3 운영 가이드 (MCT-156 산출물 기반)
 
