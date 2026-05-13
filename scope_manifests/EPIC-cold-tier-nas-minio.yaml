@@ -387,11 +387,15 @@ epic_milestones:
     on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch"
     on_fail: "rollback runbook 발동 — MINIO_ENDPOINT local 복귀, 7일 grace 내 local 데이터 잔존 활용"
     progress:
-      stories_complete: 5
+      stories_complete: 6
       stories_total: 6
-      sp_burned: 31
+      sp_burned: 36
       sp_total: 36
-      sp_progress_pct: 86.1
+      sp_progress_pct: 100.0
+      epic_closed_at: 2026-05-13
+      epic_milestone_state: closed
+      stage2_epic_final_retro: docs/retros/2026-05-stage2.md
+      data_loss_incidents: 0  # Stage 2 종합 — 사용자 directive verbatim "절대 유실 금지" enforcement 효과 입증
       complete:
         - story: MCT-150
           sp: 5
@@ -453,25 +457,41 @@ epic_milestones:
           escalate_count: 0
           codeforge_lesson: mclayer/plugin-codeforge#525 (lesson #5 sub-invariant 첫 적용 — cross-section quantitative consistency cascade table 13 row, design-review FIX 0 + dimensional cascade 0 효과 입증)
           addresses_decisions: [S3, S6, S9]
-      next: MCT-155  # 5 SP, depends_on MCT-154 ✅ + 7d grace 만료 — Stage 2 마지막 Story (local GC + secret rotation + RPO=0 검증 + Stage 2 종료 gate)
+        - story: MCT-155
+          sp: 5
+          phase_pair: phase1_phase2
+          merged_at: 2026-05-13
+          phase1_pr: mclayer/mctrader-hub#275
+          phase2_pr_data: mclayer/mctrader-data#46
+          phase2_pr_hub: mclayer/mctrader-hub#276
+          retro: docs/retros/RETRO-MCT-155.md
+          stage2_epic_final_retro: docs/retros/2026-05-stage2.md
+          fix_cycle_total: 0
+          escalate_count: 0
+          codeforge_lesson: mclayer/plugin-codeforge#525 (lesson #5 sub-invariant 두 번째 적용 — cross-section quantitative consistency cascade table 17 row, design-review FIX 0 + dimensional cascade 0 누적 효과 검증, 공식 채택 권고 충분 evidence)
+          addresses_decisions: [S8, S9, S12]
+          adr_amendments_committed: [D2, D6]
+      next: null  # Stage 2 EPIC CLOSED — Stage 3 (또는 future epic) 진입 권고는 docs/retros/2026-05-stage2.md §6 박제
       adr_amendment_status:
         - decision: D2
           trigger_story: MCT-155
           mandatory: true
-          status: pending
+          status: committed  # 2026-05-13 PR #276 — HTTP 유지 (사용자 confirm 박제, S12 user_confirmed)
+          committed_pr: mclayer/mctrader-hub#276
         - decision: D5
           trigger_story: MCT-150
           mandatory: false
-          status: deferred  # MCT-155 retro 시점 reopen, RETRO-MCT-150.md §5.1 결정
-          deferred_reason: "MCT-152 dual-write 실 운영 데이터 (false positive rate / SOP MANUAL_GATE 발동 빈도) 박제 후 amend 가 의미 있음. 현시점 amend = speculative."
+          status: deferred  # Stage 3 또는 future epic 시점 reopen — RETRO-MCT-150.md §5.1 + 2026-05-stage2.md §5.3
+          deferred_reason: "MCT-152 dual-write 실 운영 데이터 (false positive rate / SOP MANUAL_GATE 발동 빈도) 박제 후 amend 가 의미 있음. Stage 2 종료 시점에도 speculative amend 회피 — Stage 3 시점 reopen 권고."
         - decision: D6
           trigger_story: MCT-151
           mandatory: true
-          status: pending
+          status: committed  # 2026-05-13 PR #276 — 3종 → 7종 invariant 명시화 (S5 박제, MCT-151 InvariantHarness)
+          committed_pr: mclayer/mctrader-hub#276
         - decision: D4
           trigger_story: MCT-154
           mandatory: false
-          status: pending
+          status: deferred  # Stage 3 시점 reopen 후보 — MCT-154 endpoint_router 7d grace mode 박제 후 amend 가능, mandatory 0
 
 parallelism_decision:
   stage_1: serial  # MCT-147 → MCT-148 → MCT-149
