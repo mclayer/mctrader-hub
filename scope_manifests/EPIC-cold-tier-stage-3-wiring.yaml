@@ -7,8 +7,46 @@
 epic_key: EPIC-cold-tier-stage-3-wiring
 epic_title: "Stage 3 — hot pipeline NAS wiring (compactor L2/L3 DualWriter injection)"
 parent_dependency: EPIC-cold-tier-nas-minio  # post-closure follow-up (Stage 2 EPIC CLOSED 2026-05-13)
-status: Proposed
+status: In Progress  # MCT-156 LAND 2026-05-13 (1/3 milestone, 33.3%)
 created: 2026-05-13
+last_updated: 2026-05-13  # PMOAgent retro dispatch (MCT-156 Phase 2 LAND)
+
+milestone_progression:
+  total_stories: 3
+  completed: 1   # MCT-156
+  in_progress: 0
+  proposed: 2    # MCT-157 + MCT-158
+  progress_percent: 33.3
+  last_completion: 2026-05-13  # MCT-156
+
+story_status:
+  MCT-156:
+    status: COMPLETED
+    completed_at: 2026-05-13
+    phase1_pr: mclayer/mctrader-hub#279
+    phase1_pr_merge_sha: 8177d89
+    phase1_pr_merged_at: 2026-05-13
+    phase2_pr_data: mclayer/mctrader-data#47
+    phase2_pr_data_merge_sha: dff8aa5
+    phase2_pr_data_merged_at: 2026-05-13T08:42:53Z
+    phase2_pr_hub: (post-write, PMOAgent retro PR)
+    retro_file: docs/retros/RETRO-MCT-156.md
+    sp_burned: 5
+    fix_iteration: 0
+    review_lanes_pass: [DesignReview, TestAgent, SecurityTestPL, CodeReviewPL]
+    p2_findings: 3  # 1 resolved (.env.example) + 2 post-Epic refactor 후보 (sha256 dup + tmp_dw double)
+    codex_phase0_diff: 1  # Q9 DualWriter API signature, DeveloperPL 해소
+  MCT-157:
+    status: PROPOSED
+    depends_on: [MCT-156]
+    sp: 3
+    addresses_risks: [R2]
+  MCT-158:
+    status: PROPOSED
+    depends_on: [MCT-156, MCT-157]
+    sp: 5
+    addresses_risks: [R1]
+    gate_type: release_gate_mandatory
 
 why: |
   Stage 2 EPIC CLOSED 후 사용자 NAS bucket 실측에서 발견된 핵심 gap — hot pipeline (compactor) NAS wiring 부재.

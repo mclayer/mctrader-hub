@@ -18,7 +18,6 @@
     "MCT-152": { "title": "L2/L3 일괄 이관 — mc-mirror forward-only", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_only" },
     "MCT-153": { "title": "Local L2/L3 GC — dry-run + 7일 grace", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_phase2" },
     "MCT-154": { "title": "engine reader read-through cache (NAS = SoT)", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-engine", "phase_pair": "phase1_phase2" },
-    "MCT-155": { "title": "hub compose MINIO_ENDPOINT cutover + secret rotation runbook", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-hub", "phase_pair": "phase1_only" },
-    "MCT-156": { "title": "compactor NAS wiring + L2/L3 DualWriter injection (Stage 3 entrypoint)", "reserved_at": "2026-05-13", "epic": "EPIC-cold-tier-stage-3-wiring", "repo": "mctrader-hub", "phase_pair": "phase1_phase2" }
+    "MCT-155": { "title": "hub compose MINIO_ENDPOINT cutover + secret rotation runbook", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-hub", "phase_pair": "phase1_only" }
   }
 }
