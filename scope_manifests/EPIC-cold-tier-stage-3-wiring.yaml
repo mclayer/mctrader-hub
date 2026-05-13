@@ -168,6 +168,73 @@ design_decisions:
     owner_story: MCT-156
     user_confirmed: true
     user_confirmed_at: 2026-05-13
+  S8:
+    code: "MCT-159-D1"
+    decision: "MCT-159 scope = (iii) 이관 only + MCT-160 (3 sub-issue codec FIX) + MCT-161 (versioning) reserve"
+    rationale: "사용자 final confirm 2026-05-13 — Stage 3 wiring sibling 편입, 신규 Epic (EPIC-compactor-operations) 은 MCT-160/161 의 home"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S9:
+    code: "MCT-159-D2"
+    decision: "(b) MCT-153 BackfillOrchestrator 재호출 + 2 amendment (channel parametrize + hour key 처리)"
+    rationale: "자연 cadence 9.2h 무효 (orderbookdepth NotImplementedError 영구 fail, RETRO-MCT-156 §13.4 박제), 신규 script 회피"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S10:
+    code: "MCT-159-D3"
+    decision: "MCT-159 scope = L2/L3 backlog 8.85 GiB / 7118 file only"
+    rationale: "사용자 명시 정합 + L1 backlog 76,200 file (~115 GiB) + WAL 59 GiB 은 MCT-160 prerequisite chain 책임"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+    breakdown:
+      orderbooksnapshot_L2: "6.1 GiB / 2305 file"
+      orderbooksnapshot_L3: "2.4 GiB / 429 file"
+      transaction_L2: "186 MiB / 3335 file"
+      transaction_L3: "154 MiB / 1049 file"
+      total: "8.85 GiB / 7118 file"
+  S11:
+    code: "MCT-159-D4"
+    decision: "ADR-027 D4 + D6 + D9 amendment, D7/D11 변경 0"
+    rationale: "Codex GPT-5.4 review + Sonnet decider 합성 — Stage3 wiring 확장 (D4) + RPO=0 enforce backlog path (D6) + legacy 무존재 재기술 (D9)"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+    triggers_adr_amendment:
+      adr: ADR-027
+      sections: [D4, D6, D9]
+      mandatory: true
+      trigger_story: MCT-159
+  S12:
+    code: "MCT-159-D5"
+    decision: "smoke/ 잔재 915 MiB 별 chore 분리 (MCT-158 연계)"
+    rationale: "원인 + 검증 경로 별 도메인, MCT-158 R1 smoke gate 와 책임 경계 명확"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S13:
+    code: "MCT-159-D6"
+    decision: "local GC D7 7d grace 답습 (보수적)"
+    rationale: "forward-only invariant + MCT-153 손실 교훈 (즉시 삭제 면제 근거 0)"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S14:
+    code: "MCT-159-D7"
+    decision: "bucket versioning = MCT-161 별 Story / 손실 사실 = ADR-027 §D9 축약 박제"
+    rationale: "RETRO §13.5.2 만으로 설계 제약 승격 부족 — versioning 정책 + replication = MCT-161 reserve 별 Story 책임"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S15:
+    code: "MCT-159-D8"
+    decision: "orderbookdepth FIX = 이관 prerequisite 아님 (MCT-160 책임)"
+    rationale: "MCT-159 = 이관 only, codec FIX (orderbookdepth + L2 offset overflow) = MCT-160 책임 분리"
+    owner_story: MCT-159
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
 
 planned_stories:
   - key: MCT-156
@@ -196,6 +263,17 @@ planned_stories:
     sp: 5
     addresses_decisions: []
     addresses_risks: [R1]
+  - key: MCT-159
+    title: "L2/L3 cold tier backlog NAS migration (~8.85 GiB / 7118 files, channel parametrize + hour key amend)"
+    repo: mctrader-hub + mctrader-data
+    phase_pair: phase1_phase2
+    depends_on: [MCT-156]  # Stage 3 wiring LAND prerequisite (MCT-157/158 무관 — 병렬 가능)
+    parallel_with: [MCT-157, MCT-158]
+    sp: 5
+    addresses_decisions: [S8, S9, S10, S11, S12, S13, S14, S15]  # MCT-159-D1~D8
+    addresses_risks: [R3, R4, R5, R6]
+    epic_relation: "sibling (Stage 3 wiring follow-up — backlog migration only)"
+    user_motive_warning: "사용자 명시 동기 (disk 압박 해소) 본 Story 만으로 미달성 (8.85 GiB / 전체 ~183 GiB ≈ 4.8% only). MCT-160 sequential 의무 §1 surface 박제."
 
 risk_register:
   - id: R1
@@ -218,6 +296,51 @@ risk_register:
       - "MCT-157 layout label 분리 (legacy_node_default vs new_node_merged) + Grafana dashboard PromQL 갱신"
     owner_story: MCT-157
     added_in: Stage 3 brainstorm
+    added_at: 2026-05-13
+  - id: R3
+    title: "사용자 명시 동기 (disk 압박 해소) 본 Story 만으로 미달성 — Sequential 3-step 의무"
+    likelihood: high
+    impact: high
+    quantification: "MCT-159 = 8.85 GiB / 전체 backlog ~183 GiB ≈ 4.8% only (L1 sealed 76,200 file ~115 GiB + WAL 59 GiB = MCT-160 영역)"
+    mitigation:
+      - "Story §1 first surface 박제 — 진입 즉시 한계 명시"
+      - "MCT-160 sequential 의무 cross-link (#160 reserve LAND)"
+      - "Epic milestone description 갱신 — backlog migration 3-step (MCT-159→MCT-160→MCT-161) 명시"
+    owner_story: MCT-159
+    added_in: MCT-159 brainstorm Phase 1 (Codex 권고)
+    added_at: 2026-05-13
+  - id: R4
+    title: "BackfillOrchestrator channel parametrize amend 시 MCT-153 transaction-only path regression"
+    likelihood: medium
+    impact: medium
+    mitigation:
+      - "test_backfill_orchestrator.py + test_backfill_resumability_chaos.py 양 channel 매트릭스 확장"
+      - "default channel='orderbooksnapshot' backward-compat 유지"
+      - "transaction-only path 회귀 test 보존"
+    owner_story: MCT-159
+    added_in: MCT-159 brainstorm Phase 1
+    added_at: 2026-05-13
+  - id: R5
+    title: "hour key 처리 amend 시 기존 NAS file naming convention 불일치 (legacy layout)"
+    likelihood: low
+    impact: medium
+    mitigation:
+      - "hour 부재 시 hour_segment='' (legacy backward-compat) 유지"
+      - "ADR-027 D4 amendment 박제로 key naming 결정 trail"
+      - "기존 NAS key naming pattern 사전 측정 + backward-compat 검증"
+    owner_story: MCT-159
+    added_in: MCT-159 brainstorm Phase 1
+    added_at: 2026-05-13
+  - id: R6
+    title: "make_partition_dir() test fixture 미수정 → 8+ integration test silent 통과 위험"
+    likelihood: high
+    impact: high
+    quantification: "사용자 unstaged hot-fix `_discover_partitions()` 만 수정 → fixture `schema_version=*` 누락 → total_chunks=0 silent 오통과"
+    mitigation:
+      - "Phase 2 Task 8 첫 step = test fixture 갱신 의무 (TDD red phase 강제)"
+      - "fixture 갱신 → 기존 test 가 신규 schema path 사용 검증 → 그 후 channel parametrize + hour key 구현"
+    owner_story: MCT-159
+    added_in: MCT-159 brainstorm Phase 1 (ChangeImpactAgent surface)
     added_at: 2026-05-13
 
 dependency:
@@ -243,6 +366,9 @@ story_sequence:
   - story: MCT-158
     mode: sequential_after_156_157
     reason: "Stage 3 release gate smoke test + EPIC CLOSED gate — MCT-156 + MCT-157 land 후 6h 운영 + 통합 검증"
+  - story: MCT-159
+    mode: parallel_after_156  # sibling backlog migration — MCT-157/158 와 disjoint scope (BackfillOrchestrator amend vs prometheus_exporters / smoke gate)
+    reason: "L2/L3 cold tier backlog migration — MCT-156 wiring LAND prerequisite. MCT-157 (prometheus layout label) + MCT-158 (R1 smoke) 와 file scope disjoint, 병렬 가능. Phase 1=docs PR (hub) / Phase 2=impl PR (data) / Phase 3=실 이관+GC (운영 cycle)."
 
 epic_milestones:
   stage_3_complete:
@@ -255,6 +381,23 @@ epic_milestones:
       - "PMOAgent retro dispatch (MCT-158)"
     on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch + scope_manifest milestone closed"
     on_fail: "rollback runbook 발동 — compose env revert (NAS_MINIO_* → MINIO_*), legacy 동작 복귀. retroactive 데이터 변경 0 (forward-only)"
+  stage_3_backlog_migration:
+    description: "MCT-159 sibling backlog migration milestone — Stage 3 wiring 후 LAND-이전 로컬 누적 L2/L3 backlog (8.85 GiB) NAS 이관. Stage 3 Epic close 후에도 진행 가능 (sibling)."
+    gate:
+      - "MCT-159 Phase 1 PR MERGED (governance docs: ADR-027 D4/D6/D9 amend + Story + scope_manifest)"
+      - "MCT-159 Phase 2 PR MERGED (impl: BackfillOrchestrator channel + hour amend + 7 integration test)"
+      - "MCT-159 Phase 3 LAND (실 이관 7118 obj + 7d grace + gc_runner local delete)"
+      - "MCT-159 PMOAgent retro + §11 final trace 박제"
+    on_pass: "MCT-159 closed, 다음 sequential step = MCT-160 (compactor L1 backlog cleanup, EPIC-compactor-operations)"
+    on_fail: "BackfillOrchestrator amendment rollback (channel/hour 추가 revert), forward-only invariant 보존 (NAS replica 일부만 PUT 된 상태 = 정합). retry 가능."
+  stage_3_full_disk_relief:
+    description: "Sequential 3-step disk 압박 해소 milestone — MCT-159 + MCT-160 + MCT-161 LAND 후 디스크 완전 해소"
+    gate:
+      - "MCT-159 LAND (L2/L3 8.85 GiB, ~4.8%)"
+      - "MCT-160 LAND (L1 backlog cleanup, ~115 GiB, ~62%)"
+      - "MCT-161 LAND (versioning + replication 정책)"
+    on_pass: "디스크 사용률 ~30% (현 23% + WAL 자연 cycle 후 보존). 운영 안정 상태."
+    on_fail: "MCT-160 codec FIX 진행 정도에 따라 부분 해소"
 
 ownership:
   proposer: ArchitectPLAgent (MCT-156 Phase 1)
