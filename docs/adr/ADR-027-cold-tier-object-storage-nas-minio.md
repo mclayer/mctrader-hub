@@ -68,9 +68,9 @@ MinIO 의 `format.json` 등 atomic operation 은 **POSIX-compliant filesystem** 
 - **Alternative rejected**: bucket-per-tier (`mctrader-market-l1` / `mctrader-market-l2` / `mctrader-market-l3`) — bucket 수 증가 + IAM policy 분기 + reader 측 분기 → 거부.
 - **Consequence**: MCT-155 cutover 시 endpoint swap (`MINIO_ENDPOINT` env → NAS endpoint) 단일 변경. Hive prefix invariant 보존.
 
-### D2. TLS / auth — Stage 1 HTTP, Stage 2 TLS 재검토 (MCT-147 amend)
+### D2. TLS / auth — Stage 1 HTTP, Stage 2 HTTP 유지 (MCT-147 amend + MCT-155 amend)
 
-**Stage 1** = **HTTP** (LAN 내부망 only, NAS 방화벽 port 9000/9001 = mctrader 호스트 IP only + `.env` 0600 + 90일 rotation runbook). **Stage 2** = **TLS 재검토 의무** (MCT-155 진입 시 사용자 confirm).
+**Stage 1** = **HTTP** (LAN 내부망 only, NAS 방화벽 port 9000/9001 = mctrader 호스트 IP only + `.env` 0600 + 90일 rotation runbook). **Stage 2** = **HTTP 유지** (사용자 confirm 2026-05-13, S12 user_confirmed: true) — 4중 mitigation Stage 2 후에도 그대로 유지. TLS 활성화 trigger = `docs/runbooks/nas-minio-tls-review.md` §4.2 4 조건 (외부 노출 / NAS hardware 교체 / Stage 3 발의 / Secret leak 의심).
 
 - **Rationale (사용자 결정 — MCT-147 §11.1 박제, 2026-05-12)**:
   1. **운영 환경**: LAN 내부망 only — NAS 방화벽 port 9000/9001 = mctrader 호스트 IP 만 allow (외부 노출 0)
@@ -82,7 +82,8 @@ MinIO 의 `format.json` 등 atomic operation 은 **POSIX-compliant filesystem** 
   - 90일 credential rotation runbook (MCT-147 산출물 — `docs/runbooks/nas-minio-secret-rotation.md`)
   - NAS 측 방화벽 port 9000/9001 = mctrader 호스트 IP only
   - root account 외 별도 IAM user 분리 의무 (Stage 2 scope 명시)
-- **Stage 2 escalation trigger (MCT-155)**: cutover 진입 시 (a) 외부 노출 검토 (b) TLS handshake cost / 운영 부담 / cert 관리 cadence 재평가 (c) 사용자 explicit confirm 후 본 ADR amendment 또는 supersede.
+- **Stage 2 escalation trigger (MCT-155, COMPLETED 2026-05-13)**: cutover 진입 후 (a) 외부 노출 검토 ✅ (NAS 방화벽 port 9000 mctrader IP only, 외부 노출 0) (b) TLS handshake cost / 운영 부담 / cert 관리 cadence 재평가 ✅ (`docs/runbooks/nas-minio-tls-review.md` §2-§3 박제) (c) 사용자 explicit confirm ✅ = **HTTP 유지** (Stage 1 정책 연장).
+- **MCT-155 amendment 박제 (2026-05-13)**: 사용자 confirm = HTTP 유지 결정 (S12 user_confirmed: true). Future re-evaluation trigger = `docs/runbooks/nas-minio-tls-review.md` §4.2 4 조건 (외부 노출 / NAS hardware 교체 / Stage 3 발의 / Secret leak 의심).
 - **Alternative rejected**: Stage 1 TLS 강제 — feasibility spike scope 초과 (위 rationale 1~3) → 거부.
 
 ### D3. ADR 형태 — 신규 ADR-027 (ADR-017 amendment 아님)
@@ -125,19 +126,31 @@ NAS unreachable 시:
 - **Alert metric (MCT-150 산출물)**: `cold_writer_backlog_segments` + `cold_writer_retry_count_total` (Prometheus) + Grafana dashboard `mctrader/Cold Writer Health`.
 - **Hot path 무영향 invariant**: collector WAL append + L1 ParquetWriter 의 fsync / atomic rename 은 NAS unreachable 와 무관 — local filesystem only.
 
-### D6. 이관 검증 invariant — sha256 + object count + parquet row count 3종 ALL PASS
+### D6. 이관 검증 invariant — 7종 ALL PASS (MCT-151 + MCT-155 amend, S5 박제)
 
-dual-write window 의 cutover validation (D4 step 2):
+**Amendment trail (2026-05-13, MCT-151 trigger / MCT-155 land)**: 본 D6 wording = 3종 → **7종** 으로 명시화. scope_manifest design_decisions S5 박제 정합 (`Codex review + Sonnet decider 합성, addressed_in: [MCT-151, MCT-153], triggers_adr_amendment.mandatory=true.trigger_story=MCT-151`).
 
+dual-write window 의 cutover validation (D4 step 2) — **7종 invariant ALL PASS**:
+
+**byte-level (1종)**:
 1. **sha256**: local L2/L3 Parquet 의 sha256 == NAS object 의 sha256 (full byte-level identity)
+
+**set-level (2종)**:
 2. **object count**: local L2/L3 partition 의 file count == NAS bucket 의 object count (per partition)
 3. **parquet row count**: local L2/L3 Parquet 의 row count == NAS object 다운로드 후 parquet row count (per file)
 
-3종 ALL PASS 의무 — 1종이라도 FAIL 시 cutover 차단.
+**schema-level (4종 — S5 amendment 신규)**:
+4. **column count**: ADR-009 §D2.1 16-col 의무 (== 16, per file)
+5. **column name order**: ADR-009 §D2 정의 정합 (per file)
+6. **dtype identity**: pyarrow type-level identity (Decimal precision/scale 포함, EC-5 박제)
+7. **schema_version pin**: partition prefix `schema_version=v1` 정합 (legacy schema 침범 차단)
 
-- **Rationale**: MCT-148 T3 (large PUT 50MB, sha256 IDENTICAL 3/3 = 100%) + T5 (partial visibility, atomic_invariant=true) = byte-level identity + S3 atomic visibility 의 measurable evidence. cutover 검증 invariant 의 PoC 사전 입증.
+**7종 ALL PASS 의무** — 1종이라도 FAIL 시 cutover 차단.
+
+- **Rationale (3종 → 7종 확장 사유)**: MCT-148 T3 (large PUT 50MB, sha256 IDENTICAL 3/3 = 100%) + T5 (partial visibility, atomic_invariant=true) = byte-level + atomic visibility 의 PoC 사전 입증. **schema-level 4종 추가 사유 (S5 amendment)**: D6 본문 3종 PASS 이나 Parquet schema 차이 (column 순서/dtype mismatch 등) 로 reader 측 read 파괴/오염 risk 차단 (reader-breaking drift 포착) — MCT-151 InvariantHarness 가 7종 sequential unconditional verify (early return 0).
 - **Alternative rejected**: object count only — sha256 차이 (compression 차이 등) 검출 불가 → 거부.
-- **MCT-151 scope**: 3종 invariant 검증 harness 구현.
+- **MCT-151 scope**: 7종 invariant 검증 harness 구현 (`mctrader_data/nas_migration/invariant_harness.py`).
+- **MCT-155 amendment land 시점**: 2026-05-13 (Stage 2 마지막 Story Phase 2 PR — 본 amendment 박제).
 
 ### D7. Local GC — 7일 grace + dry-run 선행 + 디스크 압박 시 tier/date 순차
 
