@@ -160,6 +160,38 @@ dual-write window 의 cutover validation (D4 step 2) — **7종 invariant ALL PA
 
 **MCT-159 amendment 박제 (2026-05-13)** — backlog migration path 의 7종 invariant ALL PASS gate enforce. 본 Story 의 `BackfillOrchestrator` 재호출 path (channel parametrize + hour key 처리 2 amendment 후) 가 MCT-151 InvariantHarness inject 자동 동작 — byte-level sha256 + set-level object count + parquet row count + schema-level column count + column name order + dtype identity + schema_version pin **7종 sequential unconditional verify**. 1종이라도 FAIL 시 NAS PUT 차단 + quarantine 분리 + retry queue enqueue (NASUploader retry 자동) + SOP MANUAL_GATE escalation 의무. D6 invariant wording 변경 0 = invariant SSOT 정합, backlog migration path 의 자동 적용 명시만.
 
+**MCT-159 FIX Iter 1 amendment 박제 (2026-05-13T11:40:44Z, Story §10 FIX Ledger Iter 1 trigger)** — D6 의 column_count invariant 의 **channel-aware** resolve.
+
+D6 본문 line 149 "**column count**: ADR-009 §D2.1 16-col 의무 (== 16, per file)" 의 **OHLCV channel 가정** 박제 = 본 amendment 로 channel-aware 확장. Production deploy verification 시 `column_count_fail` 빈발 surface — InvariantHarness `_expected_column_count=16` fixed enforce vs 실 schema (orderbook_snapshot.v1=11 / tick.v1=8) cardinal mismatch.
+
+**Amended D6 column_count invariant wording**:
+
+> 4. **column count** (channel-aware, ADR-009 §D2.6 `ADR009_CHANNEL_SCHEMA_MATRIX` SSOT 정합):
+>    - **Primary**: partition prefix `schema_version=*` extraction → matrix lookup (`{orderbook_snapshot.v1=11, tick.v1=8, tick.v1.1=11, ohlcv.v1=16}`)
+>    - **Fallback**: caller 측 `expected_column_count` explicit injection (backward-compat — OHLCV cutover path 회귀 0)
+>    - **Miss**: unknown schema_version → `column_count_fail` with diagnostic `unknown_schema_version` (schema evolution detection)
+
+D6 7종 enum wording 변경 0 (`column_count_fail` enum 보존, resolve 방식만 channel-aware 확장).
+
+### §D6.1 chunk_unit ↔ verify_unit contract (MCT-159 FIX Iter 1 신규)
+
+**Amendment trigger**: MCT-159 production deploy verification 의 `object_count_fail` 빈발 surface — chunk_spec (per-file PUT) vs `_check_object_count` (per-partition glob) **단위 mismatch**: single chunk PUT 후 verify 시점 local 12 file vs NAS 1 object → 즉시 fail.
+
+**Contract 박제** (양 단위 일치, per-file basis):
+
+- **chunk_unit**: per-file PUT (1 .parquet file = 1 chunk_id, MCT-153 `BackfillOrchestrator.ChunkSpec` 박제 보존)
+- **verify_unit**: per-file (post amend)
+- **invariant_scope_per_file** (7종 ALL PASS gate 의 per-file 적용 영역):
+  - byte-level: sha256
+  - schema-level: column_count + column_order + dtype + schema_version
+  - row-level: parquet row_count (per file, NOT cross-file aggregation)
+- **invariant_scope_per_partition** (optional Phase 3 후속 verify cycle):
+  - set-level: total file count (partition aggregation) — 적용 시점 = partition 전체 PUT 완료 confirmation 후 별 verify pass (현 amendment scope 외)
+
+본 §D6.1 contract = MCT-153/156/159 `BackfillOrchestrator` 의 chunk 단위 박제 보존 + InvariantHarness verify 단위 일치. 본 amendment 의 MCT-151 InvariantHarness 적용 = MCT-159 FIX Iter 1 **Phase 2 follow-up PR** (mctrader-data) scope.
+
+Cross-references: ADR-009 §D2.6 (`ADR009_CHANNEL_SCHEMA_MATRIX` SSOT, MCT-159 FIX Iter 1) + Story `MCT-159.md` §10 FIX Ledger Iter 1.
+
 ### D7. Local GC — 7일 grace + dry-run 선행 + 디스크 압박 시 tier/date 순차
 
 cutover 후 local volume 의 L2/L3 cold tier 자산 삭제 절차:

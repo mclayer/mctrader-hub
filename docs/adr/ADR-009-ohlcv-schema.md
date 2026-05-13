@@ -903,6 +903,38 @@ market/<channel>/schema_version=*.v1/tier=L{1,2,3}/exchange=.../symbol=.../date=
 
 Cross-references: ADR-017 §Decision 2; MCT-106 Change Plan §4.2.
 
+## §D2.6 — ADR009_CHANNEL_SCHEMA_MATRIX SSOT (MCT-159 FIX Iter 1, 2026-05-13)
+
+**Amendment trigger**: MCT-159 production deploy verification (2026-05-13T11:40:44Z) 의 `column_count_fail` 빈발 surface (Story `MCT-159.md` §10 FIX Ledger Iter 1 박제). InvariantHarness `_expected_column_count=16` (ADR009_EXPECTED_COLUMN_COUNT default) **channel-blind enforce** vs 실 schema (orderbook_snapshot.v1=11 / tick.v1=8) **cardinal mismatch**.
+
+§D2.1 의 OHLCV 16-col schema 박제는 **OHLCV row 의 SSOT — 변경 0**. 단 ADR-009 의 column schema SSOT 는 §D2.1 만 아니라 §D10 (tick.v1 8-col / tick.v1.1 11-col) + §D14 (orderbook_snapshot.v1 11-col) 가 별 §section 박제. 본 사실 = `ADR009_CHANNEL_SCHEMA_MATRIX` SSOT 박제 (본 amendment 신규).
+
+### Channel matrix (SSOT)
+
+| schema_version | column_count | column_names | source §section |
+|---|---|---|---|
+| `orderbook_snapshot.v1` | **11** | ts_utc / received_at / exchange / symbol / baseline_seq / side / level / price / quantity / payload_hash / raw_json | §D14 (P2-F-002 wiretap amendment 2026-05-09) |
+| `tick.v1` | **8** | ts_utc / received_at / exchange / symbol / price / quantity / side / raw_json | §D10 (baseline) |
+| `tick.v1.1` | **11** | tick.v1 8 col + ingest_seq + payload_hash + validation_status | §D10 amendment (MCT-141) |
+| `ohlcv.v1` | **16** | schema_version / exchange / symbol / date / ts / open / high / low / close / volume / vwap / trade_count / bid_count / ask_count / source_provenance / ingestion_ts | §D2.1 (baseline) |
+
+본 matrix = MCT-151 `InvariantHarness` (`mctrader_data/nas_migration/invariant_harness.py`) 의 channel-aware lookup **SSOT**. 신규 schema_version 추가 시 본 §D2.6 matrix amendment 의무 (CFP-26 sibling sync 정합).
+
+### Resolution strategy (channel_count invariant)
+
+1. **Primary**: partition prefix `schema_version=*` extraction → matrix lookup
+2. **Fallback**: caller 측 `expected_column_count` explicit injection (backward-compat — 기존 OHLCV cutover path 회귀 0)
+3. **Miss strategy**: `column_count_fail` with diagnostic `unknown_schema_version` (schema evolution detection surface)
+
+### MCT-151 InvariantHarness 적용
+
+본 §D2.6 amendment 의 InvariantHarness 적용 = MCT-159 FIX Iter 1 **Phase 2 follow-up PR** (mctrader-data) scope:
+- `ADR009_CHANNEL_SCHEMA_MATRIX` constant 추가 (module-level)
+- `InvariantHarness.__init__` signature amend: `expected_column_count: int | None = None` (None 시 schema_version 추출 → matrix lookup)
+- `_check_schema_version` channel-aware extension (tuple/list 지원)
+
+Cross-references: ADR-027 D6 amendment (MCT-159 FIX Iter 1, channel-aware column_count resolve) + Story `MCT-159.md` §10 FIX Ledger Iter 1.
+
 ## Alternatives Considered
 
 ### A1. float64 instead of Decimal(38,18)
