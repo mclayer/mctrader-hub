@@ -250,6 +250,37 @@ design_decisions:
     owner_story: MCT-159
     user_confirmed: true
     user_confirmed_at: 2026-05-13
+  S16:
+    code: "MCT-159-FIX-Iter1-D1"
+    decision: "channel-aware column_count invariant — Hybrid (schema_version prefix 추출 primary + explicit injection fallback)"
+    rationale: "MCT-159 FIX Iter 1 production failure (column_count_fail 빈발) — InvariantHarness 16-col fixed enforce vs 실 schema (11/8) cardinal mismatch. ADR-009 §D2.6 ADR009_CHANNEL_SCHEMA_MATRIX SSOT 신규 + InvariantHarness redesign (Phase 2 follow-up PR)."
+    owner_story: MCT-159
+    fix_iter: 1
+    added_at: 2026-05-13T11:40:44Z
+    triggers_adr_amendment:
+      adr: ADR-009
+      sections: [D2.6]
+      mandatory: true
+      trigger_story: MCT-159
+  S17:
+    code: "MCT-159-FIX-Iter1-D2"
+    decision: "chunk_unit ↔ verify_unit contract = per-file basis (MCT-153 ChunkSpec 박제 보존)"
+    rationale: "MCT-159 FIX Iter 1 production failure (object_count_fail 빈발) — chunk_spec per-file PUT vs invariant verify per-partition glob 단위 mismatch. verify 단위를 per-file basis 로 통일 (chunk_spec 변경 0, contract 단순). Set-level partition aggregation = optional Phase 3 후속 verify cycle (별 verify pass)."
+    owner_story: MCT-159
+    fix_iter: 1
+    added_at: 2026-05-13T11:40:44Z
+    triggers_adr_amendment:
+      adr: ADR-027
+      sections: [D6, D6.1]
+      mandatory: true
+      trigger_story: MCT-159
+  S18:
+    code: "MCT-159-FIX-Iter1-D3"
+    decision: "real-NAS smoke test 의무 추가 (mock fixture coverage gap 차단)"
+    rationale: "MCT-159 FIX Iter 1 surface — Phase 2 mock-only integration test PASS but production FAIL. 신규 test contract: 1 sample partition × 양 channel × 양 tier = 4 case real-NAS smoke 의무. Phase 2 follow-up PR scope."
+    owner_story: MCT-159
+    fix_iter: 1
+    added_at: 2026-05-13T11:40:44Z
 
 planned_stories:
   - key: MCT-156
@@ -357,6 +388,20 @@ risk_register:
     owner_story: MCT-159
     added_in: MCT-159 brainstorm Phase 1 (ChangeImpactAgent surface)
     added_at: 2026-05-13
+  - id: R7
+    title: "InvariantHarness channel-blind 16-col fixed enforce → production deploy 시 양 channel (orderbook_snapshot.v1=11 / tick.v1=8) 자연 FAIL"
+    likelihood: high
+    impact: high
+    quantification: "MCT-159 FIX Iter 1 (2026-05-13T11:40:44Z) — production deploy 4 case 모두 column_count_fail 빈발, 사용자 직접 kill, NAS bucket partial state 2.5 GiB / 2525 obj (orderbooksnapshot L2 21% / transaction L2 0%)"
+    mitigation:
+      - "ADR-009 §D2.6 ADR009_CHANNEL_SCHEMA_MATRIX SSOT 신규 (Phase 1 follow-up PR LAND 2026-05-13)"
+      - "ADR-027 D6 amendment — channel-aware column_count resolve + §D6.1 chunk↔verify per-file 단위 contract (Phase 1 follow-up PR LAND 2026-05-13)"
+      - "MCT-151 InvariantHarness redesign (Phase 2 follow-up PR — channel-aware lookup + per-file verify, dispatch trigger after Phase 1 PR LAND)"
+      - "real-NAS smoke test 의무 추가 — mock fixture coverage gap 차단 (Phase 2 follow-up PR scope)"
+    surface_in_retro: "RETRO-MCT-156 §6 → MCT-159 RETRO §5 → MCT-159 FIX Iter 1 = test coverage gap 3차 누적. ADR 발의 trigger 검토 (별 retro 또는 CFP)"
+    owner_story: MCT-159 (FIX Iter 1)
+    added_in: MCT-159 FIX Iter 1 (Story §10 trigger)
+    added_at: 2026-05-13T11:40:44Z
 
 dependency:
   blocks: []
