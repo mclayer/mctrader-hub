@@ -379,11 +379,11 @@ epic_milestones:
     on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch"
     on_fail: "rollback runbook 발동 — MINIO_ENDPOINT local 복귀, 7일 grace 내 local 데이터 잔존 활용"
     progress:
-      stories_complete: 1
+      stories_complete: 2
       stories_total: 6
-      sp_burned: 5
+      sp_burned: 13
       sp_total: 36
-      sp_progress_pct: 13.9
+      sp_progress_pct: 36.1
       complete:
         - story: MCT-150
           sp: 5
@@ -397,6 +397,18 @@ epic_milestones:
           escalate_count: 1
           codeforge_escalation: mclayer/plugin-codeforge#525
           addresses_decisions: [S4, S10, S11, S12]
+        - story: MCT-151
+          sp: 8
+          phase_pair: phase1_phase2
+          merged_at: 2026-05-13
+          phase1_pr: mclayer/mctrader-hub#258
+          phase2_pr_data: mclayer/mctrader-data#43
+          phase2_pr_hub: mclayer/mctrader-hub (main fbd4c8c)
+          retro: docs/retros/RETRO-MCT-151.md
+          fix_cycle_total: 1
+          escalate_count: 0
+          codeforge_lesson: mclayer/plugin-codeforge#525 (lesson 4 invariants consumer-side validation — FIX ~80% ↓)
+          addresses_decisions: [S2, S5, S8]
       next: MCT-151  # 8 SP, parallel_with_handoff, depends_on MCT-150 ✅
       adr_amendment_status:
         - decision: D2
