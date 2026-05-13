@@ -23,6 +23,7 @@ Accepted — 2026-05-02. MCT-9 Phase 1 PR.
   - **§D10 amendment** — tick.v1 → tick.v1.1 minor extension: `ingest_seq` (uint64) + `payload_hash` (string) + `validation_status` (string) 3 column 추가. Bithumb WS transaction stream 의 sequence hole / content-mismatch / GAP 검출 의무화. fallback dedup key 확장 (§D10.7 reference, `ingest_seq` 추가로 6-tuple → 8-tuple).
   - **§D15 신설** — Information bar contract (`time_5m` / `vol_1000000krw` / `tick_1000` / `dollar_5000000krw` label format) + immutable contract metadata (genesis_ts / threshold / precision / rounding_rule / source_cutoff / tie_breaking / version / contract_id SHA256). **Candle = stored entity 에서 derived view 로 격하** (transaction tick = Bronze SSOT, candle = Silver derived). Aggregation Core Lib (ADR-025) reference.
   - **§D16 신설** — `provenance` column (`legacy_candle` cutoff 이전 immutable / `transaction_derived` cutoff 이후 derive). Legacy Candle Provenance & Retirement Policy (ADR-026) reference.
+- 2026-05-13 — **§D11 amendment** (MCT-162, EPIC-compactor-operations Story-1) — §D11.9 신규 (`orderbook_depth.v1` flat row schema 박제). bithumb collector 의 `orderbookdepth` WS channel payload = delta `changes` event (per-frame N levels). MCT-156 deploy 후 L1Compactor `_schema_version` allowlist mismatch 로 48,629 sealed segment NotImplementedError 누적 (silent skip, Prometheus alert 0) 의 root cause schema 박제. §D11 (`orderbook.v1` L2 event stream) 의 per-level flat row 패턴 답습 + metadata column 4종 inject (`node_id` / `collector_run_id` / `ingest_seq` / `validation_status`) → tick.v1.1 / orderbook_snapshot.v1 동형 dedup logical key. raw_json column = **`large_string` (LargeUtf8)** 의무 (L2 `pa.concat_tables` i32 4 GB offset overflow 사례 박제). ADR-027 D4 amendment (channel parity 정책 + fail-fast invariant) 와 dual-binding.
 
 ## Context
 
@@ -385,6 +386,114 @@ T3 orderbook event stream 의 active-active multi-node dedup logical key — §D
 **raw_json column 정책**: §D10.7 동일 (node priority 우선 row 의 값 채택).
 
 **§D11.6 Fail-closed reconstruction 와의 관계**: 기존 §D11.6 의 "duplicate event with different hash = halt" 정책은 active-active 도입 시 single-node 환경 (legacy 또는 `node=DEFAULT`) 에 한정 적용. multi-node 환경 (`node=NODE_A` + `node=NODE_B`) 에서는 본 §D11.8 의 logical key + quarantine 정책이 우선 — halt 가 아닌 quarantine + 진행.
+
+#### D11.9 `orderbook_depth.v1` schema (NEW, MCT-162 Phase 1, 2026-05-13 amendment)
+
+bithumb collector 의 **`orderbookdepth` WS channel** payload = **delta `changes` event** (frame 당 N levels, qty=0 = level delete). transaction (flat trade row) + `orderbook_snapshot.v1` (per-level full snapshot row) 와 schema mismatch → 별 `schema_version` namespace 박제 의무.
+
+**Amendment trigger**: MCT-156 (EPIC-cold-tier-stage-3-wiring) production deploy 후 L1Compactor `_schema_version` allowlist 가 `("transaction", "orderbooksnapshot")` 만 supported → bithumb `orderbookdepth` sealed segment 가 `NotImplementedError` 100% throw → **48,629 sealed silent backlog 누적** (Prometheus alert 0, operator 인지 0). RETRO-MCT-156 §13.4 cross-ref.
+
+##### D11.9.1 WAL payload sample (CodebaseMapperAgent fetch, 2026-05-13)
+
+bithumb collector emit NDJSON (3 line sample, ingester `bithumb-ingester` runtime):
+
+```json
+{
+  "ts_utc": "2026-05-10T17:55:02.849786+00:00",
+  "received_at": "2026-05-10T17:55:00.171083+00:00",
+  "exchange": "bithumb",
+  "symbol": "KRW-NIL",
+  "changes": [
+    {"side": "ask", "price": "90.790000000000000000", "quantity": "28701.748000000000000000"},
+    {"side": "bid", "price": "89.200000000000000000", "quantity": "5483.600000000000000000"}
+  ],
+  "raw_json": "<original WS frame>",
+  "channel": "orderbookdepth"
+}
+```
+
+`changes` = per-frame N levels (1 sample = 2 levels 관측, 가변). `qty=0.0` = level delete (orderbook book maintenance semantic). collector top-level metadata (`node_id` / `collector_run_id` / `ingest_seq` / `validation_status`) = WAL payload 부재 — L1Compactor segment metadata 에서 inject (transaction.v1.1 / orderbook_snapshot.v1 동일 패턴, §D2.1 정합).
+
+##### D11.9.2 Schema (per-level flat row, 11 column — `orderbook.v1` per-level row pattern 답습)
+
+`schema_version` 은 partition path (`schema_version=orderbook_depth.v1`) 에 박제 — column 화 안 함 (§D10.1 / §D11.1 / §D14.1 동형). row column **11**:
+
+| Column | Type | Nullable | 의미 |
+|---|---|---|---|
+| ts_utc | timestamp[us, UTC] | no | event timestamp (WAL frame `ts_utc`) |
+| received_at | timestamp[us, UTC] | no | collector server-side 도착 시각 (= **available_from_ts**, §D11.4 동형) |
+| exchange | string | no | `"bithumb"` v1 only |
+| symbol | string | no | canonical (`"KRW-NIL"` 형식) |
+| side | string | no | `"bid"` / `"ask"` (frame `changes[].side` flatten) |
+| price | decimal128(38, 18) | no | level price (frame `changes[].price` cast) |
+| quantity | decimal128(38, 18) | no | level quantity (`0` = remove level, book maintenance) |
+| raw_json | **large_string (LargeUtf8)** | yes | original WS frame (per row 반복 — `changes` flatten 시 N rows share 동일 raw_json). **LargeUtf8 의무** (§D11.9.6 박제) |
+| node_id | string | no | L1Compactor inject (segment metadata, §D2.1 정합) |
+| collector_run_id | string | no | L1Compactor inject (run identifier, lineage anchor) |
+| ingest_seq | int64 | no | L1Compactor inject (monotonic seq, §D10 tick.v1.1 동형 GAP 검출 anchor) |
+
+**Flat 변환 규칙**: WAL frame 1개 (N levels) → parquet **N rows** (per-level flatten). row count = `Σ len(frame.changes)` (across all frames in segment). transaction (1 frame → 1 row) / orderbook_snapshot.v1 (1 frame → N=60 rows, fixed) 와 다른 fan-out 비율.
+
+##### D11.9.3 Hive partition layout (§D2.1 HA `node=` 적용)
+
+```
+market/orderbookdepth/schema_version=orderbook_depth.v1/tier=L1/exchange={ex}/symbol={sym}/date={YYYY-MM-DD}/node={node_id}/part-{collector_run_id}.parquet
+```
+
+- partition root = `market/orderbookdepth/` (별 partition root, `market/orderbook/` § D11 본문 / `market/orderbook_snapshot/` §D14 와 분리)
+- `tier=L1` = ADR-027 D4 amendment (channel parity) 정합 — L1 hot path (compactor local write only, L1 NAS upload 0 invariant, ADR-027 §D5)
+- L2 partition layout = MCT-160 Phase 1 author scope (본 amendment 외 — Story-2 의 L2 cadence + offset overflow fix scope)
+
+##### D11.9.4 Forward-only invariant + lookahead 방어
+
+**`available_from_ts := received_at`** — §D11.4 동형 mechanism. `event_time` (`ts_utc`) 사용 금지 — bithumb 측 server clock skew 가능 (§D14.3 wiretap-validated baseline_seq 미존재, orderbookdepth = collector-side receive ordering 의존).
+
+**Forward-only stream**: `orderbookdepth` = collector restart 시 baseline reset 가능 (upbit ingester WAL sample `ls /var/lib/mctrader/data/wal/upbit/` 실측 = `orderbooksnapshot` / `transaction` only, **`orderbookdepth` 0** → upbit emit 없음. bithumb 만 emit). reconnect 경계 frame = `validation_status='RECONNECT_BOUNDARY'` (Phase 2 implementation scope, optional).
+
+##### D11.9.5 결정적 sort key + dedup logical key
+
+**Sort key (per parquet file)**: `(ts_utc ASC, received_at ASC, ingest_seq ASC, side ASC, price ASC)` — §D11.5 의 `file_offset` 자리에 `ingest_seq` 채택 (tick.v1.1 동형, sequence number primary).
+
+**Dedup logical key (§D2.1 active-active HA contract anchor)**: `(exchange, symbol, ts_utc, ingest_seq, node_id, side, price, quantity)` 8-tuple — orderbook_snapshot.v1 (§D14.6) + tick.v1.1 (§D10.7) 와 동형 fallback tuple.
+
+- **multi-node node priority**: alphabetical (deterministic read-side sort).
+- **content mismatch**: §D11.8 동형 `active-active mismatch` quarantine emit. silent skip 금지.
+- **best-effort dedup 명시**: bithumb `orderbookdepth` WS = sequence number 부재 (collector 측 `ingest_seq` = collector-side monotonic, 양 node 동시 receive frame 의 sequence 정렬 일치 보장 0). 정확도 목표 > 95% (§D11.8 동형 — broadcast source 동일 하나 split 가능).
+
+##### D11.9.6 `raw_json` column = `large_string` (LargeUtf8) 의무
+
+**Critical constraint** (Refactor + DataMigration deputy 통합 박제):
+
+- pyarrow `string` (Utf8) = **i32 offset array** → 1 chunk 4 GB cap. L2 compaction 의 `pa.concat_tables` 호출 시 N 시간 분 segment concat → raw_json column 누적 size 가 i32 offset overflow 도달 가능 → `OOM exit 137` 또는 `ArrowInvalid: offset overflow` raise (MCT-156 production deploy 사례, RETRO-MCT-156 §13.5.3 박제).
+- `large_string` (LargeUtf8) = **i64 offset array** → 8 EB cap (실질 무제한). MCT-160 Phase 1 의 streaming `ParquetWriter.write_table` per-file loop (D3) 와 결합 시 단일 buffer 누적 0 보장.
+
+**L1Compactor 의무**:
+1. WAL NDJSON → pyarrow Table 변환 시 `raw_json` column dtype = `pa.large_string()` cast 의무 (default `pa.string()` 금지)
+2. integration test 의무 (Phase 2 §8 Test-5) — 생성된 parquet 의 `raw_json` field type = `large_string` 검증
+
+**Backward-compat**: 기존 `orderbook.v1` (§D11.1) / `orderbook_snapshot.v1` (§D14.1) 의 `raw_json` column type = `string` → L2 compaction OOM 시점에 별 amendment (MCT-160 scope or 후속 Story) 로 일괄 `large_string` 전환 가능. 본 amendment = 신규 `orderbook_depth.v1` 한정으로 `large_string` 박제 (volume × per-frame raw_json N-fan-out → fastest path to overflow).
+
+##### D11.9.7 Fail-closed channel parity invariant (ADR-027 D4 cross-binding)
+
+L1Compactor 의 channel allowlist = ADR-027 D4 amendment (MCT-162 2026-05-13 박제) 의 **fail-fast invariant** 정합:
+
+- `orderbookdepth` 채널 = `_CHANNEL_SCHEMA_VERSION` 매핑 추가 (`"orderbookdepth" → "orderbook_depth.v1"`)
+- unsupported channel = `NotImplementedError` raise + Prometheus counter `compactor_unsupported_channel_total{channel}` Counter +1 (silent skip 금지)
+- silent skip 차단 invariant = ADR-027 D4 amendment 본문 (MCT-162) 참조
+
+##### D11.9.8 Active-Active HA dedup contract (§D2.1 anchor 정합)
+
+§D2.1 / §D10.7 / §D11.8 / §D14.6 와 동형 — 본 §D11.9.5 의 8-tuple logical key 가 active-active multi-node dedup 의 primary contract. Phase 2 L1 compaction 후 L2/L3 layer 에서 InvariantHarness (ADR-027 §D6) `column_count`/`column_name_order`/`dtype_identity`/`schema_version_pin` 4종 schema invariant 자동 verify — channel-aware (ADR-027 §D6 FIX Iter 1 amendment 정합).
+
+##### D11.9.9 Read API contract (MCT-66 후속 Story scope)
+
+`scan_orderbook_depth(symbol, start, end) -> Iterable[OrderbookDepthRecord]` 신규 read API = **MCT-66 후속 Story scope** (본 amendment 외, forward-only invariant L1 partition 박제만이 본 Phase 1 scope). reconstruction (`get_orderbook_at`) 의 baseline source 확장 = §D14 (`orderbook_snapshot.v1`) primary, §D11.9 = optional delta supplement (별 Story design).
+
+##### D11.9.10 Out-of-scope (본 amendment 한계)
+
+- **upbit `orderbookdepth` channel** = bithumb collector 만 emit (upbit WAL sample 실측 = `orderbooksnapshot` / `transaction` only, **`orderbookdepth` 0**). upbit L1 partition 0 별 root cause = **MCT-160 또는 별 Story 진단 의무** — orderbookdepth allowlist 와 무관 (Story §6 D9 운영 risk 박제 cross-ref).
+- **L2/L3 compaction cadence + offset overflow fix** = MCT-160 Phase 1 author scope (D2 + D3 + R-EXTRA).
+- **MCT-153 backfill 산출물 4.2 GiB / 1370 obj 손실 재발 방지** = MCT-161 scope (bucket versioning).
 
 ### D12. Docker-first persistence (Amendment 2026-05-08, MCT-98 Phase 2 entry)
 
@@ -914,11 +1023,14 @@ Cross-references: ADR-017 §Decision 2; MCT-106 Change Plan §4.2.
 | schema_version | column_count | column_names | source §section |
 |---|---|---|---|
 | `orderbook_snapshot.v1` | **11** | ts_utc / received_at / exchange / symbol / baseline_seq / side / level / price / quantity / payload_hash / raw_json | §D14 (P2-F-002 wiretap amendment 2026-05-09) |
+| `orderbook_depth.v1` | **11** | ts_utc / received_at / exchange / symbol / side / price / quantity / raw_json / node_id / collector_run_id / ingest_seq | §D11.9 (MCT-162 amendment 2026-05-13) |
 | `tick.v1` | **8** | ts_utc / received_at / exchange / symbol / price / quantity / side / raw_json | §D10 (baseline) |
 | `tick.v1.1` | **11** | tick.v1 8 col + ingest_seq + payload_hash + validation_status | §D10 amendment (MCT-141) |
 | `ohlcv.v1` | **16** | schema_version / exchange / symbol / date / ts / open / high / low / close / volume / vwap / trade_count / bid_count / ask_count / source_provenance / ingestion_ts | §D2.1 (baseline) |
 
 본 matrix = MCT-151 `InvariantHarness` (`mctrader_data/nas_migration/invariant_harness.py`) 의 channel-aware lookup **SSOT**. 신규 schema_version 추가 시 본 §D2.6 matrix amendment 의무 (CFP-26 sibling sync 정합).
+
+**MCT-162 amendment 박제 (2026-05-13)** — `orderbook_depth.v1` row 추가 (column_count=11). bithumb `orderbookdepth` WS channel payload (delta `changes` event) per-level flatten schema. `raw_json` column **`large_string` (LargeUtf8)** 의무 — L2 `pa.concat_tables` i32 offset overflow 차단 (§D11.9.6 박제, MCT-156 OOM exit 137 사례 cross-ref). 본 row 추가 = MCT-159 FIX Iter 1 의 InvariantHarness channel-aware path 자동 정합 — MCT-162 Phase 2 L1 compaction 산출물 (orderbook_depth.v1) 의 L2 cadence (MCT-160 scope) 진입 시 `column_count` invariant lookup 자동 PASS.
 
 ### Resolution strategy (channel_count invariant)
 
