@@ -297,9 +297,11 @@ planned_files:
       # (ADR-009 v1 OHLCV) module 과 namespace 충돌 회피. MCT-150 FIX#2 P2-1 동일 lesson.
       - "src/mctrader_data/nas_storage/dual_writer.py"
       - "src/mctrader_data/nas_storage/compaction_barrier.py"
+      - "src/mctrader_data/nas_migration/__init__.py"  # FIX#1 F1 — package marker (DesignReview FIX#1 P1, 2026-05-13)
       - "src/mctrader_data/nas_migration/invariant_harness.py"
       - "tests/nas_storage/test_dual_writer.py"
       - "tests/nas_storage/test_compaction_barrier.py"
+      - "tests/nas_migration/__init__.py"  # FIX#1 F1 — test package marker (DesignReview FIX#1 P1, 2026-05-13)
       - "tests/nas_migration/test_invariant_harness.py"
       - "configs/prometheus/nas_invariant_rules.yml"  # AC-5 metric prefix nas_invariant_* alert rules
     mctrader-hub:
