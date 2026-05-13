@@ -309,6 +309,7 @@ planned_files:
   MCT-152:
     mctrader-data:
       - "src/mctrader_data/ops/dual_write_window_runner.py"
+      - "src/mctrader_data/nas_metrics/prometheus_exporters.py"  # FIX#1 F1 (MODIFY) — DualWriteWindow metric 4종 추가 (DesignReview FIX#1 P0 dimensional fix, 2026-05-13)
       - "tests/ops/test_dual_write_window.py"
     mctrader-hub:
       - "docs/stories/MCT-152.md"
