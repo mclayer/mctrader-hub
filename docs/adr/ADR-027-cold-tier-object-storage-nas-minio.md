@@ -112,6 +112,8 @@ MinIO 의 `format.json` 등 atomic operation 은 **POSIX-compliant filesystem** 
 - **Rationale**: forward-only invariant (ADR-009 §D12.2) + atomic switch (single endpoint swap) + 7일 grace (D7) = data loss 방지 3중 lock.
 - **Alternative rejected**: big-bang cutover (dual-write 없이 endpoint swap 후 backfill) — backfill 실패 시 cold tier asset 영구 손실 risk → 거부.
 
+**MCT-156 amendment 박제 (2026-05-13)** — Stage 3 wiring obligation. `compactor/runner.py` 의 L2/L3 compaction 산출물은 DualWriter (MCT-151 primitive) 를 통해 NAS MinIO 로 자동 dual-write 의무. legacy `MinioUploader` (MCT-149 이전, L3 only docstring) 는 deprecation 마킹, MCT-156 Phase 2 에서 호출처 제거. 본 amendment 의 trigger = Stage 2 EPIC CLOSED 후 사용자 bucket 실측에서 `tier=L3/` prefix 0개 + `tier=L2/.../hour=HH/` partition 0개 발견 (4.2 GiB / 1370 obj = MCT-153 backfill 1회 산출물 only). Stage 3 entrypoint vertical slice = MCT-156 (compactor NAS wiring + L2/L3 DualWriter injection), Prometheus layout label 분리 = MCT-157, release gate smoke test + EPIC CLOSED gate = MCT-158 (3 Story 분해). L1 hot path = 본 amendment scope 외 (ADR-027 §D5 + S3 결정 정합 — L1 NAS upload 0 invariant 유지). 신규 Epic = `EPIC-cold-tier-stage-3-wiring` (`scope_manifests/EPIC-cold-tier-stage-3-wiring.yaml` MCT-156 Phase 1 LAND).
+
 ### D5. Failure mode — compactor retry queue + alert, hot path 무영향
 
 NAS unreachable 시:
@@ -125,6 +127,8 @@ NAS unreachable 시:
   - retry queue = MCT-150 scope (`minio_uploader.py` hardening)
 - **Alert metric (MCT-150 산출물)**: `cold_writer_backlog_segments` + `cold_writer_retry_count_total` (Prometheus) + Grafana dashboard `mctrader/Cold Writer Health`.
 - **Hot path 무영향 invariant**: collector WAL append + L1 ParquetWriter 의 fsync / atomic rename 은 NAS unreachable 와 무관 — local filesystem only.
+
+**MCT-156 amendment 박제 (2026-05-13)** — retry queue + Prometheus alert wiring obligation. MCT-150 land 의 NASUploader retry queue 가 hot pipeline `compactor/runner.py._run_l2/l3` 의 DualWriter inject 단계에 자동 활용. DualWriter status enum 3종 (`committed` / `local_only` / `hard_floor_blocked`) 의 caller contract: `committed` = 정상 (local + NAS atomic visible), `local_only` = retry_queue enqueue 후 backlog drain (정상 fallback 경로), `hard_floor_blocked` = retry_queue 1000seg/10GB threshold 초과 (S10 박제 정합) → log error + Prometheus alert + SOP MANUAL_GATE escalation 의무 (MCT-150 `nas_unreachable_sop.py` SOPRunner 재사용). Prometheus metric `mctrader_dual_write_result_total{status, tier}` Counter emit (Phase 2 `nas_metrics/prometheus_exporters.py` 신규 추가, MCT-156 Phase 2 AC-G). layout label (`legacy_node_default` vs `new_node_merged`) 분리 = MCT-157 별 Story scope. L1 hot path = 본 amendment scope 외 (DualWriter inject 0, ingester service `MINIO_*` env 변경 0 = L1 NAS upload 0 invariant 유지, ADR-027 §D5 + S3 결정 정합).
 
 ### D6. 이관 검증 invariant — 7종 ALL PASS (MCT-151 + MCT-155 amend, S5 박제)
 
@@ -250,6 +254,8 @@ NAS DSM UI 의 Container Manager STOP/START 후 recovery time = 30.56ms (NFR-3 l
 - **Alternative rejected**: local = SoT + NAS = backup — write amplification + cutover 시 trust model 분기 → 거부.
 - **MCT-154 scope**: engine read-through cache 구현 + smoke test.
 
+**MCT-156 amendment 박제 (2026-05-13)** — reader read-through cache 의 mixed layout 책임 경계. NAS bucket 에는 (a) MCT-153 backfill 산출물 = legacy ADR-009 §D2.1 layout (`tier=L2/.../date=D/[node=N/]file.parquet`, hour 부재) + (b) MCT-156 Phase 2 이후 신규 hot pipeline 산출물 = 신규 schema (`tier=L2/.../date=D/hour=HH/node=MERGED/part-*.parquet`) 가 mixed 공존. reader 호환은 ADR-009 §D2.1 (`node=` absent → `node=DEFAULT` treated) + §D14 (`tier=` absent → `tier=L1` treated) fallback 박제로 자연 보장 — engine `scan_*` API 의 partition pruning 이 양쪽 layout mixed scan 자연 양립. legacy 객체 retroactive 재구조 비권고 (S6 결정, MCT-156 §3 박제) — 변경 시 forward-only invariant (ADR-009 §D12.2) 위반 + reader fallback 박제 redundant. MCT-154 land 의 `endpoint_router.py` / `reader_cache.py` / `cold_reader.py` 모두 본 amendment 영향 0 (변경 0). 신규 hot pipeline 산출물 = forward-only 자연 누적 (S2 결정 정합 — DualWriter inject), L3 backfill 별 Story 불필요 (S7 결정 정합 — hot pipeline wiring 완료 후 자연 누적).
+
 ### D10. 영향 repo — mctrader-data + mctrader-engine + mctrader-hub
 
 본 ADR 의 영향 repo:
@@ -367,3 +373,10 @@ NAS DSM UI 의 Container Manager STOP/START 후 recovery time = 30.56ms (NFR-3 l
 | T3 | Large PUT 50MB (sha256 IDENTICAL 3/3) | D6 (3종 invariant 중 sha256 PoC 입증) |
 | T4 | Restart idempotency (recovery_ms=30.56) | D5 (failure mode — restart 후 recovery), D8 PoC |
 | T5 | Partial visibility (atomic_invariant=true) | D6 (3종 invariant 중 atomic visibility), D9 (S3 API 추상화 정합) |
+
+## History
+
+- 2026-05-12 — ADR-027 본문 publish (MCT-149, Stage 1 종료 governance Story). D1~D11 본문 + Stage 1 evidence transcribe (MCT-148 PoC 5종 PASS) + ADR-017/016 cross-link + Stage 2 escalation trail (D2). status=Accepted.
+- 2026-05-13 — **D2 amendment** (MCT-155, Stage 2 마지막 Story Phase 2 PR — `mctrader-hub#276` MERGED). Stage 2 TLS 재검토 결과 박제 — HTTP 유지 (Stage 1 정책 연장, 사용자 confirm 박제, S12 user_confirmed=true). Future re-evaluation trigger = `docs/runbooks/nas-minio-tls-review.md` §4.2 4 조건.
+- 2026-05-13 — **D6 amendment** (MCT-155, Stage 2 마지막 Story Phase 2 PR — `mctrader-hub#276` MERGED). 3종 → 7종 invariant 명시화 (S5 박제, MCT-151 InvariantHarness 정합). byte-level (1) + set-level (2) + schema-level (4) = 7종 ALL PASS 의무.
+- 2026-05-13 — **D4/D5/D9 amendment** (MCT-156, EPIC-cold-tier-stage-3-wiring Stage 3 wiring entrypoint — 본 PR). Stage 2 EPIC CLOSED 후 사용자 NAS bucket 실측에서 발견된 hot pipeline NAS wiring gap 해소. D4 = Stage 3 wiring obligation 박제 (`compactor/runner.py` L2/L3 DualWriter inject 의무 + legacy MinioUploader deprecation 마킹). D5 = retry queue + Prometheus alert wiring obligation (DualWriter status enum 3종 caller contract + `mctrader_dual_write_result_total{status, tier}` Counter emit). D9 = reader read-through cache 의 mixed layout 책임 경계 (legacy + 신규 mixed scan = ADR-009 §D2.1+§D14 fallback 자연 양립). D6 (RPO=0) amend 0 = invariant, wiring 변경 무관.

@@ -1,0 +1,233 @@
+# scope_manifest v1 — EPIC-cold-tier-stage-3-wiring
+# Authored by ArchitectPLAgent (Phase 1, MCT-156), decided by Orchestrator.
+# Brainstorm source: docs/superpowers/specs/2026-05-13-cold-tier-stage-3-wiring-design.md
+# Plan source:       docs/superpowers/plans/2026-05-13-mct-156-compactor-nas-wiring.md
+# Parent Epic:       EPIC-cold-tier-nas-minio (Stage 2 CLOSED 2026-05-13, mctrader-hub#277)
+
+epic_key: EPIC-cold-tier-stage-3-wiring
+epic_title: "Stage 3 — hot pipeline NAS wiring (compactor L2/L3 DualWriter injection)"
+parent_dependency: EPIC-cold-tier-nas-minio  # post-closure follow-up (Stage 2 EPIC CLOSED 2026-05-13)
+status: Proposed
+created: 2026-05-13
+
+why: |
+  Stage 2 EPIC CLOSED 후 사용자 NAS bucket 실측에서 발견된 핵심 gap — hot pipeline (compactor) NAS wiring 부재.
+  bucket `mctrader-market` = 4.2 GiB / 1370 obj 만 존재, `tier=L3/` prefix 0개, `tier=L2/` 안 `hour=HH/` partition 0개.
+  실측 객체는 MCT-153 backfill 1회 산출물 only (legacy ADR-009 §D2.1 layout, hour 부재).
+  본 Epic = hot pipeline NAS endpoint routing 활성화 + DualWriter primitive inject + legacy MinioUploader deprecation.
+
+prerequisites:
+  - "EPIC-cold-tier-nas-minio Stage 2 CLOSED (mctrader-hub#277, 36/36 SP = 100%, data_loss_incidents=0)"
+  - "MCT-150 NASUploader + RetryQueue + SOPRunner (data#42, MERGED 2026-05-12)"
+  - "MCT-151 DualWriter + InvariantHarness + CompactionBarrier (data#43, MERGED 2026-05-13)"
+  - "MCT-155 ADR-027 D2/D6 amendment committed (hub#276, MERGED 2026-05-13)"
+
+out_of_scope:
+  - "legacy L2 객체 재구조 / 재이관 (S1+S6 결정)"
+  - "L1 NAS upload (S3 결정, ADR-017 hot path 무영향 invariant 유지)"
+  - "별 L3 backfill Story (S7 결정, forward-only 자연 누적)"
+  - "MinioUploader 모듈 file 삭제 (MCT-156 에서 deprecation 마킹만, file 삭제는 후속 Epic)"
+
+planned_adrs:
+  amendments:
+    - adr: ADR-027-cold-tier-object-storage-nas-minio
+      sections: [D4, D5, D9]
+      owner_story: MCT-156
+      rationale: |
+        D4 (cutover 전략) — compactor L2/L3 DualWriter injection 의무 명문화 (Stage 3 wiring obligation)
+        D5 (failure mode) — retry queue + Prometheus alert wiring obligation (DualWriter status enum 3종 caller contract)
+        D9 (reader read-through cache) — mixed layout (legacy + 신규) reader 책임 경계 박제 (ADR-009 §D2.1+§D14 fallback 자연 양립)
+        D6 (RPO=0) amend 0 = invariant, wiring 변경 무관
+  new_proposals: []
+
+planned_files:
+  mctrader-data:
+    modified:
+      - compose.yml                                            # AC-D (compactor env 전환)
+      - src/mctrader_data/cli.py                               # AC-E (line 619-658 inject)
+      - src/mctrader_data/compactor/runner.py                  # AC-F (__init__ + _run_l2 신규 + _run_l3 교체 + _tick)
+      - src/mctrader_data/compactor/minio_uploader.py          # AC-G (deprecation 마킹 1줄)
+      - src/mctrader_data/nas_metrics/prometheus_exporters.py  # AC-G (dual_write_result_total Counter + MCT-157 layout label)
+    new:
+      - tests/integration/test_compactor_nas_wiring.py         # AC-G + §8 Test Contract 7 test (MCT-156)
+      - tests/integration/test_prometheus_layout_label.py      # MCT-157 scope
+      - scripts/stage3_smoke.sh                                # MCT-158 scope (6h release gate smoke)
+  mctrader-hub:
+    modified:
+      - docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md  # MCT-156 — D4/D5/D9 amendment trail
+    new:
+      - docs/stories/MCT-156.md
+      - docs/stories/MCT-157.md
+      - docs/stories/MCT-158.md
+      - docs/runbooks/stage3-cutover.md                         # MCT-158 scope
+      - docs/runbooks/stage3-smoke-test.md                      # MCT-158 scope
+      - scope_manifests/EPIC-cold-tier-stage-3-wiring.yaml      # MCT-156 — 본 file
+
+planned_claude_md_sections:
+  mctrader-hub:
+    - section: "Stage 3 wiring Epic state (post-MCT-155 follow-up)"
+      change: "EPIC-cold-tier-stage-3-wiring 진입 + 3 Story (MCT-156/157/158) + R1 release gate 의무"
+      stories: [MCT-156, MCT-158]
+    - section: "Stage 3 release gate (R1 smoke test 의무)"
+      change: "6h smoke test bucket prefix 출현 검증 (MCT-158 owner)"
+      stories: [MCT-158]
+  mctrader-data:
+    - section: "compactor NAS wiring (MINIO_* → NAS_MINIO_* env 전환)"
+      change: "compose env switch + cli.py NASUploader+DualWriter lazy build inject"
+      stories: [MCT-156]
+    - section: "DualWriter injection (compactor/runner.py L2/L3)"
+      change: "runner __init__ signature 변경 + _run_l2 신규 + _run_l3 DualWriter 교체"
+      stories: [MCT-156]
+    - section: "Prometheus layout label (legacy_node_default vs new_node_merged)"
+      change: "prometheus_exporters dual_write_result_total + layout label 분리"
+      stories: [MCT-156, MCT-157]
+
+design_decisions:
+  S1:
+    decision: "legacy L2 재이관 0"
+    rationale: "ADR-009 §D2.1+§D14 reader fallback 박제 (node= absent → node=DEFAULT, tier= absent → tier=L1) → mixed layout 자연 양립"
+    owner_story: MCT-156
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S2:
+    decision: "DualWriter (MCT-151 primitive) inject"
+    rationale: "production-grade primitive 재사용 (retry queue + sha256 + 7종 invariant harness 자동 활용)"
+    owner_story: MCT-156
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S3:
+    decision: "L1 제외, L2/L3 만 NAS upload"
+    rationale: "ADR-027 §D1 cold tier 정의 + §D5 hot path 무영향 invariant (ADR-017 hot path 정책 보존 의무)"
+    owner_story: MCT-156
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S4:
+    decision: "신규 Epic 발의 (EPIC-cold-tier-stage-3-wiring)"
+    rationale: "Stage 2 EPIC CLOSED retro 보존 + scope_manifest milestone 손상 0 + 신규 milestone 의 독립 trail"
+    owner_story: epic-level
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S5:
+    decision: "ADR-027 D4/D5/D9 amendment, D6 (RPO=0) amend 0"
+    rationale: "D6 = invariant (wiring 변경 무관). D4=cutover 전략 Stage 3 확장 / D5=retry queue Prometheus alert wiring / D9=mixed layout reader 책임 경계"
+    owner_story: MCT-156
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+    triggers_adr_amendment:
+      adr: ADR-027
+      sections: [D4, D5, D9]
+      mandatory: true
+      trigger_story: MCT-156
+  S6:
+    decision: "legacy retroactive 재구조 비권고"
+    rationale: "S1 정합 — reader fallback 자연 양립 사실 위에서 추가 작업 의무 0"
+    owner_story: MCT-156
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+  S7:
+    decision: "L3 backfill 별 Story 불필요"
+    rationale: "hot pipeline wiring 완료 후 forward-only 자연 누적 → MCT-153 §5.4 Non-goal 자연 해소"
+    owner_story: MCT-156
+    user_confirmed: true
+    user_confirmed_at: 2026-05-13
+
+planned_stories:
+  - key: MCT-156
+    title: "compactor NAS wiring + L2/L3 DualWriter injection (Stage 3 entrypoint vertical slice)"
+    repo: mctrader-hub + mctrader-data
+    phase_pair: phase1_phase2
+    depends_on: []  # parent_dependency EPIC-cold-tier-nas-minio Stage 2 CLOSED 이 prerequisite
+    parallel_with: []
+    sp: 5
+    addresses_decisions: [S1, S2, S3, S4, S5, S6, S7]
+  - key: MCT-157
+    title: "Prometheus layout label 분리 + observability (legacy_node_default vs new_node_merged)"
+    repo: mctrader-data
+    phase_pair: phase1_phase2
+    depends_on: [MCT-156]
+    parallel_with: []  # MCT-156 land 후 병렬 가능 (단독 파일 disjoint) — sequential 안전 선택
+    sp: 3
+    addresses_decisions: []
+    addresses_risks: [R2]
+  - key: MCT-158
+    title: "Stage 3 release gate smoke test + cutover runbook + EPIC CLOSED gate"
+    repo: mctrader-hub + mctrader-data
+    phase_pair: phase1_phase2
+    depends_on: [MCT-156, MCT-157]
+    parallel_with: []
+    sp: 5
+    addresses_decisions: []
+    addresses_risks: [R1]
+
+risk_register:
+  - id: R1
+    title: "bucket prefix layout 검증 부재 시 silent miswiring"
+    likelihood: medium
+    impact: high
+    mitigation:
+      - "MCT-158 release gate smoke test — 6h 후 bucket prefix tier=L2/.../hour=HH/ + tier=L3/.../node=MERGED/ 출현 검증"
+      - "MCT-156 Phase 2 integration test (§8 Test 1+2) 사전 차단"
+    owner_story: MCT-158
+    gate_type: release_gate_mandatory
+    added_in: Stage 3 brainstorm
+    added_at: 2026-05-13
+  - id: R2
+    title: "legacy/new layout 혼재 → Prometheus metric observability 혼동"
+    likelihood: medium
+    impact: medium
+    mitigation:
+      - "MCT-156 partial mitigation — status/tier label 추가 (mctrader_dual_write_result_total{status, tier})"
+      - "MCT-157 layout label 분리 (legacy_node_default vs new_node_merged) + Grafana dashboard PromQL 갱신"
+    owner_story: MCT-157
+    added_in: Stage 3 brainstorm
+    added_at: 2026-05-13
+
+dependency:
+  blocks: []
+  blocked_by:
+    - EPIC-cold-tier-nas-minio  # Stage 2 CLOSED 2026-05-13 (mctrader-hub#277)
+  reuses:
+    - mctrader_data.nas_storage.nas_uploader.NASUploader      # MCT-150 (HEAD-then-PUT idempotency)
+    - mctrader_data.nas_storage.dual_writer.DualWriter        # MCT-151 (2-phase commit + status enum 3종)
+    - mctrader_data.nas_storage.retry_queue.RetryQueue        # MCT-150 (sqlite-WAL persistent + 1000seg/10GB hard floor)
+    - mctrader_data.nas_migration.invariant_harness.InvariantHarness  # MCT-151 (7종 sequential verify)
+    - mctrader_data.ops.nas_unreachable_sop.SOPRunner         # MCT-150 (hard_floor_blocked SOP MANUAL_GATE)
+  deprecates:
+    - mctrader_data.compactor.minio_uploader.MinioUploader    # MCT-149 이전 — MCT-156 Phase 2 호출처 제거, file 삭제는 post-Epic
+
+story_sequence:
+  - story: MCT-156
+    mode: sequential
+    reason: "Stage 3 entrypoint vertical slice — Epic 의 핵심 wiring 작업. ADR-027 D4/D5/D9 amendment + Story §1~§11 + scope_manifest 신규 = Stage 3 Epic 의 governance 첫 박제"
+  - story: MCT-157
+    mode: parallel_after_156  # sequential 도 안전 (단독 파일 disjoint, 병렬 시점 결정은 Orchestrator)
+    reason: "Prometheus layout label 분리 — prometheus_exporters.py 단독 file scope. MCT-156 land 후 진입 가능"
+  - story: MCT-158
+    mode: sequential_after_156_157
+    reason: "Stage 3 release gate smoke test + EPIC CLOSED gate — MCT-156 + MCT-157 land 후 6h 운영 + 통합 검증"
+
+epic_milestones:
+  stage_3_complete:
+    gate:
+      - "MCT-156 PR MERGED (Phase 1 + Phase 2 ALL)"
+      - "MCT-157 PR MERGED"
+      - "MCT-158 PR MERGED + R1 smoke test 6h PASS evidence pack"
+      - "ADR-027 D4/D5/D9 amendment LAND (MCT-156 Phase 1)"
+      - "EPIC-RESULTS doc LAND 또는 retro 별 file (MCT-158)"
+      - "PMOAgent retro dispatch (MCT-158)"
+    on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch + scope_manifest milestone closed"
+    on_fail: "rollback runbook 발동 — compose env revert (NAS_MINIO_* → MINIO_*), legacy 동작 복귀. retroactive 데이터 변경 0 (forward-only)"
+
+ownership:
+  proposer: ArchitectPLAgent (MCT-156 Phase 1)
+  decider: Orchestrator
+  design_authority: ArchitectPLAgent  # Story 별 Change Plan 권한
+  retro_authority: PMOAgent            # Story 완료 + Epic 종료 회고
+  user: mccho                          # mclayer org owner, blocking 결정
+
+references:
+  brainstorm_spec: "docs/superpowers/specs/2026-05-13-cold-tier-stage-3-wiring-design.md"
+  plan: "docs/superpowers/plans/2026-05-13-mct-156-compactor-nas-wiring.md"
+  parent_adr: "docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md"
+  parent_epic: "scope_manifests/EPIC-cold-tier-nas-minio.yaml"  # Stage 2 CLOSED, milestone 보존
+  related_adrs: [ADR-008, ADR-009, ADR-017, ADR-027]
