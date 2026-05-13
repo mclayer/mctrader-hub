@@ -7,17 +7,17 @@
 epic_key: EPIC-cold-tier-stage-3-wiring
 epic_title: "Stage 3 — hot pipeline NAS wiring (compactor L2/L3 DualWriter injection)"
 parent_dependency: EPIC-cold-tier-nas-minio  # post-closure follow-up (Stage 2 EPIC CLOSED 2026-05-13)
-status: In Progress  # MCT-156 LAND 2026-05-13 (1/3 milestone, 33.3%)
+status: In Progress  # MCT-156 LAND 2026-05-13 (1/3) + MCT-159 LAND 2026-05-13 (2/3 milestone, 66.7%)
 created: 2026-05-13
-last_updated: 2026-05-13  # PMOAgent retro dispatch (MCT-156 Phase 2 LAND)
+last_updated: 2026-05-13  # PMOAgent retro dispatch (MCT-159 Phase 2 LAND)
 
 milestone_progression:
   total_stories: 3
-  completed: 1   # MCT-156
+  completed: 2   # MCT-156 + MCT-159
   in_progress: 0
-  proposed: 2    # MCT-157 + MCT-158
-  progress_percent: 33.3
-  last_completion: 2026-05-13  # MCT-156
+  proposed: 1    # MCT-157 + MCT-158 (MCT-159 sibling — Stage 3 milestone 2/3 complete)
+  progress_percent: 66.7
+  last_completion: 2026-05-13  # MCT-159
 
 story_status:
   MCT-156:
@@ -36,6 +36,21 @@ story_status:
     review_lanes_pass: [DesignReview, TestAgent, SecurityTestPL, CodeReviewPL]
     p2_findings: 3  # 1 resolved (.env.example) + 2 post-Epic refactor 후보 (sha256 dup + tmp_dw double)
     codex_phase0_diff: 1  # Q9 DualWriter API signature, DeveloperPL 해소
+  MCT-159:
+    status: COMPLETED  # Phase 2 DONE; Phase 3 (실 이관+GC) = 별 운영 cycle PENDING
+    completed_at: 2026-05-13
+    phase1_pr: mclayer/mctrader-hub#281
+    phase1_pr_merge_sha: 670d118
+    phase1_pr_merged_at: 2026-05-13T10:19:13Z
+    phase2_pr_data: mclayer/mctrader-data#49
+    phase2_pr_data_merge_sha: 1bd50216
+    phase2_pr_data_merged_at: 2026-05-13T11:04:04Z
+    retro_file: docs/retros/RETRO-MCT-159.md
+    sp_burned: 5
+    fix_iteration: 0  # MCT-159 논리 FIX 0; pre-existing CI 106건 = main broken 해소 (별 카운트)
+    pre_existing_ci_fixes: 3  # ruff/pyright/test bulk fix commits
+    review_lanes_pass: [DesignReview]  # Phase 2 = impl + test only; TestAgent/SecurityTestPL/CodeReviewPL = Phase 3 이관 시 적용
+    phase3_status: PENDING  # 실 이관 + GC = 별 운영 cycle
   MCT-157:
     status: PROPOSED
     depends_on: [MCT-156]
