@@ -429,3 +429,75 @@ MCT-156 Phase 2 CodeReviewPL P2 advisory finding 2건 — NFR-1 (< 3000ms) 안�
 추가 surface:
 - legacy `MinioUploader` 모듈 file 삭제 (호출처 production 0, deprecation 마킹 → file 자체 삭제)
 - mctrader-data main 의 pre-existing 9 test failure 해소 (별 Story 후보, PMOAgent 누적 patterns 1건)
+
+### EPIC-compactor-operations Stage 3 wiring 후속 (MCT-156 deploy 5중 차단 cycle)
+
+Stage 3 entrypoint Story (MCT-156) **production deploy 직후** 사용자 NAS bucket 실측에서 발견된 5중 차단 cycle 해소 Epic. parent_dependency = EPIC-cold-tier-stage-3-wiring (post-deployment cycle).
+
+**5중 차단 cycle surface (MCT-156 deploy 후)**:
+
+| # | 차단 항목 | 원인 |
+|---|----|------|
+| 1 | upbit L1 결과 today=0 | upbit ingester WAL `orderbookdepth` 0 emit (별 root cause = MCT-160 진단 의무) |
+| 2 | transaction L2 자연 cadence 0 | KST→UTC date roll 시 어제 date L1 결과 hit 0 |
+| 3 | bucket 463 obj = bithumb orderbooksnapshot only | cadence 정상화 미달 |
+| 4 | L1 backlog 79k orderbookdepth 48k 누적 | `_schema_version` allowlist mismatch → NotImplementedError silent skip |
+| 5 | upbit/KRW-BTC orderbooksnapshot L2 OOM exit 137 | pyarrow `concat_tables.sort_by` 32GB peak + i32 offset 4GB overflow |
+
+**EPIC-compactor-operations milestone progression** (2026-05-13):
+
+| Story | scope | 상태 |
+|-------|-------|-----|
+| **MCT-162** ✅ | L1 채널 parity + orderbookdepth schema 정의 (entrypoint vertical slice, #1+#4 partial fix) | **COMPLETED 2026-05-13** (#284 Phase 1 + mctrader-data#52 Phase 2 + 본 Phase 2 hub PR) |
+| MCT-160 | L2/L3 cadence + OOM + L1 backlog 79k cleanup (#2+#3+#5+#4 잔여) | **IN_PROGRESS** (MCT-162 LAND 후 sequential 진입) |
+| MCT-161 | NAS bucket versioning + replication + MCT-153 손실 재발 방지 | PROPOSED (depends_on: 160) |
+
+milestone 1/3 = 33.3% (post-MCT-162 LAND).
+
+### MCT-162 산출물 박제 (channel parity 정책 + orderbookdepth schema)
+
+#### Channel parity 정책 (ADR-027 D4 amendment)
+
+- 모든 collector emit channel = L1/L2/L3 layer parity 의무
+- unsupported channel = `NotImplementedError` raise + `compactor_unsupported_channel_total{channel}` Counter +1 emit (**silent skip 금지**)
+- cardinality risk = bounded low (collector emit channel SSOT, attacker-controlled label injection 0)
+- 신규 channel 추가 3-step 절차:
+  1. **ADR-009** schema 정의 (§D11.X 신규 amendment + §D2.6 matrix row)
+  2. **L1Compactor** `_CHANNEL_SCHEMA_VERSION` allowlist 추가 + converter dispatch
+  3. **integration test** 신규 (5종 minimum: converter PASS + fail-fast + Prometheus emit + parquet schema 정합 + large_string verify)
+
+#### orderbookdepth schema (ADR-009 §D11.9)
+
+- schema_version = `orderbook_depth.v1`, 11 column flat row (per-frame `changes[]` flatten, qty=0 = level delete)
+- column list: `ts_utc / received_at / exchange / symbol / side / price / quantity / raw_json / node_id / collector_run_id / ingest_seq`
+- **`raw_json` column dtype = `pa.large_string()` 의무** (LargeUtf8 i64 offset, L2 concat 누적 i32 4GB overflow 차단)
+- §D2.6 matrix row 추가 → MCT-159 InvariantHarness channel-aware lookup 자동 적용
+
+#### Fail-fast invariant (silent skip 차단)
+
+- `_schema_version(channel)` body 의 raise 직전 `compactor_unsupported_channel_total.labels(channel=channel).inc()` 호출
+- `compact_segment` outer try/except 의 silent catch path 유지 (caller signature 변경 0) but **fail-fast counter 추가 emit**
+- silent skip catastrophe (MCT-156 deploy 후 48,629 sealed silent backlog) 재발 방지
+
+#### Prometheus emit obligation
+
+- Counter: `mctrader_compactor_unsupported_channel_total{channel}` (mctrader_data/nas_metrics/prometheus_exporters.py)
+- Grafana alert 권고: 임계 1+ (silent skip catastrophe 즉시 감지) — MCT-162 retro 시 surface, 후속 ops Story scope
+
+### 향후 신규 channel 추가 절차 (3-step)
+
+신규 collector emit channel (e.g., `tradehistory`, `marketstatus`) 추가 시 의무 절차:
+
+1. **ADR-009 §D11.X amendment** — schema 정의 (column list + dtype + 의무 invariant + §D2.6 matrix row 추가)
+2. **L1Compactor**:
+   - `_CHANNEL_SCHEMA_VERSION[<channel>] = "<schema>.v1"` allowlist entry 추가
+   - `_<channel>_dicts_to_arrow(rows: list[dict]) -> pa.Table` converter 신규 (transaction/orderbooksnapshot/orderbookdepth 답습)
+   - `_arrow_schema_for_channel(channel)` + `_convert_to_arrow(channel, rows)` 분기 추가
+3. **integration test** — `tests/integration/test_l1_compactor_<channel>_parity.py` 신규 (5종 minimum: converter PASS + fail-fast verify + Prometheus emit verify + parquet schema invariant + large_string verify if applicable)
+
+### MCT-162 land 후 운영 의무
+
+- **drainage 측정 trail 박제**: t=0 (compactor restart 2026-05-13 22:07:09 KST) backlog = 82,456 sealed → t=10min/1h/24h 측정 (별 chore commit 또는 MCT-160 brainstorm 시 evidence pack)
+- **upbit L1 lost 별 진단 의무** (R4 HIGH surface, MCT-160 Phase 1 또는 별 Story 발의 결정)
+- **P1 nullability follow-up** (CodeReviewPL surface, MCT-160 scope 합병 권고)
+- **ADR-XXX-post-cutover-wiring-gap-prevention 발의 권고** (PMOAgent → ArchitectAgent inline ADR draft dispatch, 누적 2회 pattern 박제)

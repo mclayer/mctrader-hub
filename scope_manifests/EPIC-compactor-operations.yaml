@@ -7,35 +7,43 @@
 epic_key: EPIC-compactor-operations
 epic_title: "compactor operations — L1 channel parity + L2 cadence + NAS durability (post-MCT-156 deploy 5중 차단 cycle)"
 parent_dependency: EPIC-cold-tier-stage-3-wiring  # post-deployment 발견 5중 차단 cycle
-status: In Progress  # MCT-162 Phase 1 진입 2026-05-13 (entrypoint vertical slice)
+status: In Progress  # MCT-162 COMPLETED 2026-05-13 (1/3), MCT-160 다음 진입
 created: 2026-05-13
-last_updated: 2026-05-13  # ArchitectPLAgent Phase 1 dispatch (MCT-162 entry)
+last_updated: 2026-05-13  # MCT-162 Phase 2 LAND + PMOAgent retro write
 
 milestone_progression:
   total_stories: 3
-  completed: 0
-  in_progress: 1   # MCT-162 (Phase 1 진입)
-  proposed: 2      # MCT-160 + MCT-161
-  progress_percent: 0.0
-  last_completion: null
+  completed: 1   # MCT-162 LAND 2026-05-13 (Phase 1 #284 + Phase 2 data#52 + Phase 2 hub TBD)
+  in_progress: 1   # MCT-160 (다음 cycle entry, PROPOSED → IN_PROGRESS transition)
+  proposed: 1      # MCT-161
+  progress_percent: 33.3
+  last_completion: 2026-05-13  # MCT-162 Phase 2 merge
 
 story_status:
   MCT-162:
-    status: IN_PROGRESS  # Phase 1 진입 2026-05-13
+    status: COMPLETED  # Phase 1 #284 (895bd77) + Phase 2 data#52 (338c4b6) + Phase 2 hub PR (본 dispatch land) MERGED
     started_at: 2026-05-13
-    phase1_pr: TBD  # 본 Phase 1 PR (Architect lane) 생성 후 박제
-    phase2_pr_data: TBD
-    phase2_pr_hub: TBD
-    retro_file: TBD  # docs/retros/RETRO-MCT-162.md (Phase 2 land 후 PMOAgent dispatch)
+    completed_at: 2026-05-13
+    phase1_pr: "mclayer/mctrader-hub#284 MERGED 2026-05-13T12:57:07Z (mergeCommit=895bd77, +873/-0)"
+    phase2_pr_data: "mclayer/mctrader-data#52 MERGED 2026-05-13T13:05:17Z (mergeCommit=338c4b6, +527/-11) — l1.py + prometheus_exporters.py + test_l1_compactor_channel_parity.py 7 test (10 regression + 5 new integration + 2 regression unchanged)"
+    phase2_pr_hub: "mclayer/mctrader-hub#XXX TBD (본 dispatch — Story §12 + RETRO + scope_manifest + counters DELETE + CLAUDE.md)"
+    retro_file: "docs/retros/RETRO-MCT-162.md"
     sp: 3
-    addresses_root_cause: [1, 4]  # spec §1 (upbit L1 lost) + (orderbookdepth backlog 48k)
+    addresses_root_cause: [1, 4]  # spec §1 #1 (upbit L1 lost partial — orderbookdepth allowlist 해소, 별 root cause 잔여 surface) + #4 (orderbookdepth backlog 48k 누적)
     decisions_owned: [D1, D7]
-    review_lanes_pending: [DesignReview, TestAgent, SecurityTestPL, CodeReviewPL]
+    review_lanes_completed: [DesignReview, TestAgent, SecurityTestPL, CodeReviewPL]  # ALL PASS, FIX iteration 0
+    findings_surface: [
+      "P1 nullability (CodeReviewPL, non-blocking, follow-up Story 후보 — 별 commit 또는 MCT-160 scope 합병)",
+      "P2 × 4 (SecurityTestPL 2 noise + CodeReviewPL 2 — non-blocking surface)",
+      "R4 HIGH (upbit L1 lost 별 root cause — orderbookdepth allowlist 와 무관, 별 진단 의무, MCT-160 또는 별 Story 발의 결정)"
+    ]
+    fix_iterations: 0
+    backlog_drainage_evidence: "compactor restart 2026-05-13 22:07:09 KST 시점 L1 backlog t=0 = 82,456 sealed segments → 60s 후 측정 박제 (RETRO-MCT-162 §X)"
   MCT-160:
-    status: PROPOSED  # MCT-162 LAND 후 sequential 진입 (merge 충돌 회피 + L1 backlog drainage 의존)
+    status: IN_PROGRESS  # MCT-162 LAND 후 sequential 진입 (다음 cycle entry, brainstorm/Phase 1 미진행)
     depends_on: [MCT-162]
     sp: 5
-    addresses_root_cause: [2, 3, 4, 5]  # spec §1 (L2 cadence + OOM + L1 backlog 79k + R-EXTRA)
+    addresses_root_cause: [2, 3, 4, 5]  # spec §1 (L2 cadence + OOM + L1 backlog 79k 잔여 + R-EXTRA)
     decisions_owned: [D2, D3, D5, "R-EXTRA"]
     title: "L2/L3 cadence + OOM + L1 backlog 79k cleanup"
   MCT-161:
