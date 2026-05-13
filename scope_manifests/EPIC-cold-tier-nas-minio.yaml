@@ -384,11 +384,11 @@ epic_milestones:
     on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch"
     on_fail: "rollback runbook 발동 — MINIO_ENDPOINT local 복귀, 7일 grace 내 local 데이터 잔존 활용"
     progress:
-      stories_complete: 3
+      stories_complete: 4
       stories_total: 6
-      sp_burned: 18
+      sp_burned: 26
       sp_total: 36
-      sp_progress_pct: 50.0
+      sp_progress_pct: 72.2
       complete:
         - story: MCT-150
           sp: 5
@@ -426,7 +426,19 @@ epic_milestones:
           escalate_count: 0
           codeforge_lesson: mclayer/plugin-codeforge#525 (lesson #5 후보 — scope_manifest planned_files invariant, Phase 2 실 운영 추가 박제 방지)
           addresses_decisions: [S1_dual_write_window_runner, S7_sop_runbook, S11_iops_during]
-      next: MCT-153  # 8 SP, depends_on MCT-152 ✅ (사용자 Phase C 순차 directive) — FIX#1 F3 정정 (5 → 8)
+        - story: MCT-153
+          sp: 8
+          phase_pair: phase1_phase2
+          merged_at: 2026-05-13
+          phase1_pr: mclayer/mctrader-hub#266
+          phase2_pr_data: mclayer/mctrader-data#45
+          phase2_pr_hub: mclayer/mctrader-hub#268
+          retro: docs/retros/RETRO-MCT-153.md
+          fix_cycle_total: 1
+          escalate_count: 0
+          codeforge_lesson: mclayer/plugin-codeforge#525 (lesson #5 sub-invariant 후보 — cross-section quantitative consistency, 3 Story 연속 code-review FIX 0)
+          addresses_decisions: [S1, S5, S6, S7]
+      next: MCT-154  # 5 SP, depends_on MCT-152 ✅ + MCT-153 ✅ — Phase 2D reader endpoint cutover
       adr_amendment_status:
         - decision: D2
           trigger_story: MCT-155
