@@ -24,6 +24,7 @@ Accepted — 2026-05-02. MCT-9 Phase 1 PR.
   - **§D15 신설** — Information bar contract (`time_5m` / `vol_1000000krw` / `tick_1000` / `dollar_5000000krw` label format) + immutable contract metadata (genesis_ts / threshold / precision / rounding_rule / source_cutoff / tie_breaking / version / contract_id SHA256). **Candle = stored entity 에서 derived view 로 격하** (transaction tick = Bronze SSOT, candle = Silver derived). Aggregation Core Lib (ADR-025) reference.
   - **§D16 신설** — `provenance` column (`legacy_candle` cutoff 이전 immutable / `transaction_derived` cutoff 이후 derive). Legacy Candle Provenance & Retirement Policy (ADR-026) reference.
 - 2026-05-13 — **§D11 amendment** (MCT-162, EPIC-compactor-operations Story-1) — §D11.9 신규 (`orderbook_depth.v1` flat row schema 박제). bithumb collector 의 `orderbookdepth` WS channel payload = delta `changes` event (per-frame N levels). MCT-156 deploy 후 L1Compactor `_schema_version` allowlist mismatch 로 48,629 sealed segment NotImplementedError 누적 (silent skip, Prometheus alert 0) 의 root cause schema 박제. §D11 (`orderbook.v1` L2 event stream) 의 per-level flat row 패턴 답습 + metadata column 4종 inject (`node_id` / `collector_run_id` / `ingest_seq` / `validation_status`) → tick.v1.1 / orderbook_snapshot.v1 동형 dedup logical key. raw_json column = **`large_string` (LargeUtf8)** 의무 (L2 `pa.concat_tables` i32 4 GB offset overflow 사례 박제). ADR-027 D4 amendment (channel parity 정책 + fail-fast invariant) 와 dual-binding.
+- 2026-05-13 — **§D2.7 신규 (Schema nullability discipline)** (MCT-160, EPIC-compactor-operations Story-2). 3 schema (`_TRANSACTION_SCHEMA` + `_ORDERBOOKSNAPSHOT_SCHEMA` + `_ORDERBOOKDEPTH_SCHEMA`) 의 `pa.field(name, dtype, nullable=False/True)` 명시 의무 박제. `raw_json` 만 `nullable=True`, 나머지 essential column (`ts_utc` / `exchange` / `symbol` / `side` / `price` / `quantity`) 은 `nullable=False`. MCT-162 CodeReviewPL P1 finding (orderbookdepth schema nullable=False 명시 부재) 합병. InvariantHarness `dtype_identity` invariant 가 nullability 도 verify (ADR-027 §D6 정합). ADR-027 D4 amendment (MCT-160 silent-skip 차단 + post-write verify + quarantine) 와 sibling — Phase 1 ADR amendment 2건 박제.
 
 ## Context
 
@@ -1046,6 +1047,68 @@ Cross-references: ADR-017 §Decision 2; MCT-106 Change Plan §4.2.
 - `_check_schema_version` channel-aware extension (tuple/list 지원)
 
 Cross-references: ADR-027 D6 amendment (MCT-159 FIX Iter 1, channel-aware column_count resolve) + Story `MCT-159.md` §10 FIX Ledger Iter 1.
+
+## §D2.7 — Schema nullability discipline (MCT-160 amendment, 2026-05-13)
+
+**Amendment trigger**: MCT-162 (EPIC-compactor-operations Story-1) CodeReviewPL P1 finding — L1Compactor `_ORDERBOOKDEPTH_SCHEMA` 의 `nullable=False` 명시 부재 surface. ADR-009 §D10 / §D11 / §D11.9 schema 정의 시 `pa.schema([(name, dtype), ...])` tuple 형식의 default = pyarrow 의 `nullable=True` 가정 — silent default 차단 의무 박제. MCT-160 (EPIC-compactor-operations Story-2) 가 3 schema 일관 nullability 명시 의무 합병.
+
+### Convention (SSOT)
+
+ADR-009 의 모든 schema (§D10 / §D11 / §D14 / §D11.9 / §D15 등 forward stream) 의 column 정의 시 다음 nullability convention 의무:
+
+- **`raw_json` column** = **`nullable=True`** (collector emit 시 fallback 가능, debug optional — §D10.1 / §D11.1 / §D11.9.2 / §D14.1 baseline 박제)
+- **나머지 column** = **`nullable=False`** (NULL 값 = data corruption signal, well-formed emission 의무) — schema 별 essential field (e.g., `ts_utc` / `exchange` / `symbol` / `side` / `price` / `quantity` 등)
+- **Metadata column** (`node_id` / `collector_run_id` / `ingest_seq` / `validation_status` 등 L1Compactor inject) = **`nullable=False`** (L1Compactor inject path 의 invariant — segment metadata 부재 시 corruption signal)
+
+### Schema definition syntax (의무)
+
+`pa.schema([(name, dtype), ...])` tuple 형식 default = `nullable=True` (pyarrow default 가정). SSOT 의무 = `pa.field(name, dtype, nullable=...)` 명시:
+
+```python
+# 금지 (silent default nullable=True):
+pa.schema([
+    ("ts_utc", pa.timestamp("us", tz="UTC")),
+    ("price", pa.decimal128(38, 18)),
+    # ...
+])
+
+# 의무 (explicit nullability):
+pa.schema([
+    pa.field("ts_utc", pa.timestamp("us", tz="UTC"), nullable=False),
+    pa.field("price", pa.decimal128(38, 18), nullable=False),
+    pa.field("raw_json", pa.large_string(), nullable=True),
+    # ...
+])
+```
+
+### Verify (의무)
+
+1. **L1Compactor 3 schema 명시 의무** (MCT-160 Phase 2 land 대상): `_TRANSACTION_SCHEMA` + `_ORDERBOOKSNAPSHOT_SCHEMA` + `_ORDERBOOKDEPTH_SCHEMA` 모두 `pa.field(..., nullable=...)` 명시. malformed frame (essential field = None) 검출 시 `ValueError(f"malformed {channel} frame at index={i}")` raise + Prometheus `compactor_malformed_frame_total{channel,exchange}` Counter +1 emit.
+2. **InvariantHarness nullability verify** (MCT-151 land, ADR-027 §D6 정합): `dtype_identity` invariant 가 column dtype 만 비교하는 기존 동작에 더해 nullability 도 check 의무 (Phase 2 follow-up scope, MCT-160 Phase 2 또는 후속 ops Story 박제). 위반 시 `dtype_identity_fail` diagnostic `nullability_mismatch` surface.
+3. **Consumer smoke verify** (MCT-160 Phase 3 의무, NFR-5): mctrader-engine reader (`pyarrow.parquet.read_table`) sample query 시 nullable=False column 의 null_count = 0 + nullable=True column 의 null_count 가능 (raw_json optional). DuckDB read 시점도 nullability mismatch 0 (Story `MCT-160.md` §6 D9 consumer nullability smoke verify 박제).
+
+### 3 schema nullable matrix (MCT-160 Phase 2 land 대상 SSOT)
+
+| schema | column | nullable | rationale |
+|---|---|---|---|
+| `_TRANSACTION_SCHEMA` (tick.v1.1) | `ts_utc` / `received_at` / `exchange` / `symbol` / `price` / `quantity` / `side` / `ingest_seq` / `payload_hash` / `validation_status` | **False** | essential trade row + dedup key + GAP detect anchor |
+| `_TRANSACTION_SCHEMA` | `raw_json` | **True** | debug optional (§D10.1 nullable baseline 정합) |
+| `_ORDERBOOKSNAPSHOT_SCHEMA` (orderbook_snapshot.v1) | `ts_utc` / `received_at` / `exchange` / `symbol` / `baseline_seq` / `side` / `level` / `price` / `quantity` / `payload_hash` | **False** | essential per-level snapshot row + dedup key |
+| `_ORDERBOOKSNAPSHOT_SCHEMA` | `raw_json` | **True** | debug optional (§D14.1 nullable baseline 정합) |
+| `_ORDERBOOKDEPTH_SCHEMA` (orderbook_depth.v1) | `ts_utc` / `received_at` / `exchange` / `symbol` / `side` / `price` / `quantity` / `node_id` / `collector_run_id` / `ingest_seq` | **False** | essential delta level row + L1Compactor inject metadata |
+| `_ORDERBOOKDEPTH_SCHEMA` | `raw_json` | **True** | debug optional (§D11.9.2 nullable baseline 정합 + `large_string` 의무 — §D11.9.6) |
+
+### Backward-compat invariant
+
+- 기존 L1 산출물 (legacy nullable=True 가정 default 박제) read 호환성 100% — `nullable=False` 명시 후에도 기존 parquet read 시 nullability metadata 가 strict mismatch raise 0 (pyarrow / DuckDB read 측 nullable=False schema cast 가능). MCT-160 §1 AC-6 / §6 D5 / §11 backward-compat invariant 박제 정합.
+- L1Compactor 가 신규 emit 부터 `pa.field(..., nullable=False)` 명시 적용 = forward-only 자연 누적, 기존 산출물 retroactive migration 0 (ADR-009 §D12.2 정합).
+
+### Cross-references
+
+- ADR-027 §D4 MCT-160 amendment (cadence silent-skip 차단 + post-write verify + quarantine 정책) — sibling Phase 1 ADR amendment 2건 박제, dual-binding 정합
+- Story `docs/stories/MCT-160.md` §1 AC-6 (P1 nullability hardening 합병) + §6 D7 (3 schema 일관 nullability) + §7.4 DataMigrationArch D11=NONE 변호 + §8 Test-6/Test-7 (nullability + malformed frame ValueError)
+- MCT-162 Phase 2 CodeReviewPL P1 finding (orderbookdepth schema nullable=False 명시 부재) 합병 anchor
+- §D2.6 (ADR009_CHANNEL_SCHEMA_MATRIX) — column count invariant 영향 0 (matrix row 변경 0, nullability metadata 추가만)
 
 ## Alternatives Considered
 

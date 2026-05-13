@@ -138,6 +138,41 @@ MinIO 의 `format.json` 등 atomic operation 은 **POSIX-compliant filesystem** 
 - **L1 backlog 79,427 file natural drainage** = MCT-162 Phase 2 land 후 자연 drainage 의존 (D5 MCT-160 scope). 본 amendment = root cause 차단 invariant 박제만, 기존 누적 backlog 의 active cleanup 의무 0.
 - **L2 `pa.concat_tables` OOM exit 137 fix** = MCT-160 Phase 1 scope (D3 streaming `ParquetWriter.write_table` per-file loop). 본 amendment 의 `large_string` cast 의무 (§D11.9.6) 는 OOM root cause 의 일부 (raw_json column i32 offset overflow) 차단 — MCT-160 의 streaming write 와 결합 시 단일 buffer 누적 0 보장.
 
+**MCT-160 amendment 박제 (2026-05-13)** — Cadence trigger silent-skip 차단 + post-write monotonic verify + quarantine 정책. EPIC-compactor-operations Story-2 (post-MCT-156 deploy 5중 차단 cycle #2 transaction L2 자연 cadence 0 + #3 bucket 463 obj bithumb orderbooksnapshot only + #5 orderbooksnapshot manual L2 OOM exit 137 fix).
+
+**Background**: MCT-156 deploy (2026-05-13 09:22) 후 L2/L3 cadence 가 silent skip 으로 backlog 영구 monotonic 누적. MCT-162 LAND (channel parity + fail-fast invariant + orderbookdepth allowlist) 후 drainage rate **+11/min net positive** 측정 — L2 자연 cadence trigger 부재 박제. Root cause = `runner._run_l2` 의 `compact_hour(hour_utc=datetime.utcnow())` 하드코딩 → `_run_l3` 의 `compact_day(date_utc=datetime.utcnow().date())` 동형 pathology (silent KST→UTC date roll edge case). MCT-162 amendment 의 fail-fast invariant 박제만으로 cadence path 의 silent skip 미해소 — caller-explicit date 전달 의무 박제 필요.
+
+**Channel parity 정책 확장 (MCT-162 D4 amendment 답습 + cadence 차원 추가)**:
+
+1. **Caller-explicit date 의무 (D2)**: `_run_l2` / `_run_l3` 가 `compact_hour(date_utc=...)` / `compact_day(date_utc=...)` 인자 명시 전달 의무. caller 측 partition lookup (glob `tier=L1/exchange={ex}/symbol={sym}/date=*/`) 후 latest date discover. KST→UTC date roll edge 시점 (now=KST 00:00~09:00) 의 silent skip 차단 invariant. system clock 의존 0.
+2. **Post-write monotonic verify (D4)**: L2/L3 streaming write 후 `ts_utc` column monotonic non-decreasing invariant check 의무. 위반 시 산출물을 quarantine 경로로 isolate + Prometheus `compactor_quarantine_total{tier,reason}` Counter +1 emit + WARN log (운영자 grep gate) + 다음 segment 진행 (fail-closed isolate, raise 0). ADR-009 §D12.2 forward-only invariant 강화.
+3. **Quarantine directory layout** (SSOT, Story `MCT-160.md` §11 박제 cross-ref):
+   ```
+   /var/lib/mctrader/data/quarantine/{tier}/{reason}/{original_relative_path}
+   ```
+   예시: `quarantine/l2/non_monotonic_ts/market/transaction/schema_version=tick.v1.1/tier=L2/exchange=bithumb/symbol=KRW-BTC/date=2026-05-13/hour=14/node=MERGED/part-{run_id}.parquet`. 운영자 manual review 의무 + 자동 retry 0 (Phase 2 scope) + 재처리 도구 = post-mortem 시점 별 Story 발의 결정 (e.g., `tools/quarantine_review.py`).
+4. **Streaming write 의무 (D3)**: `pa.concat_tables(tables).sort_by("ts_utc")` 단일 buffer 호출 패턴 금지. chunk-based concat (chunk size = 1024 rows) + `ParquetWriter.write_table(chunk, row_group_size=100_000)` per-chunk loop. memory peak ≤ 1 GB (현재 OOM exit 137 32GB 임계 차단) + raw_json column `large_string` i32 offset 4 GB overflow 차단 (§D11.9.6 cross-bind). L2/L3 동형 패턴 의무.
+5. **DualWriter `data=Path` streaming (D6 / R-EXTRA)**: caller (`compactor.runner._dispatch_dual_write`) 가 `parquet_path.read_bytes()` 호출 횟수 2회 → 1회 압축. sha256 = caller streaming hash 산출 (단일 read), DualWriter 호출 = `dual_writer.write(data=parquet_path, sha256=<hex>)` (data=bytes 전달 폐기). DualWriter 변경 0 (MCT-151 land `data: Path | bytes` accept signature 유지, `data=Path` 시 NAS PUT 시점 자체 read). memory 재할당 OOM 차단.
+6. **Prometheus emit (cadence + quarantine 관측)**:
+   - `compactor_quarantine_total{tier,reason}` Counter (D4 violation surface, tier ∈ {l2, l3}, reason ∈ {non_monotonic_ts, …} bounded low cardinality)
+   - `compactor_malformed_frame_total{channel,exchange}` Counter (D7 P1 nullability finding surface, channel ∈ {transaction, orderbooksnapshot, orderbookdepth}, exchange ∈ collector emit 종류 bounded low)
+   - Grafana alert 임계 1+ 추가 의무 (Phase 2 또는 후속 ops Story scope, MCT-160 retro 시 surface)
+
+**채택 효과**:
+- L1 backlog 자연 drainage 가속 (D5 verify — Phase 2 land 후 1h drainage rate ≤ ingest rate 박제 의무)
+- L2/L3 NAS upload 정상 (#3 bucket bithumb-only 차단 자연 해소 — transaction / upbit 등 다른 channel/exchange 도 자연 누적)
+- L2 OOM exit 137 차단 (#5 manual L2 OOM 차단, streaming write 32GB → ≤1GB 99.97% 감소)
+- DualWriter memory 재할당 OOM 재발 차단 (R-EXTRA, `read_bytes()` 호출 2회 → 1회)
+- forward-only invariant 강화 (post-write verify 의무 박제, silent corruption 차단)
+
+**Out-of-scope (본 amendment 한계)**:
+- **backfill_orchestrator silent skip** (MCT-153) = 동일 silent skip pathology 가능 → MCT-159 또는 별 Story scope (D8 OUT OF SCOPE, MCT-160 §6 D8 결정 정합)
+- **upbit L1 partition 0 별 root cause** = MCT-160 의 D2 fix 후 verify only (D9 verify only). 별 fix 필요 시 후속 Story (e.g., MCT-164 upbit-specific path discovery 또는 ingester WAL path layout 진단)
+- **L2/L3 cadence resolver 공통화 refactor** = MCT-163 별 Story scope (D11 — duplicate code 허용, MCT-160 = L2/L3 각자 cadence 정상화)
+- **MCT-153 손실 재발 방지 (bucket versioning)** = MCT-161 reserve 별 Story 책임 (D9 amendment 정합, 본 MCT-160 영향 0)
+
+Cross-references: Story `docs/stories/MCT-160.md` §1-§11 + scope_manifest `EPIC-compactor-operations.yaml` MCT-160 design_decisions + Plan `docs/superpowers/plans/2026-05-13-mct-160-l2-l3-cadence-streaming.md` + Spec `docs/superpowers/specs/2026-05-13-compactor-operations-design.md` + ADR-009 §D2.7 nullability discipline amendment (sibling).
+
 ### D5. Failure mode — compactor retry queue + alert, hot path 무영향
 
 NAS unreachable 시:
