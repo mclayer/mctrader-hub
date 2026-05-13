@@ -135,14 +135,6 @@
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
       "rationale": "MCT-159 brainstorm Phase 1 D7 (Codex 권고) — bucket versioning 미활성으로 MCT-153 4.2 GiB 복구 불가 확정. 본 Story 가 versioning 정책 + replication + 손실 재발 방지 영역."
-    },
-    "MCT-162": {
-      "title": "L1 채널 parity — orderbookdepth schema 정의 + L1Compactor allowlist 확장",
-      "reserved_at": "2026-05-13",
-      "epic": "EPIC-compactor-operations",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-160 brainstorm Phase 1 D1 (옵션 D, ADR-009 §D11 amendment + ADR-027 D4 amendment) — L1 채널 parity scope 분리, EPIC-compactor-operations entrypoint Story-1"
     }
   }
 }
