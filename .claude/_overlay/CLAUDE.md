@@ -342,3 +342,75 @@ py -3.12 -m pytest tests/ -v
 - **collector WAL + L1 ParquetWriter** = local volume 유지 (ADR-017 zero-loss invariant).
 - **NAS unreachable failure mode** = compactor retry queue + backlog alert. WAL / L1 / hot path 무영향 (D5 박제).
 - **alert metric** (MCT-150 산출물): `cold_writer_backlog_segments` + `cold_writer_retry_count_total` (Prometheus) + Grafana dashboard `mctrader/Cold Writer Health`.
+
+### Stage 3 wiring (EPIC-cold-tier-stage-3-wiring, MCT-156 ~ MCT-158, post-Stage 2 follow-up)
+
+Stage 2 EPIC CLOSED 2026-05-13 (mctrader-hub#277) 후 사용자 NAS bucket 실측에서 발견된 핵심 gap — hot pipeline (compactor) NAS wiring 부재 해소. bucket `mctrader-market` 실측 결과 `tier=L3/` prefix 0개 + `tier=L2/` 안 `hour=HH/` partition 0개 = Stage 2 production-grade primitive (NAS+DualWriter+InvariantHarness+SOPRunner+BackfillOrchestrator) 가 완성됐음에도 hot pipeline 자체가 NAS endpoint 안 가는 환경에서 운영 중이었음.
+
+**Stage 3 milestone progression** (post-MCT-156 LAND):
+
+| Story | scope | 상태 |
+|-------|-------|-----|
+| **MCT-156** ✅ | compactor NAS wiring + L2/L3 DualWriter injection (entrypoint vertical slice) | **COMPLETED 2026-05-13** (#279 Phase 1 + mctrader-data#47 Phase 2 + 본 Phase 2 hub PR) |
+| MCT-157 | Prometheus layout label 분리 + observability (legacy_node_default vs new_node_merged) | PROPOSED |
+| MCT-158 | release gate smoke test + cutover runbook + EPIC CLOSED gate (6h bucket prefix 출현 verify) | PROPOSED (depends_on: 156, 157) |
+
+milestone 1/3 = 33.3% (post-MCT-156 LAND).
+
+### Stage 3 운영 가이드 (MCT-156 산출물 기반)
+
+#### DualWriter inject pattern (NAS_MINIO_ENDPOINT env 부재 시 degraded mode)
+
+`mctrader-data/src/mctrader_data/cli.py` 의 `compact_cmd` 가 `NAS_MINIO_ENDPOINT` env 분기:
+
+- env set → `NASUploader` + `RetryQueue` + `DualWriter` lazy build 후 `CompactorRunner(dual_writer=...)` inject → L2/L3 compaction 산출물 자동 dual-write
+- env 부재 → `dual_writer=None` 으로 `CompactorRunner` build → **degraded mode** (NAS PUT skip, local Parquet only — test/local dev 호환 경로)
+
+운영 환경 의무: `NAS_MINIO_ENDPOINT` + `NAS_MINIO_ACCESS_KEY` + `NAS_MINIO_SECRET_KEY` + `NAS_MINIO_BUCKET` 4 env 모두 set (`.env.example` placeholder 정합).
+
+#### `DualWriter.write()` API 정합 (signature SSOT)
+
+Change Plan 초안의 `dual_writer.put(local_path, nas_key, sha256)` 명세는 **추정 signature** (Codex Phase 0 brainstorm 시점 박제). 실제 MCT-151 land API:
+
+```python
+DualWriter.write(*, local_path, nas_key, data, sha256) -> DualWriteResult
+# DualWriteResult.status ∈ {"committed", "local_only", "hard_floor_blocked"}
+```
+
+`_dispatch_dual_write` helper 안에서 `parquet_path.read_bytes()` 로 payload 조달 후 호출. status 3종 caller contract:
+- `committed` = 정상 (local + NAS 양쪽 commit)
+- `local_only` = NAS unreachable → retry_queue enqueue 자동, log info
+- `hard_floor_blocked` = retry queue hard floor (1000 seg / 10GB) 도달 → log error + Prometheus alert + SOP MANUAL_GATE escalation
+
+#### Legacy MinioUploader deprecation 박제
+
+`mctrader-data/src/mctrader_data/compactor/minio_uploader.py` = MCT-156 Phase 2 에서 **호출처 production 0** + module docstring `.. deprecated:: MCT-156 (Stage 3 wiring)` 마킹. **모듈 file 자체 삭제는 후속 Epic** (post-EPIC-cold-tier-stage-3-wiring closure).
+
+#### Mixed layout reader 책임 경계 (ADR-009 §D2.1+§D14 fallback 자연 양립)
+
+NAS bucket 에 (a) MCT-153 backfill 산출물 legacy layout (`tier=L2/.../date=D/[node=N/]file.parquet`, hour 부재) + (b) MCT-156 Phase 2 이후 신규 hot pipeline 산출물 신규 schema (`tier=L2/.../date=D/hour=HH/node=MERGED/part-*.parquet`) mixed 공존.
+
+- reader 호환 = ADR-009 §D2.1 (`node=` absent → `node=DEFAULT`) + §D14 (`tier=` absent → `tier=L1`) fallback 박제로 자연 보장
+- `scan_*` API partition pruning 양쪽 layout mixed scan 양립
+- legacy 객체 retroactive 재구조 비권고 (S6 결정 박제)
+- ADR-027 D9 amendment 본문 정합 (MCT-156 Phase 1 LAND)
+
+### Stage 3 release gate (R1 smoke test 의무, MCT-158 owner)
+
+MCT-158 = Stage 3 EPIC CLOSED gate 의무. 6h smoke test 의 production NAS bucket 실측 evidence pack:
+
+- `tier=L2/.../hour=HH/node=MERGED/` 출현 verify
+- `tier=L3/.../node=MERGED/` 출현 verify
+- `mctrader_dual_write_result_total{status="committed", tier="L2|L3"}` Counter 증가 evidence
+- retry queue backlog = 0 baseline (hard_floor_blocked = 0)
+
+### post-Epic refactor 후보 surface (Stage 3 EPIC CLOSED 후 검토)
+
+MCT-156 Phase 2 CodeReviewPL P2 advisory finding 2건 — NFR-1 (< 3000ms) 안에서 흡수, post-Epic refactor 후보로 surface:
+
+- **sha256 dup hashing** — `compactor/runner.py._dispatch_dual_write` + `DualWriter.write()` 내부 NASUploader 양쪽에서 identical input 2회 hash. refactor 후보 = `DualWriter.write()` API 에 `precomputed_sha256` param 추가.
+- **tmp_dw double-write** — DualWriter local commit 시 tmp file roundtrip + NASUploader 가 tmp read → MinIO PUT = 디스크 IO 2회. refactor 후보 = in-memory bytes hand-off (현재는 cross-process safety 위해 tmp 경유).
+
+추가 surface:
+- legacy `MinioUploader` 모듈 file 삭제 (호출처 production 0, deprecation 마킹 → file 자체 삭제)
+- mctrader-data main 의 pre-existing 9 test failure 해소 (별 Story 후보, PMOAgent 누적 patterns 1건)
