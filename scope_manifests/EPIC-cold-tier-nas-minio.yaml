@@ -316,10 +316,14 @@ planned_files:
       - "docs/runbooks/nas-minio-unreachable-sop.md"
   MCT-153:
     mctrader-data:
-      - "src/mctrader_data/migration/backfill_orchestrator.py"
-      - "scripts/migration/run_backfill.py"
-      - "tests/migration/test_backfill_orchestrator.py"
-      - "tests/migration/test_backfill_resumability_chaos.py"
+      # MCT-152 lesson #5 첫 적용 (RequirementsPL surface 2026-05-13):
+      # nas_migration/ namespace = MCT-151 land 직접 활용 (자연 module 그룹화)
+      # nas_* prefix convention enforce (MCT-150 P2-1 + MCT-151 ESCALATE #1 lesson 정합)
+      - "src/mctrader_data/nas_migration/backfill_orchestrator.py"
+      - "src/mctrader_data/nas_metrics/prometheus_exporters.py"  # ArchitectPL §6.4 + §6.10 (lesson #5 옵션 A 채택 사전 박제 2026-05-13) — MODIFY: nas_backfill_* metric 6종 추가 (~80-120 line 증분)
+      - "scripts/migration/run_backfill.py"  # CLI script — scripts/migration/ 유지 (MCT-155 동일 prefix)
+      - "tests/nas_migration/test_backfill_orchestrator.py"
+      - "tests/nas_migration/test_backfill_resumability_chaos.py"
     mctrader-hub:
       - "docs/stories/MCT-153.md"
   MCT-154:
