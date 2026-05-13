@@ -7,14 +7,14 @@
 epic_key: EPIC-compactor-operations
 epic_title: "compactor operations — L1 channel parity + L2 cadence + NAS durability (post-MCT-156 deploy 5중 차단 cycle)"
 parent_dependency: EPIC-cold-tier-stage-3-wiring  # post-deployment 발견 5중 차단 cycle
-status: In Progress  # MCT-162 COMPLETED 2026-05-13 (1/3), MCT-160 다음 진입
+status: In Progress  # MCT-162 COMPLETED 2026-05-13 (1/3), MCT-160 IN_PROGRESS Phase 1 author 진입 2026-05-13
 created: 2026-05-13
-last_updated: 2026-05-13  # MCT-162 Phase 2 LAND + PMOAgent retro write
+last_updated: 2026-05-13  # MCT-160 Phase 1 Story file + scope_manifest milestone update + ADR amendments 2건 PMOAgent dispatch
 
 milestone_progression:
   total_stories: 3
-  completed: 1   # MCT-162 LAND 2026-05-13 (Phase 1 #284 + Phase 2 data#52 + Phase 2 hub TBD)
-  in_progress: 1   # MCT-160 (다음 cycle entry, PROPOSED → IN_PROGRESS transition)
+  completed: 1   # MCT-162 LAND 2026-05-13 (Phase 1 #284 + Phase 2 data#52 + Phase 2 hub #285 MERGED)
+  in_progress: 1   # MCT-160 (Phase 1 진입, brainstorm Phase 1 + Codex GPT-5 합성 OK 2026-05-13, autonomous Phase 1 author)
   proposed: 1      # MCT-161
   progress_percent: 33.3
   last_completion: 2026-05-13  # MCT-162 Phase 2 merge
@@ -40,12 +40,28 @@ story_status:
     fix_iterations: 0
     backlog_drainage_evidence: "compactor restart 2026-05-13 22:07:09 KST 시점 L1 backlog t=0 = 82,456 sealed segments → 60s 후 측정 박제 (RETRO-MCT-162 §X)"
   MCT-160:
-    status: IN_PROGRESS  # MCT-162 LAND 후 sequential 진입 (다음 cycle entry, brainstorm/Phase 1 미진행)
+    status: IN_PROGRESS  # Phase 1 진입 2026-05-13 (brainstorm Phase 1 + Codex GPT-5 + Sonnet 합성 OK, autonomous Phase 1 author 진행)
+    started_at: 2026-05-13
     depends_on: [MCT-162]
     sp: 5
-    addresses_root_cause: [2, 3, 4, 5]  # spec §1 (L2 cadence + OOM + L1 backlog 79k 잔여 + R-EXTRA)
-    decisions_owned: [D2, D3, D5, "R-EXTRA"]
-    title: "L2/L3 cadence + OOM + L1 backlog 79k cleanup"
+    addresses_root_cause: [2, 3, 4, 5]  # spec §1 (L2 cadence + OOM + L1 backlog 79k 잔여 + R-EXTRA + P1 nullability 합병)
+    decisions_owned: [D1, D2, D3, D4, D5, D6, D7, D9, D10, D11, "R-EXTRA", "P1-nullability"]  # 11 D + R-EXTRA + P1 합병 (Codex GPT-5 + Sonnet 합성)
+    title: "L2/L3 cadence + OOM + L1 backlog 79k cleanup"  # retitle 없음 (기존 유지, 11 D 합본)
+    triggers_adr_amendment:
+      mandatory: true
+      trigger_story: MCT-160
+      adrs:
+        - "ADR-027 (silent-skip 차단 amendment)"
+        - "ADR-009 (nullability discipline 3 schema amendment)"
+    preflight_obligation:
+      - "Phase 2 진입 직전 `docker compose stop compactor` 의무 (RPO=0 정합 — collector/ingester/WAL append-only 정상 운영, compactor 만 정지)"
+    drainage_measurement_obligation:
+      - "Phase 2 land 후 1h L1 backlog 추이 박제 (D5 verify — drainage rate ≤ ingest rate)"
+      - "consumer nullability smoke verify (mctrader-engine pyarrow read sample, Codex 추가 risk)"
+      - "upbit L1 partition verify (D9 verify only — 0 persistent 시 MCT-164 별 Story 발의 결정)"
+    spinoff_story_candidates:
+      - "MCT-163 (cadence resolver 공통화 refactor, D11 분리 결정 — L2/L3 duplicate code 통합 별 Story)"
+      - "MCT-164 (upbit L1 lost 별 root cause 진단, R7 escalate)"
   MCT-161:
     status: PROPOSED  # MCT-160 LAND 후 sequential 진입 (NAS durability 정책 정립)
     depends_on: [MCT-162, MCT-160]
@@ -108,7 +124,26 @@ planned_adrs:
           (5) fail-fast 의도 = silent skip catastrophe (MCT-156 deploy 후 48,629 sealed silent backlog 누적) 재발 방지
           (6) MCT-162 Phase 2 scope = `orderbookdepth → orderbook_depth.v1` allowlist + converter + large_string cast
           out-of-scope = upbit L1 partition 0 별 root cause (MCT-160 또는 별 Story 진단 의무) + L1 backlog drainage (자연 drainage 의존) + L2 OOM fix (MCT-160 scope)
-  new_proposals: []  # 본 Epic 의 신규 ADR 0 — 기존 ADR-009 / ADR-027 amendment only (MCT-160 도 amendment, MCT-161 = 신규 ADR-XXX 예약)
+    - adr: ADR-027-cold-tier-object-storage-nas-minio
+      sections: ["silent-skip 차단 amendment append (caller-explicit date + post-write monotonic verify + quarantine 정책)"]
+      owner_story: MCT-160
+      rationale: |
+        MCT-160 D10 채택 (Codex GPT-5 + Sonnet 합성, 사용자 OK 2026-05-13). MCT-162 의 D4 amendment (channel parity fail-fast) 의 sibling — cadence path 의 silent skip 차단 박제:
+          (1) `_run_l2` / `_run_l3` 가 partition-level latest date discover 후 `compact_hour(date_utc=...)` / `compact_day(date_utc=...)` 명시 전달 의무 (now=datetime.utcnow() 하드코딩 폐기)
+          (2) L2/L3 산출물 post-write monotonic verify 의무 (`ts_utc` non-decreasing) — 위반 시 quarantine isolate + `compactor_quarantine_total{tier,reason}` Counter +1 emit
+          (3) quarantine 산출물 자동 retry 0, 운영자 manual review 의무
+          (4) silent skip catastrophe (MCT-156 post-deploy bucket 463 obj = bithumb orderbooksnapshot only) 재발 방지
+    - adr: ADR-009-ohlcv-schema
+      sections: ["nullability discipline 3 schema amendment (transaction + orderbooksnapshot + orderbookdepth)", "Amendment History"]
+      owner_story: MCT-160
+      rationale: |
+        MCT-160 D7+D10 채택 (P1 nullability finding MCT-162 CodeReviewPL surface 합병). 3 schema 일관 `pa.field(name, type, nullable=False/True)` 명시 의무:
+          - nullable=False 의무 column = `ts_utc` / `exchange` / `symbol` (3 schema 공통) + `side` / `price` / `quantity` (orderbook 2 schema)
+          - nullable=True 허용 column = `raw_json` / `node_id` / `collector_run_id` (metadata)
+          - malformed frame 검증 — `if side is None or price is None or quantity is None: raise ValueError + compactor_malformed_frame_total{channel,exchange} Counter +1`
+          - MCT-159 FIX Iter 1 InvariantHarness channel-aware lookup 자동 적용 (column count + nullability invariant 박제)
+          - Amendment History entry append (2026-05-13 MCT-160)
+  new_proposals: []  # 본 Epic 의 신규 ADR 0 — 기존 ADR-009 / ADR-027 amendment only (MCT-160 amendment 추가 2건, MCT-161 = 신규 ADR-XXX 예약)
 
 planned_files:
   mctrader-data:
@@ -129,9 +164,18 @@ planned_files:
       - path: docs/adr/ADR-009-ohlcv-schema.md
         owner_story: MCT-162
         change: "§D11.9 신규 (orderbook_depth.v1 schema 11 column) + §D2.6 channel matrix row 추가 + Amendment History entry"
+      - path: docs/adr/ADR-009-ohlcv-schema.md
+        owner_story: MCT-160
+        change: "nullability discipline 3 schema amendment (pa.field nullable=False/True 명시 의무) + Amendment History entry"
       - path: docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md
         owner_story: MCT-162
         change: "D4 amendment append (channel parity 정책 + fail-fast invariant + 3-step 절차 + cardinality risk + out-of-scope)"
+      - path: docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md
+        owner_story: MCT-160
+        change: "silent-skip 차단 amendment append (cadence path caller-explicit date + post-write monotonic verify + quarantine 정책 + 운영자 review 의무)"
+      - path: scope_manifests/EPIC-compactor-operations.yaml
+        owner_story: MCT-160
+        change: "milestone update + MCT-160 design_decisions + risks R6/R7/R8 + planned_files 확장"
       - path: CLAUDE.md
         owner_story: MCT-162
         change: "EPIC-compactor-operations 진입 박제 sub-section (Phase 2 land 후 self-write)"
@@ -139,12 +183,46 @@ planned_files:
       - path: docs/stories/MCT-162.md
         owner_story: MCT-162
         change: "§1-§11 신규 (codeforge Story file 표준)"
+      - path: docs/stories/MCT-160.md
+        owner_story: MCT-160
+        change: "§1-§11 신규 (11 D + R-EXTRA + P1 합병, codeforge Story file 표준)"
       - path: scope_manifests/EPIC-compactor-operations.yaml
         owner_story: MCT-162
         change: "본 manifest 신규 (Epic 첫 PR LAND)"
       - path: docs/retros/RETRO-MCT-162.md
         owner_story: MCT-162
         change: "Phase 2 land 후 PMOAgent dispatch (templates/retro.md schema)"
+      - path: docs/retros/RETRO-MCT-160.md
+        owner_story: MCT-160
+        change: "Phase 2 land 후 PMOAgent dispatch (templates/retro.md schema)"
+
+  mctrader-data:  # MCT-160 Phase 2 (별 PR)
+    modified:
+      - path: src/mctrader_data/compactor/l2.py
+        owner_story: MCT-160
+        change: "compact_hour(date_utc) 의무 인자 + pa.concat_tables 제거 + chunk concat (chunk size=1024) + row_group_size=100_000 + ParquetWriter.write_table per-chunk loop + post-write monotonic verify + quarantine isolate"
+      - path: src/mctrader_data/compactor/l3.py
+        owner_story: MCT-160
+        change: "compact_day(date_utc) 의무 인자 + L2 동형 fix 답습 (D1 합병 — chunk concat + row_group_size + post-write verify)"
+      - path: src/mctrader_data/compactor/l1.py
+        owner_story: MCT-160
+        change: "3 schema (_TRANSACTION_SCHEMA + _ORDERBOOKSNAPSHOT_SCHEMA + _ORDERBOOKDEPTH_SCHEMA) 일관 nullability 명시 + malformed frame ValueError + Counter emit (MCT-162 P1 finding 합병)"
+      - path: src/mctrader_data/compactor/runner.py
+        owner_story: MCT-160
+        change: "_run_l2 / _run_l3 partition-level latest date discover + compact_hour/compact_day 명시 전달 + _dispatch_dual_write caller-side sha256 산출 + DualWriter.write(data=parquet_path) 호출 (read_bytes 호출 2회→1회)"
+      - path: src/mctrader_data/nas_metrics/prometheus_exporters.py
+        owner_story: MCT-160
+        change: "compactor_quarantine_total{tier,reason} Counter 신규 + compactor_malformed_frame_total{channel,exchange} Counter 신규"
+    created:
+      - path: src/mctrader_data/compactor/quarantine.py
+        owner_story: MCT-160
+        change: "신규 — quarantine directory layout SSOT + quarantine_path(tier, reason, original_path) helper + path traversal 방지"
+      - path: tests/integration/test_l2_l3_cadence_streaming.py
+        owner_story: MCT-160
+        change: "신규 — Test-1 (L2 date_utc explicit) + Test-2 (L3 date_utc explicit) + Test-3 (streaming OOM safe) + Test-4 (post-write verify quarantine) + Test-8 (L1 ordering invariant post-write)"
+      - path: tests/integration/test_dual_writer_streaming.py
+        owner_story: MCT-160
+        change: "신규 — Test-5 (caller sha256 streaming, R-EXTRA) + Test-6 (l1 nullability 3 schema) + Test-7 (l1 malformed frame ValueError)"
 
 design_decisions:
   D1:
@@ -173,42 +251,98 @@ design_decisions:
     rationale: "fix 전 정지 — RPO=0 정합 (collector / ingester / WAL append-only 정상 운영, compactor 만 정지). docker compose stop compactor 단일 명령."
     owner_story: MCT-162
     addressed_in: [MCT-162]
-  D2:
-    decision: "L2Compactor compact_hour partition-level latest date lookup"
-    binding: "구현 (l2.py)"
-    rationale: "hour_utc=now strftime 하드코딩 제거 (KST→UTC date roll 시 어제 date L1 결과 hit 0 → silent return None). partition glob 으로 최신 date discover."
+  # MCT-160 11 결정 (Codex GPT-5 + Sonnet 합성, 사용자 OK 2026-05-13)
+  MCT-160_D1:
+    decision: "L3 cadence 합병 (옵션 A — L2 동형 silent-skip pathology fix 일관)"
+    binding: "구현 (l3.py compact_day date_utc 의무 인자 + L2 동형 패턴 답습)"
+    rationale: "L2 만 fix 시 L3 silent-skip 잔존 (KST→UTC date roll edge 동일 pathology). 동형 fix 답습으로 cadence path SSOT 정합."
     owner_story: MCT-160
     addressed_in: [MCT-160]
-  D3:
-    decision: "L2 streaming write — pa.concat_tables 제거, ParquetWriter.write_table per-file loop"
-    binding: "구현 (l2.py)"
-    rationale: "concat 후 sort_by 단일 buffer 32GB peak 차단. raw_json large_string column 누적 i32 offset overflow (4GB) 차단. memory 일정."
+  MCT-160_D2:
+    decision: "compact_hour date_utc caller 명시 전달 (옵션 C — caller-side date discover)"
+    binding: "구현 (l2.py + runner.py _run_l2 명시 전달)"
+    rationale: "hour_utc=now 하드코딩 제거. partition-level latest date discover (glob `tier=L1/exchange=*/symbol=*/date=*/`) 후 caller (runner.py) 가 명시 전달. KST→UTC date roll silent skip 차단."
     owner_story: MCT-160
     addressed_in: [MCT-160]
-  D5:
-    decision: "L1 backlog 79k 자연 drainage"
-    binding: "epic_close_gate"
-    rationale: "MCT-162 (orderbookdepth fast-fail 해소) + MCT-160 (L2 OOM 해소) land 후 compactor 정상 cadence 회복 → 자연 drainage. active batch cleanup 0."
+  MCT-160_D3:
+    decision: "chunk-based concat + row_group_size 명시 (옵션 B — chunk concat)"
+    binding: "구현 (l2.py + l3.py streaming write)"
+    rationale: "단일 pa.concat_tables sort_by 32GB peak + raw_json large_string 누적 i32 offset 4GB overflow 동시 차단. chunk size=1024 rows + row_group_size=100_000 명시 ParquetWriter.write_table per-chunk loop. memory 일정."
     owner_story: MCT-160
     addressed_in: [MCT-160]
-  D6:
-    decision: "MCT-159 (L2/L3 8.85 GiB migration) 별 Story 유지"
-    binding: "scope 분리 (EPIC-cold-tier-stage-3-wiring 소속)"
-    rationale: "MCT-159 = backlog migration scope, MCT-160 = L2 cadence + OOM root fix scope. 분리 유지. cross-epic dependency 0."
-    owner_story: MCT-159 (external)
-    addressed_in: [MCT-159]
+  MCT-160_D4:
+    decision: "post-write monotonic verify + fail/quarantine (옵션 C — verify + quarantine)"
+    binding: "구현 (l2.py + l3.py + quarantine.py 신규)"
+    rationale: "L1 ordering invariant Unknown 방어. ts_utc non-decreasing verify → 위반 시 quarantine isolate + Counter emit + 다음 segment 진행 (fail-closed 차단 정책, ADR-009 §D12.2 forward-only invariant 강화)."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_D5:
+    decision: "순증 중단 (옵션 B — drainage rate ≤ ingest rate)"
+    binding: "Phase 2 land 후 1h 박제 (Story §6 D9 + AC-Phase3-N)"
+    rationale: "MCT-162 fast-fail 해소 + MCT-160 D2 cadence + D3 OOM fix 후 compactor 정상 cadence 회복 → drainage rate ≥ ingest rate. active batch cleanup 0 (Phase 1 적정 기준)."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_D6:
+    decision: "caller sha256 산출 + data=parquet_path 전달 (옵션 A — minimal change)"
+    binding: "구현 (runner.py _dispatch_dual_write)"
+    rationale: "read_bytes 호출 2회 → 1회 (caller sha256 산출 단일 read + DualWriter NAS PUT 단일 read = 총 1회). DualWriter 변경 0 (이미 data: Path accept). memory 재할당 차단 = OOM 보조 원인 해소."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_D7:
+    decision: "3 schema 일관 nullability 명시 (옵션 B — discipline)"
+    binding: "구현 (l1.py 3 schema + ADR-009 amend)"
+    rationale: "MCT-162 CodeReviewPL P1 finding 합병 (single PR coverage). transaction + orderbooksnapshot + orderbookdepth 3 schema 일관 pa.field nullable=False/True 명시. malformed frame ValueError + Counter +1. ADR-009 amendment trail append."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_D8:
+    decision: "backfill_orchestrator 별 Story 분리 (옵션 B — OUT OF SCOPE)"
+    binding: "MCT-153/159 영역 (외부 Epic), 본 Story scope 외"
+    rationale: "backfill_orchestrator silent skip 잔존 = D8 OUT OF SCOPE. 별 Story (backfill_orchestrator silent-skip 차단) 후속. 본 Story scope 명확 분리."
+    owner_story: "external (MCT-153/159)"
+    addressed_in: []
+  MCT-160_D9:
+    decision: "upbit L1 lost = D2 fix 후 verify only (옵션 C — verify only)"
+    binding: "Phase 2 land 후 verify (AC-Phase3-P)"
+    rationale: "MCT-162 R4 (upbit L1 lost 별 root cause) verify only. D2 fix 후 partition glob 변경 시 upbit L1 partition 가시화 가능성. 0 persistent 시 MCT-164 별 Story 발의 결정 (upbit-specific path discovery 또는 ingester WAL path layout 진단)."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_D10:
+    decision: "ADR-027 silent-skip 차단 + ADR-009 nullability discipline 2건 amendment (옵션 B)"
+    binding: "Phase 1 hub PR (ADR-027 amend + ADR-009 amend)"
+    rationale: "ADR-027 = cadence path silent skip 차단 (MCT-162 D4 sibling — channel parity fail-fast 의 cadence path 대응). ADR-009 = 3 schema nullability discipline. 2건 amendment trail append (Amendment History entry)."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_D11:
+    decision: "L2/L3 각자 cadence 정상화, duplicate code 허용 (옵션 A — 분리 유지)"
+    binding: "scope 분리 (MCT-163 = cadence resolver 공통화 refactor 별 Story)"
+    rationale: "L2/L3 fix 동형 답습 = duplicate code 허용 (저렴한 회귀 위험). cadence resolver 공통화 = MCT-163 별 refactor Story (R6 mitigation). 본 Story 의 minimal change discipline 정합."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_R-EXTRA:
+    decision: "_dispatch_dual_write read_bytes memory 재할당 fix"
+    binding: "구현 (runner.py _dispatch_dual_write caller sha256)"
+    rationale: "D6 의 구현 측면. DualWriter.write data=Path streaming (이미 MCT-151 accept). caller sha256 산출 단일 read → NAS PUT 시점만 read. OOM 보조 원인 차단."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  MCT-160_P1-nullability:
+    decision: "MCT-162 CodeReviewPL P1 finding 본 Story 합병 (single PR coverage)"
+    binding: "구현 (l1.py 3 schema nullability + malformed frame ValueError + Counter emit)"
+    rationale: "MCT-162 RETRO §X 박제 + brainstorm Q 채택 (옵션 2 — MCT-160 합병). scope 분리 비용 회피 + 본 cycle 의 fast-fail 정책 trail 확장 일관성."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  # MCT-161 결정 (PROPOSED)
   D8:
     decision: "별 ADR-XXX 신규 — object store durability/versioning"
     binding: "ADR-XXX 신규 (MCT-161 Phase 1)"
     rationale: "MCT-153 backfill 4.2 GiB / 1370 obj NAS 손실 (bucket versioning 미활성) 재발 방지. bucket versioning + replication SSOT 별 ADR 필요 (ADR-027 amendment 만으로 부족 — 정책 영역)."
     owner_story: MCT-161
     addressed_in: [MCT-161]
-  R-EXTRA:
-    decision: "_dispatch_dual_write read_bytes memory 재할당 fix"
-    binding: "구현 (runner.py + dual_writer.py)"
-    rationale: "DualWriter.write data=Path streaming. Path object → bytes read 시점 lazy (sha256 single-pass, NAS PUT 시점만 read). OOM 보조 원인 차단."
-    owner_story: MCT-160
-    addressed_in: [MCT-160]
+  D6_external:
+    decision: "MCT-159 (L2/L3 8.85 GiB migration) 별 Story 유지"
+    binding: "scope 분리 (EPIC-cold-tier-stage-3-wiring 소속)"
+    rationale: "MCT-159 = backlog migration scope, MCT-160 = L2 cadence + OOM root fix scope. 분리 유지. cross-epic dependency 0."
+    owner_story: MCT-159 (external)
+    addressed_in: [MCT-159]
 
 risks:
   R1:
@@ -241,12 +375,31 @@ risks:
     mitigation: "label `channel` source = L1Compactor `_schema_version(channel)` 호출 path 의 channel 인자 only. caller = `compact_segment` 의 segment metadata 추출 (collector emit channel name SSOT). attacker-controlled injection path 0 = bounded low cardinality 유지. SecurityArch 7.3 박제."
     owner_story: MCT-162
     addressed_in: [MCT-162]
-  R6:
+  R6_legacy_l2_partition_layout:
     severity: LOW
     description: "L2 layer 의 `orderbook_depth.v1` partition path 미정 — 본 MCT-162 = L1 partition 만 박제, L2 partition layout 은 MCT-160 author scope"
     mitigation: "MCT-162 Phase 2 = L1 partition only (`market/orderbookdepth/schema_version=orderbook_depth.v1/tier=L1/...`). MCT-160 Phase 1 Architect 에 L2 partition layout author 의무 박제 (`tier=L2/.../date=D/hour=HH/node=MERGED/` 정합)."
     owner_story: MCT-160
     addressed_in: [MCT-160]
+  # MCT-160 추가 risks (Codex GPT-5 + Sonnet 합성, D11 + R7/R8)
+  R6:
+    severity: LOW
+    description: "cadence resolver 공통화 폭주 risk (D11) — MCT-163 별 refactor Story 진입 시 L2/L3 duplicate code 통합 시점에 silent skip 재발 가능"
+    mitigation: "D11 채택 (옵션 A — 분리 유지) = 본 Story 의 minimal change discipline. MCT-163 brainstorm 시 MCT-160 §11 박제 cross-ref 의무 (cadence resolver SSOT 통합 시 silent skip invariant 검증)."
+    owner_story: MCT-160
+    addressed_in: [MCT-160]
+  R7:
+    severity: HIGH
+    description: "upbit L1 lost 별 root cause unverified — D9 (verify only) 후에도 upbit L1 partition 0 가능성 (upbit ingester emit `orderbookdepth` 0, orderbookdepth allowlist 와 무관)"
+    mitigation: "MCT-160 Phase 2 land 후 AC-Phase3-P verify (D9 verify only). 0 persistent 시 MCT-164 별 Story 발의 결정 — 진단 후보: (1) upbit sealed file segment metadata mismatch (e.g., channel 필드 부재) (2) compactor upbit-specific path discovery 부재 (3) ingester WAL path layout exchange-level discrepancy."
+    owner_story: "MCT-160 (verify) → MCT-164 (별 Story, 0 persistent 시)"
+    addressed_in: [MCT-160]
+  R8:
+    severity: MEDIUM
+    description: "backfill_orchestrator silent skip 잔존 — D8 OUT OF SCOPE 결정 (MCT-153/159 영역). 본 Story land 후 backfill 산출물 silent skip 가능성 잔여"
+    mitigation: "본 Story scope 외 (MCT-153/159 = backfill 영역). 별 Story (backfill_orchestrator silent-skip 차단) 후속 발의 결정 — MCT-160 retro 시 surface 의무."
+    owner_story: "external (MCT-153/159 후속)"
+    addressed_in: []
 
 dependency:
   blocked_by: []  # MCT-156 + MCT-159 LAND 완료 (prerequisites 박제)
@@ -272,12 +425,16 @@ story_sequence:
     rationale: "MCT-160 land 후 L1 backlog drainage 확인 → bucket versioning + replication 정책 land. MCT-153 손실 재발 방지."
 
 epic_close_gate:
-  - "MCT-162 PR MERGED (Phase 1 hub + Phase 2 mctrader-data + Phase 2 hub) + ADR-009 §D11.9 신규 + §D2.6 row 추가 + ADR-027 D4 amendment LAND"
-  - "MCT-160 PR MERGED (Phase 1 hub + Phase 2 mctrader-data + Phase 2 hub) + L1 backlog ≤ 1000 verify (자연 drainage 확인)"
+  - "MCT-162 PR MERGED (Phase 1 hub #284 + Phase 2 mctrader-data #52 + Phase 2 hub #285) + ADR-009 §D11.9 신규 + §D2.6 row 추가 + ADR-027 D4 amendment LAND ✅ 2026-05-13"
+  - "MCT-160 PR MERGED (Phase 1 hub + Phase 2 mctrader-data + Phase 2 hub) + L1 backlog drainage rate ≤ ingest rate verify (D5, 1h 박제) + ADR-027 silent-skip amendment + ADR-009 nullability amendment LAND"
+  - "MCT-160 D9 verify — upbit L1 partition 가시화 또는 MCT-164 별 Story 발의 결정 박제 (R7 mitigation)"
+  - "MCT-160 consumer nullability smoke verify (mctrader-engine pyarrow read sample) — Codex 추가 risk"
+  - "MCT-160 quarantine 산출물 운영자 review 의무 trail (Phase 2 land 후 1h+24h sample, R6 + 운영 의무)"
   - "MCT-161 PR MERGED (Phase 1 hub ADR-XXX 신규 + Phase 2 mctrader-data compose.yml + bucket versioning enable verify)"
-  - "PMOAgent retro 3건 write (templates/retro.md schema) — RETRO-MCT-162 + RETRO-MCT-160 + RETRO-MCT-161"
-  - "Epic milestone description 갱신 + gate:retro-complete label"
+  - "PMOAgent retro 3건 write (templates/retro.md schema) — RETRO-MCT-162 ✅ + RETRO-MCT-160 + RETRO-MCT-161"
+  - "Epic milestone description 갱신 + gate:retro-complete label (3 Story 별 부착)"
   - "Cross-Story patterns 박제 (post-MCT-156 deploy 5중 차단 → 3 Story sequential 해소 evidence pack)"
+  - "MCT-163 spinoff (cadence resolver 공통화 refactor) + MCT-164 spinoff (upbit L1 lost 별 root cause) 발의 결정 박제 — MCT-160 retro 시"
 
 epic_close_gate_at: null  # MCT-161 PMOAgent retro 후 박제
 
