@@ -426,7 +426,7 @@ epic_milestones:
           escalate_count: 0
           codeforge_lesson: mclayer/plugin-codeforge#525 (lesson #5 후보 — scope_manifest planned_files invariant, Phase 2 실 운영 추가 박제 방지)
           addresses_decisions: [S1_dual_write_window_runner, S7_sop_runbook, S11_iops_during]
-      next: MCT-153  # 5 SP, depends_on MCT-152 ✅ (사용자 Phase C 순차 directive)
+      next: MCT-153  # 8 SP, depends_on MCT-152 ✅ (사용자 Phase C 순차 directive) — FIX#1 F3 정정 (5 → 8)
       adr_amendment_status:
         - decision: D2
           trigger_story: MCT-155
