@@ -330,3 +330,86 @@ codeforge skill `codeforge:fix-ledger-schema` 정합 — 본 Story `§10 FIX Led
 ---
 
 **MCT-156 Stage 3 entrypoint LAND.** Stage 3 milestone 1/3 (33.3%) + FIX 0 + 데이터 손실 0 + Cross-Story patterns surface (post-closure wiring gap pattern 1회 누적, ADR 후보 발의 DEFER).
+
+---
+
+## 13. Post-merge production deploy verification (2026-05-13 18:11~18:25 KST, append)
+
+본 §은 Phase 2 LAND 직후 production deploy verification cycle 의 사실 박제. 사용자 directive ("tier 대로 잘 재배치 되었는지 확인하자" + "node=MERGED 있는채로 적용") 정합 후속.
+
+### 13.1 NAS endpoint DNS 교체 (IP → DNS)
+
+- 초기 deploy: `NAS_MINIO_ENDPOINT=http://192.168.50.200:9000` (IP)
+- 사용자 directive 후 교체: `NAS_MINIO_ENDPOINT=http://mcnas01.internal.mclayer.it:9000` (DNS)
+- DNS 정합: `mcnas01.internal.mclayer.it → 192.168.50.200 (A)` + reverse PTR `MCNAS01` — **같은 host**
+- 운영 권고: production deploy 시 IP 박제 비권고 (DR/NAS hardware 교체 시 endpoint 갱신 cost). DNS 사용 의무.
+
+### 13.2 Force PUT 검증 (wiring 정합 입증)
+
+자연 cadence 차단 (§13.4) 우회 — manual python 으로 L2Compactor + DualWriter 직접 호출:
+
+```
+upbit transaction KRW-BTC L2 (hour=09 UTC):
+  status = committed
+  key = market/transaction/schema_version=tick.v1/tier=L2/exchange=upbit/symbol=KRW-BTC/date=2026-05-13/hour=09/node=MERGED/part-6d14a9c816d51f28.parquet
+  size = 2,563,414 bytes (2.4 MB)
+  NAS PUT latency = 455.3 ms (MCT-148 T2 NFR-1 baseline 정합)
+  put_status = uploaded, etag = 6c094ac7a4004b0a
+```
+
+- ADR-027 D4/D5 amendment 정합 (DualWriter primitive + retry queue + Prometheus emit)
+- write path schema 확정: `market/<channel>/schema_version=*/tier=L{2,3}/exchange=*/symbol=*/date=*/hour=HH/node=MERGED/part-*.parquet` (L3 는 hour 없음)
+
+### 13.3 사용자 결정 박제: `node=MERGED` 유지 (옵션 A)
+
+- ADR-009 §D2.1 + §D14 mandatory 정합 (`node=<id>` enforced at every tier level)
+- MCT-153 backfill convention 답습 — mixed layout 위험 0
+- reader partition pruning semantic 명확 (L1 = `NODE_*` collector hostname, L2/L3 = `MERGED` aggregated marker)
+- 본 결정 적용 = 코드 변경 0
+- 재시작 후 NAS dual-write enabled 메시지 verify (`endpoint=http://mcnas01.internal.mclayer.it:9000 bucket=mctrader-market`)
+
+### 13.4 진짜 차단 원인 surface — L1 backlog 76,200
+
+`compactor/runner.py:_tick()` 가 L1 처리를 sequential loop, L1 loop 끝난 후에야 L2 trigger 분기 도달:
+
+| 채널 | sealed segments | 처리 속도 | ETA |
+|------|----------------|-----------|-----|
+| `orderbookdepth` | 48,629 | NotImplementedError 즉시 fail (L1Compactor `_schema_version` 미지원) | ~8분 (fast fail) |
+| `transaction` | 16,428 | 1-2 sec/segment | ~5.5시간 |
+| `orderbooksnapshot` | 11,143 | 1-2 sec/segment | ~3.7시간 |
+| **L2 자연 trigger ETA** | — | — | **~9.2시간** |
+
+→ 자연 cadence 검증 (Force PUT 외) ~9.2시간 후. R1 release gate smoke test (MCT-158) 가 본 ETA 후 evidence pack 작성.
+
+### 13.5 추가 pre-existing 운영 issue surface
+
+**13.5.1 L2Compactor `orderbooksnapshot` pyarrow offset overflow**:
+- `pa.concat_tables(tables).sort_by("ts_utc")` 시 `ArrowInvalid: offset overflow while concatenating arrays, consider casting input from string to large_string first`
+- 원인: orderbooksnapshot 의 large string column 의 누적 array 가 4 GB+ size 한계 도달
+- 영향: orderbooksnapshot channel 의 L2 compaction 자체가 fail (force PUT 시도 시 발견)
+- 해결 후보: pyarrow `large_string` type cast 또는 chunk-based concat
+
+**13.5.2 MCT-153 backfill 산출물 손실 확정**:
+- 본 대화 시작 시 사용자가 본 콘솔 = 4.2 GiB / 1370 obj, prefix `tier=L2/exchange=upbit/symbol=KRW-ATOM/date=2026-05-10/node=MERGED/` (legacy ADR-009 §D2.1 layout, `market/` + `schema_version/` + `hour/` 모두 부재)
+- 본 deploy verification 실측 = 64 obj / 917.5 MiB, `market/` (force PUT) 1 + `smoke/` (MCT-148 PoC) 63
+- bucket lifecycle = 없음, versioning = 미활성 (`list_object_versions` 결과 0/0)
+- → **MCT-153 backfill 산출물 4.2 GiB 손실 확정** (복구 불가)
+- S1/S6/S7 결정 (legacy NAS 4.2 GiB reader fallback) 의 전제 깨짐 — local SoT 안전, historical L2/L3 NAS 누적 0 시작
+
+### 13.6 별 Story 발의 (B 옵션 채택)
+
+**MCT-159** — `compactor L1 backlog cleanup — orderbookdepth channel mismatch + L2 offset overflow + MCT-153 backfill 산출물 손실` (counters reservation 박제, 신규 Epic `EPIC-compactor-operations`).
+
+본 RETRO §13.4 + §13.5 의 3개 issue 가 MCT-159 scope. 별 brainstorm Phase 0 진입 시 spec/plan 발의.
+
+### 13.7 신규 runbook: `docs/runbooks/stage3-deploy-runbook.md`
+
+본 cycle 의 deploy 절차 + DNS endpoint + verify checklist 박제. 본 chore commit 의 산출물.
+
+### 13.8 Cross-Story pattern 추가 누적 (ADR trigger 도달)
+
+§8 surface "Stage 2 EPIC CLOSED → production 실측 후에야 wiring gap surface" pattern 이 본 verification cycle 에서 **재발견** (Phase 2 review 4 lane ALL PASS mock-only + production deploy 직후 1370 obj 손실 + L1 backlog 76k 차단):
+
+- **재발 1회 누적** (Stage 2 1회 + 본 cycle 1회 = 2회) → ADR 정식 발의 trigger 도달
+- ADR-XXX 후보: "production cutover gate 의 evidence pack 의무 (mock-only PR 박제 0)"
+- 다음 Epic CLOSED cycle 진입 시 PMOAgent 정식 ADR draft 발의 권고

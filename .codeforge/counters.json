@@ -2,7 +2,7 @@
   "version": 1,
   "prefix": "MCT",
   "counters": {
-    "mctrader-hub":            { "next": 157 },
+    "mctrader-hub":            { "next": 160 },
     "mctrader-data":           { "next": 1 },
     "mctrader-market":         { "next": 1 },
     "mctrader-market-bithumb": { "next": 1 },
@@ -18,6 +18,9 @@
     "MCT-152": { "title": "L2/L3 일괄 이관 — mc-mirror forward-only", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_only" },
     "MCT-153": { "title": "Local L2/L3 GC — dry-run + 7일 grace", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-data", "phase_pair": "phase1_phase2" },
     "MCT-154": { "title": "engine reader read-through cache (NAS = SoT)", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-engine", "phase_pair": "phase1_phase2" },
-    "MCT-155": { "title": "hub compose MINIO_ENDPOINT cutover + secret rotation runbook", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-hub", "phase_pair": "phase1_only" }
+    "MCT-155": { "title": "hub compose MINIO_ENDPOINT cutover + secret rotation runbook", "reserved_at": "2026-05-12", "epic": "EPIC-cold-tier-nas-minio", "repo": "mctrader-hub", "phase_pair": "phase1_only" },
+    "MCT-157": { "title": "Prometheus layout label 분리 (legacy_node_default vs new_node_merged)", "reserved_at": "2026-05-13", "epic": "EPIC-cold-tier-stage-3-wiring", "repo": "mctrader-data", "phase_pair": "phase1_phase2" },
+    "MCT-158": { "title": "Stage 3 release gate smoke test + cutover runbook + EPIC CLOSED", "reserved_at": "2026-05-13", "epic": "EPIC-cold-tier-stage-3-wiring", "repo": "mctrader-hub", "phase_pair": "phase1_phase2" },
+    "MCT-159": { "title": "compactor L1 backlog cleanup — orderbookdepth channel mismatch + L2 offset overflow + MCT-153 backfill 산출물 손실", "reserved_at": "2026-05-13", "epic": "EPIC-compactor-operations", "repo": "mctrader-data", "phase_pair": "phase1_phase2" }
   }
 }
