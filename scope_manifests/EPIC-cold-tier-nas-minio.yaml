@@ -384,11 +384,11 @@ epic_milestones:
     on_pass: "Epic CLOSED, PMOAgent Epic-final retro 자동 dispatch"
     on_fail: "rollback runbook 발동 — MINIO_ENDPOINT local 복귀, 7일 grace 내 local 데이터 잔존 활용"
     progress:
-      stories_complete: 4
+      stories_complete: 5
       stories_total: 6
-      sp_burned: 26
+      sp_burned: 31
       sp_total: 36
-      sp_progress_pct: 72.2
+      sp_progress_pct: 86.1
       complete:
         - story: MCT-150
           sp: 5
@@ -438,7 +438,19 @@ epic_milestones:
           escalate_count: 0
           codeforge_lesson: mclayer/plugin-codeforge#525 (lesson #5 sub-invariant 후보 — cross-section quantitative consistency, 3 Story 연속 code-review FIX 0)
           addresses_decisions: [S1, S5, S6, S7]
-      next: MCT-154  # 5 SP, depends_on MCT-152 ✅ + MCT-153 ✅ — Phase 2D reader endpoint cutover
+        - story: MCT-154
+          sp: 5
+          phase_pair: phase1_phase2
+          merged_at: 2026-05-13
+          phase1_pr: mclayer/mctrader-hub#271
+          phase2_pr_engine: mclayer/mctrader-engine#52
+          phase2_pr_hub: mclayer/mctrader-hub#272
+          retro: docs/retros/RETRO-MCT-154.md
+          fix_cycle_total: 0
+          escalate_count: 0
+          codeforge_lesson: mclayer/plugin-codeforge#525 (lesson #5 sub-invariant 첫 적용 — cross-section quantitative consistency cascade table 13 row, design-review FIX 0 + dimensional cascade 0 효과 입증)
+          addresses_decisions: [S3, S6, S9]
+      next: MCT-155  # 5 SP, depends_on MCT-154 ✅ + 7d grace 만료 — Stage 2 마지막 Story (local GC + secret rotation + RPO=0 검증 + Stage 2 종료 gate)
       adr_amendment_status:
         - decision: D2
           trigger_story: MCT-155
