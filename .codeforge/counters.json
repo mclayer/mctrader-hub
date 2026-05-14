@@ -27,159 +27,48 @@
       "reserved_at": "2026-05-12",
       "epic": "EPIC-cold-tier-nas-minio",
       "repo": "mctrader-hub",
-      "phase_pair": "phase1_only"
-    },
-    "MCT-148": {
-      "title": "Cold tier PoC spike — 5종 검증",
-      "reserved_at": "2026-05-12",
-      "epic": "EPIC-cold-tier-nas-minio",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_only"
+      "phase_pair": "phase1_only",
+      "_audit_note": "Story file 존재하나 status=phase:요구사항. 진행 상태 불명 → cleanup 보류 (별 audit Story trigger 필요)"
     },
     "MCT-149": {
       "title": "ADR-027 Cold Tier Object Storage on NAS MinIO",
       "reserved_at": "2026-05-12",
       "epic": "EPIC-cold-tier-nas-minio",
       "repo": "mctrader-hub",
-      "phase_pair": "phase1_only"
+      "phase_pair": "phase1_only",
+      "_audit_note": "Story file 존재하나 status=phase:요구사항. 진행 상태 불명 → cleanup 보류"
     },
     "MCT-150": {
       "title": "minio_uploader hardening — retry queue + Prometheus metrics + alert",
       "reserved_at": "2026-05-12",
       "epic": "EPIC-cold-tier-nas-minio",
       "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2"
+      "phase_pair": "phase1_phase2",
+      "_audit_note": "Story file 존재하나 status=phase:구현-리뷰. 진행 상태 불명 → cleanup 보류"
     },
-    "MCT-151": {
-      "title": "Dual-write + 3-종 invariant gate",
+    "MCT-148": {
+      "title": "Cold tier PoC spike — 5종 검증",
       "reserved_at": "2026-05-12",
       "epic": "EPIC-cold-tier-nas-minio",
       "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2"
-    },
-    "MCT-152": {
-      "title": "L2/L3 일괄 이관 — mc-mirror forward-only",
-      "reserved_at": "2026-05-12",
-      "epic": "EPIC-cold-tier-nas-minio",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_only"
-    },
-    "MCT-153": {
-      "title": "Local L2/L3 GC — dry-run + 7일 grace",
-      "reserved_at": "2026-05-12",
-      "epic": "EPIC-cold-tier-nas-minio",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2"
-    },
-    "MCT-154": {
-      "title": "engine reader read-through cache (NAS = SoT)",
-      "reserved_at": "2026-05-12",
-      "epic": "EPIC-cold-tier-nas-minio",
-      "repo": "mctrader-engine",
-      "phase_pair": "phase1_phase2"
-    },
-    "MCT-155": {
-      "title": "hub compose MINIO_ENDPOINT cutover + secret rotation runbook",
-      "reserved_at": "2026-05-12",
-      "epic": "EPIC-cold-tier-nas-minio",
-      "repo": "mctrader-hub",
-      "phase_pair": "phase1_only"
+      "phase_pair": "phase1_only",
+      "_audit_note": "Story file 부재. RESERVED 의도 보존 또는 cancelled 불명 → cleanup 보류"
     },
     "MCT-157": {
       "title": "Prometheus layout label 분리 (legacy_node_default vs new_node_merged)",
       "reserved_at": "2026-05-13",
       "epic": "EPIC-cold-tier-stage-3-wiring",
       "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2"
+      "phase_pair": "phase1_phase2",
+      "_audit_note": "Story file 부재. RESERVED 의도 보존 또는 cancelled 불명 → cleanup 보류"
     },
     "MCT-158": {
       "title": "Stage 3 release gate smoke test + cutover runbook + EPIC CLOSED",
       "reserved_at": "2026-05-13",
       "epic": "EPIC-cold-tier-stage-3-wiring",
       "repo": "mctrader-hub",
-      "phase_pair": "phase1_phase2"
-    },
-    "MCT-159": {
-      "title": "L2/L3 cold tier backlog NAS migration (~8.85 GiB / 7118 files, channel parametrize + hour key amend)",
-      "reserved_at": "2026-05-13",
-      "epic": "EPIC-cold-tier-stage-3-wiring",
-      "repo": "mctrader-data",
       "phase_pair": "phase1_phase2",
-      "retitle_history": [
-        {
-          "date": "2026-05-13",
-          "from": "compactor L1 backlog cleanup — orderbookdepth channel mismatch + L2 offset overflow + MCT-153 backfill 산출물 손실",
-          "rationale": "brainstorm Phase 1 D1 (iii) 채택 — 4-issue triage 후 이관 only 로 scope 분리, 기존 3 sub-issue = MCT-160 reserve"
-        }
-      ]
-    },
-    "MCT-164": {
-      "title": "upbit WAL forward-only loss 진단 (channel mismatch + compactor source 규약 + ADR-017/027 amendment)",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-data-accumulation-umbrella",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-165 V2 잔존 YES trigger. forward-only loss 누적 차단 = D2=A WAL freeze 즉시 + D3=A channel mismatch 가설 우선 진단 + D9=A ADR-017/027 amendment. fix scope 는 MCT-166 별 brainstorm.",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "upbit L1 lost root cause (path discovery / ingester WAL layout) — MCT-160 R7 verify 잔존 시 발의 placeholder",
-          "rationale": "MCT-165 V2 verify 잔존 YES 박제 후 brainstorm 진입 — scope = 진단 only (D1=A 2 Story 분리, fix = MCT-166 별 Story)"
-        }
-      ]
-    },
-    "MCT-165": {
-      "title": "Data Accumulation Health Verification — Framework + 3 follow-up Verify (MCT-103/MCT-160 R7/50-sym 5d health 통합)",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-data-accumulation-umbrella",
-      "repo": "mctrader-hub",
-      "phase_pair": "phase1_phase2",
-      "rationale": "사용자 통합 의도 (3 follow-up 산분 시 검증 누락 우려) + Phase 0 4 에이전트 + Codex 합성 9 결정점 채택. 1 Story 통합 (D2=B), 4 layer MVP (D4=C), 정적 ±20% + rolling 자리 예약 (D5=C), CLI + JSON/CSV/markdown (D6=B)."
-    },
-    "MCT-166": {
-      "title": "upbit L1 forward-only loss fix — channel mismatch 해소 (collector.py L82 fix or compactor 분기 활성화) + fail-fast + verify + WAL freeze 해제",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-data-accumulation-umbrella",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-164 INV-5 진단→fix 인과 chain. D1=B 선결 검증 / D2=C 자율 / D3=B backfill 별 / D4=C 양쪽 fail-fast / D5=A matrix 전이 / D6=B 당일 / D7=C 선결 게이트 / D8=A fix LAND verify 후 freeze 해제 / D9=C health framework + verify 스크립트.",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "upbit L1 forward-only loss fix (MCT-164 진단 결과 기반 — scope 확정 후 brainstorm) placeholder",
-          "rationale": "MCT-164 §10 채택 후 brainstorm 진입 — channel mismatch root cause 단일 확정 인용. D7=C 1 Story + 선결 게이트 분기, D3=B backfill 별 MCT-173."
-        }
-      ]
-    },
-    "MCT-172": {
-      "title": "EPIC-tier-promotion-single-source policy finalize — 8 invariant smoke + D8 sunset policy + promotion.py cleanup + WAL synthetic baseline (Epic close blocked pending production evidence)",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-tier-promotion-single-source",
-      "repo": "mctrader-hub",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-167-171 ALL LAND, Epic 종료 gate. Codex review 9 결정점 채택 (D8-1=A InvariantHarness 8종 SSOT / D8-2=C baseline+peak hybrid / D8-3=A 정책 finalize only / D8-4=C 2026-08-18 14d window / D8-5=A verify_no_ambiguity 즉시 제거 + caller migrate / D8-6=A production deploy 후 실측 / D8-7=A 초과 시 Epic close FAIL / D8-8=A 동일 1h window / D8-9=C production 14d 후 Epic CLOSED 별 PR). 본 Story = policy finalize + cleanup 박제, Epic CLOSED 는 production evidence 완성 후 별 PR 또는 scope_manifest amend.",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "EPIC-tier-promotion-single-source 통합 smoke + ambiguity invariant cross-Story verify + EPIC CLOSED",
-          "rationale": "Codex review 9 결정점 합성 — Epic CLOSED 는 production evidence 완성 후 의무 (D8-3 + D8-6 + D8-9). 본 Story scope = policy finalize (ADR-029 §D8 amendment + 14d window 명시 + telemetry watcher 박제) + promotion.py cleanup (D8-5=A 즉시 제거 + caller migrate) + integration smoke (8 invariant cross-Story verify) + WAL synthetic baseline. Epic CLOSED 자체 박제는 production deploy 후 별 PR."
-        }
-      ]
-    },
-    "MCT-173": {
-      "title": "upbit L1 backfill — frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (compactor.runner --backfill extend + D7=C 단계 분할)",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-data-accumulation-umbrella",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-166 D3=B 결정 + MCT-164 D4=C 부분가능 verdict 인용. D1=B runner extend / D2=C Phase 2 entry 실측 / D3=A PIT snapshot / D4=A .compacted rename idempotency / D5=B frontmatter manifest / D6=B 당일 / D7=C 단계 분할 / D8=C 양쪽 verify / D9=C entry inventory.",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "upbit L1 backfill — frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (MCT-166 D3=B 별 Story) placeholder",
-          "rationale": "MCT-166 ALL LAND 후 brainstorm 진입. D1=B compactor runner --backfill extend / D7=C 1 Story + Phase 2 단계 분할 / D8=C MCT-165 V2=0 + 별 verify 스크립트."
-        }
-      ]
+      "_audit_note": "Story file 부재. RESERVED 의도 보존 또는 cancelled 불명 → cleanup 보류"
     },
     "MCT-174": {
       "title": "NAS bucket replication — cross-NAS target (mcnas02) + DeleteMarker OFF + async replication (MCT-161 D2=D deferred backlog)",
