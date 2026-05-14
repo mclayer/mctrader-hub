@@ -39,7 +39,7 @@ mctrader-data 의 multi-exchange × multi-channel × multi-tier 매핑 SSOT. ADR
 
 ## Cross-ref
 
-- [ADR-017 Amendment 2026-05-14 (MCT-164)](../../../../adr/ADR-017-zero-loss-ingestion-wal-tiered-compaction.md#§amendment-—-compactor-source-규약-channel-matrix-ssot-multi-channel-exchange-지원-new-mct-164-2026-05-14) (compactor source 규약)
+- [ADR-017 Amendment 2026-05-14 (MCT-164)](../../../../adr/ADR-017-zero-loss-ingestion-wal-tiered-compaction.md#amendment--compactor-source-규약-channel-matrix-ssot--multi-channel-exchange-지원-new-mct-164-2026-05-14) (compactor source 규약)
 - [ADR-027 MCT-164 amendment](../../../../adr/ADR-027-cold-tier-object-storage-nas-minio.md) (미지원 source silent-skip 차단)
 - [MCT-164 Story](../../../../stories/MCT-164.md) (본 matrix SSOT 발의 Story)
 - [MCT-165 verify-d5](verify-d5-2026-05-14.md) §V2 (upbit L1 partition 0 trigger)
