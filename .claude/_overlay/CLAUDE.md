@@ -82,9 +82,9 @@ SSOT 상수는 `.claude/_overlay/project.yaml` 참조.
 - **Session 1** (다른 세션): `mclayer/plugin-codeforge` 의 CFP-60 (cross-repo Epic + debut-audit + phase-gap signal) 진행 중. Phase 1 PR merge 가 본 repo 의 Epic MCT-12 시작 전 dependency.
 - **본 세션** (Session 2): mctrader-hub scaffolding + MCT-1 ~ MCT-11 도메인 ADR 작성 가능. MCT-12 (Bithumb OHLCV → SMA backtest end-to-end) 은 CFP-60 merge 후.
 
-## Sonnet decider
+## Claude decider (구 Sonnet decider, 2026-05-14 표현 통일)
 
-substantive 다중 결정 시 ADR-019 (CFP-59) Sonnet decider protocol 적용. 본 repo 의 도메인 ADR 작성 시에도 동일.
+substantive 다중 결정 시 ADR-019 (CFP-59) decider protocol 적용. Claude 가 Codex 의견 + 자체 판단으로 합성 결정. 본 repo 의 도메인 ADR 작성 시에도 동일. "Sonnet decider" 프레임워크 호출은 금지 — 메모리 [feedback_phase_codex_review_loop](../../../../../Users/mccho/.claude/projects/c--workspace-mclayer-mctrader-hub/memory/feedback_phase_codex_review_loop.md) 정합.
 
 ## codeforge 의무 사용 (CFP-96 Phase 6a, ADR-027)
 
@@ -161,7 +161,7 @@ HOTFIX_BYPASS_CODEFORGE=1 HOTFIX_BYPASS_REASON='<incident-id>' <명령>
 - **Cross-repo 참조**: `{repo-name}#MCT-NNN` (예: `mctrader-data#MCT-001`)
 - Story 신규: `.github/ISSUE_TEMPLATE/story.yml` 사용 → `story-init.yml` Action 이 §1-7 자동 scaffold (CFP-105)
 - Phase: 요구사항 → 설계 → 설계-리뷰 → 구현 → 구현-리뷰 → CI 테스트 (`gh pr checks` polling, ADR-048) → 통합테스트 (IntegrationTestAgent, ADR-055, §8.6, test-verdict-v2.2, Epic-level CFP-371/CFP-373) → 보안-테스트 → 완료 → **PMO 회고 (의무)**
-- Sonnet decider 의무 (ADR-022) — 모든 design / scope 결정점에서 Sonnet 합성 필수
+- Claude decider 의무 (ADR-022) — 모든 design / scope 결정점에서 Claude 가 Codex 의견 + 자체 판단 합성 필수
 
 ### Story 완료 의무 — PMO 회고 자동 dispatch (RETRO-MCT-107-111 §8 ESCALATE 후속)
 
@@ -276,31 +276,14 @@ py -3.12 -m pytest tests/ -v
 
 > `mctrader-data`, `mctrader-engine`: MCT-110에서 stale wheel 문제 직접 확인 → D3 우선순위 HIGH
 
-## Compactor 운영 (MCT-132 Phase 1)
+## Compactor 운영 + 관측
 
-- 컨테이너: `mctrader-compactor` (mctrader-data compose service)
-- `mem_limit: 32G` (호스트 62.73GiB 의 절반), `memswap_limit: 32G` (swap disabled)
-- 환경변수:
-  - `MALLOC_TRIM_THRESHOLD_=131072` (glibc free 후 OS 반환 trigger)
-  - `ARROW_DEFAULT_MEMORY_POOL=system` (PyArrow jemalloc → glibc 전환)
-  - `MCTRADER_COMPACTOR_GC_INTERVAL_SECONDS=300` (runner 가 5분 주기 `gc.collect()` 호출)
-  - `MCTRADER_COMPACTOR_METRICS_PORT=8080`
-- mem_limit 초과 시 `restart: unless-stopped` — A2 metric (`compactor_process_rss_bytes`) 으로 즉시 감지
-- L1/L2/L3 ParquetWriter `with` context manager + tmp 파일 cleanup on exception
-
-## Compactor 관측 (MCT-134 Phase 1)
-
-- `/metrics`: `http://mctrader-compactor:8080/metrics` (host expose: `localhost:8080`)
-- Prometheus scrape job: `mctrader-data-compactor` (`monitoring/prometheus.yml`)
-- Grafana dashboard: `mctrader/Compactor Memory & Throughput` (uid: `mctrader-compactor`)
-- 5 metric:
-  - `compactor_process_rss_bytes` — process RSS (procfs primary, resource/ctypes fallback)
-  - `compactor_pyarrow_total_allocated_bytes` — PyArrow default memory pool
-  - `compactor_python_gc_gen_count{generation="0|1|2"}` — Python GC generation counts
-  - `compactor_tier_pending_segments{tier="L1|L2|L3"}` — L1: sealed segment count, L2/L3: elapsed/interval (epoch 0 인 경우 0)
-  - `compactor_writer_open_count{tier="L1|L2|L3"}` — paired inc/dec around ParquetWriter
-- Phase 1 land report: `docs/runbooks/compactor-mct132-phase1-land.md`
-- Baseline capture runbook: `docs/runbooks/compactor-baseline.md`
+- 컨테이너: `mctrader-compactor` (mctrader-data compose service), `mem_limit: 32G`, `memswap_limit: 32G` (swap disabled)
+- 핵심 env: `MALLOC_TRIM_THRESHOLD_=131072` (glibc free 후 OS 반환), `ARROW_DEFAULT_MEMORY_POOL=system` (PyArrow jemalloc → glibc), `MCTRADER_COMPACTOR_GC_INTERVAL_SECONDS=300`, `MCTRADER_COMPACTOR_METRICS_PORT=8080`
+- mem_limit 초과 시 `restart: unless-stopped` — `compactor_process_rss_bytes` metric 으로 즉시 감지
+- `/metrics`: `http://mctrader-compactor:8080/metrics` (host: `localhost:8080`), Prometheus job `mctrader-data-compactor`, Grafana `mctrader/Compactor Memory & Throughput` (uid `mctrader-compactor`)
+- 5 metric (MCT-134 Phase 1): `compactor_process_rss_bytes` / `compactor_pyarrow_total_allocated_bytes` / `compactor_python_gc_gen_count{generation}` / `compactor_tier_pending_segments{tier}` / `compactor_writer_open_count{tier}`
+- SSOT runbook: [docs/runbooks/compactor-mct132-phase1-land.md](../../docs/runbooks/compactor-mct132-phase1-land.md), [docs/runbooks/compactor-baseline.md](../../docs/runbooks/compactor-baseline.md)
 - tracemalloc collector: `tools/compactor-tracemalloc.py` (컨테이너 내 `/tmp/compactor_capture.py` 로 cp — shadowing 회피)
 
 ## ADR Index
@@ -309,198 +292,90 @@ py -3.12 -m pytest tests/ -v
 
 - **ADR-027** — Cold Tier Object Storage on NAS MinIO. status=Accepted (2026-05-12, MCT-149). EPIC-cold-tier-nas-minio Stage 1 종료 governance. ADR-017 successor (cold tier extension), ADR-016 complement. D1~D11 + MCT-148 5 PoC PASS evidence transcribe. Stage 2 (MCT-150~155) 진입 자격 박제. [docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md](../../docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md)
 
-## 인프라 — Cold Tier (MCT-147 ~ MCT-155 EPIC-cold-tier-nas-minio)
+## 인프라 — Cold Tier (EPIC-cold-tier-nas-minio + Stage 3 wiring)
 
 `mctrader-data` 의 cold tier (L2/L3 compacted Parquet) 를 외부 Synology NAS Container Manager 위 MinIO 컨테이너로 이관 (ADR-027). 호스트 disk 용량 압박 해소 + ADR-017 zero-loss invariant (collector hot path / WAL / L1 = local 유지) 보존.
 
-### Stage 1 종료 (MCT-149, 2026-05-12)
+### Historical milestone summary
 
-- **MCT-147** (MERGED, `mctrader-hub#246` 409d076) — NAS MinIO 컨테이너 deploy + `mctrader-market` bucket 초기화 + 90일 credential rotation runbook + 4중 mitigation (.env 0600 / .gitignore / NAS 방화벽 ACL / IAM 분리).
-- **MCT-148** (MERGED, `mctrader-data#40` d3e2af5) — 5 PoC PASS evidence (T1 HTTP health 2/2 / T2 latency baseline 4/4 / T3 large PUT 50MB sha256 IDENTICAL 3/3 / T4 restart idempotency recovery_ms=30.56 / T5 partial visibility atomic_invariant=true). pytest 10 PASSED in 107.76s.
-- **MCT-149** (본 Story) — ADR-027 본문 publish + Stage 1 종료 governance.
+- **Stage 1** (MCT-147~149, CLOSED 2026-05-12) — NAS deploy + 5 PoC PASS + ADR-027 publish. SSOT: [ADR-027](../../docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md), [docs/runbooks/nas-minio-secret-rotation.md](../../docs/runbooks/nas-minio-secret-rotation.md)
+- **Stage 2** (MCT-150~155, CLOSED 2026-05-13 mctrader-hub#277) — production-grade primitive: NAS uploader + DualWriter + InvariantHarness + SOPRunner + BackfillOrchestrator. SSOT: 각 Story §11 + retros/
+- **Stage 3 wiring** (EPIC-cold-tier-stage-3-wiring, IN_PROGRESS) — Stage 2 후 NAS bucket 실측에서 hot pipeline NAS wiring 부재 발견. MCT-156 ✅ LAND 2026-05-13 (compactor NAS wiring + DualWriter inject). MCT-157/158/159 PROPOSED
+- **EPIC-compactor-operations** (MCT-160~162, IN_PROGRESS) — MCT-156 deploy 직후 5중 차단 cycle (upbit L1 zero / L2 cadence / L1 backlog 79k / orderbookdepth schema / L2 OOM) 해소. MCT-162 ✅ LAND 2026-05-13 (channel parity + orderbookdepth schema)
+- **Disk 압박 sequential**: MCT-159 (L2/L3 backlog 8.85 GiB) → MCT-160 (L1 backlog ~115 GiB ~62%) → MCT-161 (NAS versioning + replication 정책)
 
-### Stage 1 운영 정책 (ADR-027 §Decision 박제)
+### Stage 1 운영 정책 (ADR-027 §Decision SSOT, 활성)
 
-- **endpoint protocol (D2 amend)**: **Stage 1 = HTTP** (LAN 내부망 only, NAS 방화벽 port 9000/9001 = mctrader 호스트 IP only + `.env` 0600 + 90일 rotation). **Stage 2 = TLS 재검토** (MCT-155 진입 시 사용자 confirm 의무).
-- **bucket layout (D1)**: 단일 `mctrader-market` + Hive prefix (`schema_version/exchange/node/tier/date`).
-- **credential rotation cadence (D2)**: 90일 (`docs/runbooks/nas-minio-secret-rotation.md`).
-- **NAS 방화벽 룰 audit cadence (R10 신규)**: 90일 rotation 시점 정기 audit 의무.
+- **endpoint protocol**: Stage 1/2 = HTTP (LAN 내부망 only, NAS 방화벽 port 9000/9001 = mctrader 호스트 IP only + `.env` 0600 + 90일 rotation). Stage 3+ = TLS 재검토 (사용자 confirm 의무)
+- **bucket layout**: 단일 `mctrader-market` + Hive prefix (`schema_version/exchange/node/tier/date/[hour]`)
+- **credential rotation cadence**: 90일 (NAS 방화벽 룰 audit 동시 의무, `docs/runbooks/nas-minio-secret-rotation.md`)
+- **Hot path 무영향 invariant** (ADR-017 정합): collector WAL + L1 ParquetWriter = local volume 유지. NAS unreachable → compactor retry queue + backlog alert. WAL/L1/hot path 무영향. Alert metric: `cold_writer_backlog_segments` + `cold_writer_retry_count_total`
 
-### Stage 2 진입 (MCT-150 ~ MCT-155, 본 ADR merge 후 brainstorm Phase 0 재실행 권고)
+### Stage 3 운영 가이드 (현재 활성)
 
-| Story | scope |
-|-------|-------|
-| MCT-150 | `minio_uploader.py` hardening (retry queue + Prometheus metrics + alert) |
-| MCT-151 | dual-write atomic primitives + 3종 invariant 검증 harness (sha256 + object count + parquet row count) |
-| MCT-152 | dual-write window 운영 (2-4주, drift 측정) |
-| MCT-153 | backfill (historic L2/L3 cold tier asset 이관) |
-| MCT-154 | reader endpoint cutover + engine smoke test (read-through LRU/TTL cache) |
-| MCT-155 | local GC (7일 grace + dry-run) + secret rotation 첫 cycle + Stage 2 TLS 재검토 사용자 confirm |
+#### DualWriter inject pattern (`NAS_MINIO_ENDPOINT` env 분기)
 
-### Hot path 무영향 invariant (D5, ADR-017 정합)
+`mctrader-data/src/mctrader_data/cli.py` 의 `compact_cmd`:
+- env set → `NASUploader` + `RetryQueue` + `DualWriter` build → `CompactorRunner(dual_writer=...)` inject → L2/L3 자동 dual-write
+- env 부재 → `dual_writer=None` → **degraded mode** (NAS PUT skip, local Parquet only — test/local dev 호환)
 
-- **collector WAL + L1 ParquetWriter** = local volume 유지 (ADR-017 zero-loss invariant).
-- **NAS unreachable failure mode** = compactor retry queue + backlog alert. WAL / L1 / hot path 무영향 (D5 박제).
-- **alert metric** (MCT-150 산출물): `cold_writer_backlog_segments` + `cold_writer_retry_count_total` (Prometheus) + Grafana dashboard `mctrader/Cold Writer Health`.
+운영 의무: `NAS_MINIO_ENDPOINT` + `NAS_MINIO_ACCESS_KEY` + `NAS_MINIO_SECRET_KEY` + `NAS_MINIO_BUCKET` 4 env 모두 set (`.env.example` placeholder 정합).
 
-### Stage 3 wiring (EPIC-cold-tier-stage-3-wiring, MCT-156 ~ MCT-158, post-Stage 2 follow-up)
-
-Stage 2 EPIC CLOSED 2026-05-13 (mctrader-hub#277) 후 사용자 NAS bucket 실측에서 발견된 핵심 gap — hot pipeline (compactor) NAS wiring 부재 해소. bucket `mctrader-market` 실측 결과 `tier=L3/` prefix 0개 + `tier=L2/` 안 `hour=HH/` partition 0개 = Stage 2 production-grade primitive (NAS+DualWriter+InvariantHarness+SOPRunner+BackfillOrchestrator) 가 완성됐음에도 hot pipeline 자체가 NAS endpoint 안 가는 환경에서 운영 중이었음.
-
-**Stage 3 milestone progression** (post-MCT-156 LAND + MCT-159 spawn):
-
-| Story | scope | 상태 |
-|-------|-------|-----|
-| **MCT-156** ✅ | compactor NAS wiring + L2/L3 DualWriter injection (entrypoint vertical slice) | **COMPLETED 2026-05-13** (#279 Phase 1 + mctrader-data#47 Phase 2 + #280 hub Phase 2) |
-| MCT-157 | Prometheus layout label 분리 + observability (legacy_node_default vs new_node_merged) | PROPOSED |
-| MCT-158 | release gate smoke test + cutover runbook + EPIC CLOSED gate (6h bucket prefix 출현 verify) | PROPOSED (depends_on: 156, 157) |
-| **MCT-159** | **L2/L3 cold tier backlog NAS migration (~8.85 GiB / 7118 file, channel parametrize + hour key amend)** | **PROPOSED 2026-05-13** (sibling, parallel_after_156) |
-
-milestone 1/4 = 25% (post-MCT-156 LAND, MCT-159 sibling 추가 후).
-
-### Stage 3 backlog migration follow-up (MCT-159, post-MCT-156 wiring)
-
-MCT-156 Phase 2 LAND (`mctrader-data#47` dff8aa5) 후 compactor 09:22 restart → 09:24 부터 NAS dual-write 정상화. **그러나** wiring _이전_ 로컬 누적 L2/L3 backlog (8.85 GiB / 7118 file, 신규 schema `tier=L{2,3}/.../date=D/hour=HH/node=MERGED/`) 는 자연 cadence 적용 외 영역 (orderbookdepth NotImplementedError 영구 fail → L2 자연 trigger ETA 9.2h 무효, RETRO-MCT-156 §13.4 박제). MCT-159 = MCT-153 `BackfillOrchestrator` 의 2 amendment (channel parametrize + hour key 처리) 후 재호출하여 LAND-이전 backlog 강제 이관.
-
-**Sequential 3-step disk 압박 해소 박제**:
-
-| Step | Story | Scope | Disk 추정 |
-|------|-------|-------|----------|
-| 1 | **MCT-159 (active)** | L2/L3 cold tier 8.85 GiB / 7118 file | ~4.8% |
-| 2 | MCT-160 (reserve, EPIC-compactor-operations) | compactor L1 backlog cleanup (orderbookdepth FIX + L2 offset overflow FIX + MCT-153 손실 retrofit) | ~62% (L1 ~115 GiB) |
-| 3 | MCT-161 (reserve, EPIC-compactor-operations) | NAS bucket versioning 활성화 + replication 정책 + 손실 재발 방지 | 0% (정책) |
-
-**MCT-159 만으로 disk 압박 즉시 해소 미달성 (4.8% only)** — MCT-160/MCT-161 sequential 의무 박제 (Story §1 R3 first surface).
-
-### Stage 3 운영 가이드 (MCT-156 산출물 기반)
-
-#### DualWriter inject pattern (NAS_MINIO_ENDPOINT env 부재 시 degraded mode)
-
-`mctrader-data/src/mctrader_data/cli.py` 의 `compact_cmd` 가 `NAS_MINIO_ENDPOINT` env 분기:
-
-- env set → `NASUploader` + `RetryQueue` + `DualWriter` lazy build 후 `CompactorRunner(dual_writer=...)` inject → L2/L3 compaction 산출물 자동 dual-write
-- env 부재 → `dual_writer=None` 으로 `CompactorRunner` build → **degraded mode** (NAS PUT skip, local Parquet only — test/local dev 호환 경로)
-
-운영 환경 의무: `NAS_MINIO_ENDPOINT` + `NAS_MINIO_ACCESS_KEY` + `NAS_MINIO_SECRET_KEY` + `NAS_MINIO_BUCKET` 4 env 모두 set (`.env.example` placeholder 정합).
-
-#### `DualWriter.write()` API 정합 (signature SSOT)
-
-Change Plan 초안의 `dual_writer.put(local_path, nas_key, sha256)` 명세는 **추정 signature** (Codex Phase 0 brainstorm 시점 박제). 실제 MCT-151 land API:
+#### `DualWriter.write()` API SSOT (MCT-151 land)
 
 ```python
 DualWriter.write(*, local_path, nas_key, data, sha256) -> DualWriteResult
 # DualWriteResult.status ∈ {"committed", "local_only", "hard_floor_blocked"}
 ```
 
-`_dispatch_dual_write` helper 안에서 `parquet_path.read_bytes()` 로 payload 조달 후 호출. status 3종 caller contract:
-- `committed` = 정상 (local + NAS 양쪽 commit)
-- `local_only` = NAS unreachable → retry_queue enqueue 자동, log info
-- `hard_floor_blocked` = retry queue hard floor (1000 seg / 10GB) 도달 → log error + Prometheus alert + SOP MANUAL_GATE escalation
+- `committed` = local + NAS 양쪽 commit (정상)
+- `local_only` = NAS unreachable → retry_queue enqueue 자동 (log info)
+- `hard_floor_blocked` = retry queue hard floor (1000 seg / 10GB) → log error + Prometheus alert + SOP MANUAL_GATE escalation
 
-#### Legacy MinioUploader deprecation 박제
-
-`mctrader-data/src/mctrader_data/compactor/minio_uploader.py` = MCT-156 Phase 2 에서 **호출처 production 0** + module docstring `.. deprecated:: MCT-156 (Stage 3 wiring)` 마킹. **모듈 file 자체 삭제는 후속 Epic** (post-EPIC-cold-tier-stage-3-wiring closure).
-
-#### Mixed layout reader 책임 경계 (ADR-009 §D2.1+§D14 fallback 자연 양립)
-
-NAS bucket 에 (a) MCT-153 backfill 산출물 legacy layout (`tier=L2/.../date=D/[node=N/]file.parquet`, hour 부재) + (b) MCT-156 Phase 2 이후 신규 hot pipeline 산출물 신규 schema (`tier=L2/.../date=D/hour=HH/node=MERGED/part-*.parquet`) mixed 공존.
-
-- reader 호환 = ADR-009 §D2.1 (`node=` absent → `node=DEFAULT`) + §D14 (`tier=` absent → `tier=L1`) fallback 박제로 자연 보장
-- `scan_*` API partition pruning 양쪽 layout mixed scan 양립
-- legacy 객체 retroactive 재구조 비권고 (S6 결정 박제)
-- ADR-027 D9 amendment 본문 정합 (MCT-156 Phase 1 LAND)
-
-### Stage 3 release gate (R1 smoke test 의무, MCT-158 owner)
-
-MCT-158 = Stage 3 EPIC CLOSED gate 의무. 6h smoke test 의 production NAS bucket 실측 evidence pack:
-
-- `tier=L2/.../hour=HH/node=MERGED/` 출현 verify
-- `tier=L3/.../node=MERGED/` 출현 verify
-- `mctrader_dual_write_result_total{status="committed", tier="L2|L3"}` Counter 증가 evidence
-- retry queue backlog = 0 baseline (hard_floor_blocked = 0)
-
-### post-Epic refactor 후보 surface (Stage 3 EPIC CLOSED 후 검토)
-
-MCT-156 Phase 2 CodeReviewPL P2 advisory finding 2건 — NFR-1 (< 3000ms) 안에서 흡수, post-Epic refactor 후보로 surface:
-
-- **sha256 dup hashing** — `compactor/runner.py._dispatch_dual_write` + `DualWriter.write()` 내부 NASUploader 양쪽에서 identical input 2회 hash. refactor 후보 = `DualWriter.write()` API 에 `precomputed_sha256` param 추가.
-- **tmp_dw double-write** — DualWriter local commit 시 tmp file roundtrip + NASUploader 가 tmp read → MinIO PUT = 디스크 IO 2회. refactor 후보 = in-memory bytes hand-off (현재는 cross-process safety 위해 tmp 경유).
-
-추가 surface:
-- legacy `MinioUploader` 모듈 file 삭제 (호출처 production 0, deprecation 마킹 → file 자체 삭제)
-- mctrader-data main 의 pre-existing 9 test failure 해소 (별 Story 후보, PMOAgent 누적 patterns 1건)
-
-### EPIC-compactor-operations Stage 3 wiring 후속 (MCT-156 deploy 5중 차단 cycle)
-
-Stage 3 entrypoint Story (MCT-156) **production deploy 직후** 사용자 NAS bucket 실측에서 발견된 5중 차단 cycle 해소 Epic. parent_dependency = EPIC-cold-tier-stage-3-wiring (post-deployment cycle).
-
-**5중 차단 cycle surface (MCT-156 deploy 후)**:
-
-| # | 차단 항목 | 원인 |
-|---|----|------|
-| 1 | upbit L1 결과 today=0 | upbit ingester WAL `orderbookdepth` 0 emit (별 root cause = MCT-160 진단 의무) |
-| 2 | transaction L2 자연 cadence 0 | KST→UTC date roll 시 어제 date L1 결과 hit 0 |
-| 3 | bucket 463 obj = bithumb orderbooksnapshot only | cadence 정상화 미달 |
-| 4 | L1 backlog 79k orderbookdepth 48k 누적 | `_schema_version` allowlist mismatch → NotImplementedError silent skip |
-| 5 | upbit/KRW-BTC orderbooksnapshot L2 OOM exit 137 | pyarrow `concat_tables.sort_by` 32GB peak + i32 offset 4GB overflow |
-
-**EPIC-compactor-operations milestone progression** (2026-05-13):
-
-| Story | scope | 상태 |
-|-------|-------|-----|
-| **MCT-162** ✅ | L1 채널 parity + orderbookdepth schema 정의 (entrypoint vertical slice, #1+#4 partial fix) | **COMPLETED 2026-05-13** (#284 Phase 1 + mctrader-data#52 Phase 2 + 본 Phase 2 hub PR) |
-| MCT-160 | L2/L3 cadence + OOM + L1 backlog 79k cleanup (#2+#3+#5+#4 잔여) | **IN_PROGRESS** (MCT-162 LAND 후 sequential 진입) |
-| MCT-161 | NAS bucket versioning + replication + MCT-153 손실 재발 방지 | PROPOSED (depends_on: 160) |
-
-milestone 1/3 = 33.3% (post-MCT-162 LAND).
-
-### MCT-162 산출물 박제 (channel parity 정책 + orderbookdepth schema)
-
-#### Channel parity 정책 (ADR-027 D4 amendment)
+#### Channel parity 정책 (ADR-027 D4 amendment, MCT-162 land)
 
 - 모든 collector emit channel = L1/L2/L3 layer parity 의무
-- unsupported channel = `NotImplementedError` raise + `compactor_unsupported_channel_total{channel}` Counter +1 emit (**silent skip 금지**)
-- cardinality risk = bounded low (collector emit channel SSOT, attacker-controlled label injection 0)
-- 신규 channel 추가 3-step 절차:
-  1. **ADR-009** schema 정의 (§D11.X 신규 amendment + §D2.6 matrix row)
-  2. **L1Compactor** `_CHANNEL_SCHEMA_VERSION` allowlist 추가 + converter dispatch
-  3. **integration test** 신규 (5종 minimum: converter PASS + fail-fast + Prometheus emit + parquet schema 정합 + large_string verify)
+- unsupported channel = `NotImplementedError` raise + `mctrader_compactor_unsupported_channel_total{channel}` Counter +1 emit (**silent skip 금지**)
+- silent skip catastrophe (MCT-156 deploy 후 48,629 sealed silent backlog) 재발 방지
 
-#### orderbookdepth schema (ADR-009 §D11.9)
+#### orderbookdepth schema (ADR-009 §D11.9, MCT-162 land)
 
 - schema_version = `orderbook_depth.v1`, 11 column flat row (per-frame `changes[]` flatten, qty=0 = level delete)
 - column list: `ts_utc / received_at / exchange / symbol / side / price / quantity / raw_json / node_id / collector_run_id / ingest_seq`
 - **`raw_json` column dtype = `pa.large_string()` 의무** (LargeUtf8 i64 offset, L2 concat 누적 i32 4GB overflow 차단)
-- §D2.6 matrix row 추가 → MCT-159 InvariantHarness channel-aware lookup 자동 적용
 
-#### Fail-fast invariant (silent skip 차단)
+#### 신규 channel 추가 3-step 절차 (의무)
 
-- `_schema_version(channel)` body 의 raise 직전 `compactor_unsupported_channel_total.labels(channel=channel).inc()` 호출
-- `compact_segment` outer try/except 의 silent catch path 유지 (caller signature 변경 0) but **fail-fast counter 추가 emit**
-- silent skip catastrophe (MCT-156 deploy 후 48,629 sealed silent backlog) 재발 방지
-
-#### Prometheus emit obligation
-
-- Counter: `mctrader_compactor_unsupported_channel_total{channel}` (mctrader_data/nas_metrics/prometheus_exporters.py)
-- Grafana alert 권고: 임계 1+ (silent skip catastrophe 즉시 감지) — MCT-162 retro 시 surface, 후속 ops Story scope
-
-### 향후 신규 channel 추가 절차 (3-step)
-
-신규 collector emit channel (e.g., `tradehistory`, `marketstatus`) 추가 시 의무 절차:
-
-1. **ADR-009 §D11.X amendment** — schema 정의 (column list + dtype + 의무 invariant + §D2.6 matrix row 추가)
+1. **ADR-009 §D11.X amendment** — schema 정의 (column list + dtype + invariant + §D2.6 matrix row)
 2. **L1Compactor**:
-   - `_CHANNEL_SCHEMA_VERSION[<channel>] = "<schema>.v1"` allowlist entry 추가
-   - `_<channel>_dicts_to_arrow(rows: list[dict]) -> pa.Table` converter 신규 (transaction/orderbooksnapshot/orderbookdepth 답습)
-   - `_arrow_schema_for_channel(channel)` + `_convert_to_arrow(channel, rows)` 분기 추가
-3. **integration test** — `tests/integration/test_l1_compactor_<channel>_parity.py` 신규 (5종 minimum: converter PASS + fail-fast verify + Prometheus emit verify + parquet schema invariant + large_string verify if applicable)
+   - `_CHANNEL_SCHEMA_VERSION[<channel>] = "<schema>.v1"` allowlist entry
+   - `_<channel>_dicts_to_arrow(rows) -> pa.Table` converter
+   - `_arrow_schema_for_channel(channel)` + `_convert_to_arrow(channel, rows)` 분기
+3. **integration test** — `tests/integration/test_l1_compactor_<channel>_parity.py` (5종 min: converter PASS + fail-fast + Prometheus emit + schema invariant + large_string verify if applicable)
 
-### MCT-162 land 후 운영 의무
+#### Mixed layout reader 책임 경계 (ADR-009 §D2.1 + §D14 fallback)
 
-- **drainage 측정 trail 박제**: t=0 (compactor restart 2026-05-13 22:07:09 KST) backlog = 82,456 sealed → t=10min/1h/24h 측정 (별 chore commit 또는 MCT-160 brainstorm 시 evidence pack)
-- **upbit L1 lost 별 진단 의무** (R4 HIGH surface, MCT-160 Phase 1 또는 별 Story 발의 결정)
-- **P1 nullability follow-up** (CodeReviewPL surface, MCT-160 scope 합병 권고)
-- **ADR-XXX-post-cutover-wiring-gap-prevention 발의 권고** (PMOAgent → ArchitectAgent inline ADR draft dispatch, 누적 2회 pattern 박제)
+NAS bucket 에 legacy layout (MCT-153 backfill, hour 부재) + 신규 schema (MCT-156+, `hour=HH/node=MERGED/`) mixed 공존. ADR-009 fallback (`node=` absent → `DEFAULT`, `tier=` absent → `L1`) 으로 자연 양립. legacy 객체 retroactive 재구조 비권고. ADR-027 D9 amendment 정합.
+
+#### Legacy MinioUploader deprecation
+
+`mctrader-data/src/mctrader_data/compactor/minio_uploader.py` = MCT-156 Phase 2 production 호출처 0 + `.. deprecated:: MCT-156` 마킹. 모듈 file 삭제는 post-EPIC-cold-tier-stage-3-wiring closure 후속 Epic.
+
+### Stage 3 release gate (MCT-158 owner, EPIC CLOSED gate)
+
+6h smoke test 의 production NAS bucket 실측 evidence pack:
+- `tier=L2/.../hour=HH/node=MERGED/` 출현 verify
+- `tier=L3/.../node=MERGED/` 출현 verify
+- `mctrader_dual_write_result_total{status="committed", tier="L2|L3"}` Counter 증가
+- retry queue backlog = 0 baseline (hard_floor_blocked = 0)
+
+### Post-Epic refactor surface (검토 후보)
+
+- **sha256 dup hashing** — `compactor/runner.py._dispatch_dual_write` + `DualWriter.write()` 양쪽 identical input 2회 hash. refactor = `precomputed_sha256` param 추가
+- **tmp_dw double-write** — DualWriter local commit + NAS PUT 디스크 IO 2회. refactor = in-memory bytes hand-off (현재 cross-process safety 위해 tmp 경유)
+- legacy `minio_uploader.py` module file 삭제 (호출처 production 0)
+- mctrader-data main 의 pre-existing 9 test failure 해소 (PMOAgent 누적 patterns 1건)
+- ADR-XXX-post-cutover-wiring-gap-prevention 발의 (누적 2회 pattern 박제, MCT-156 deploy gap)
 
 ### 데이터 헬스 프레임워크 (MCT-165, 2026-05-14)
 
@@ -576,3 +451,22 @@ python scripts/wal_freeze.py --root <data_root> --exchange upbit --execute --ver
 
 - `docs/domain-knowledge/domain/data-health/exchange-channel-matrix.md` — SSOT (hypothesis → confirmed 2026-05-14)
 - MCT-166 fix Story = 본 matrix "결함" 행 fix 의무 (INV-5 인과 chain 강제)
+- MCT-173 backfill Result 추가 (2026-05-14): frozen WAL → L1 historical materialization PASS
+
+## backfill mode (MCT-173, 2026-05-14)
+
+`mctrader-data compact --backfill`: frozen WAL sealed segments → L1 parquet 일괄 생성.
+
+```bash
+# Production (docker exec):
+docker exec mctrader-compactor python -c "
+from pathlib import Path
+from mctrader_data.compactor.runner import run_backfill
+result = run_backfill(root=Path('/var/lib/mctrader/data'), exchange='upbit', tier='L1', channel='orderbooksnapshot')
+print(f'processed={result.segments_processed} l1={result.l1_parquets_created}')
+"
+```
+
+- INV-2: `.compacted` sentinel idempotency (재실행 safe)
+- INV-5 verify gate: V2=0 AND partial loss Fail=0 → RETRO 허용
+- Phase 2.4 결과: L1 rows=106,883,580, V2=0 PASS, partial loss Fail=0

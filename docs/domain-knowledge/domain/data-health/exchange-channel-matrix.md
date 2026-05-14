@@ -61,7 +61,26 @@ if self._include_orderbook and self._exchange == "bithumb":
 - orderbooksnapshot WAL 이미 정상 생성 중 → WAL freeze 해제 = L1 자동 생성
 - allowlist.py 신규: upbit+orderbookdepth = BLOCKED (AC-4/5, INV-1)
 
-**MCT-173 pending**: frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (D3=B 별 Story)
+## MCT-173 Backfill Result (INV-5 통과 2026-05-14)
+
+**historical materialization 박제** (MCT-173 Phase 2.4 verify PASS):
+
+| 항목 | 값 |
+|---|---|
+| Backfill 대상 | frozen upbit orderbooksnapshot WAL |
+| date range | 2026-05-13 ~ 2026-05-14 |
+| total L1 parquets | 1,960 (2026-05-13: 915 / 2026-05-14: 1,045) |
+| total L1 rows | 106,883,580 |
+| partial loss ratio | Pass=38, Fail=0, Skip=1 (KRW-MATIC partial boundary) |
+| V2 = 0 | PASS (WAL keys 39 = L1 keys 39, loss=0) |
+| INV-5 PASS | True |
+
+**처리 방식** (D4=A ADR-017 §D2):
+- `.compacted` sentinel idempotency (이미 처리된 segments skip)
+- PIT snapshot (D3=A, INV-1 source WAL immutable)
+- schema = `_ob_snapshot_dicts_to_arrow()` 재사용 (INV-3, MCT-166 path B)
+
+**manifest**: `/var/lib/mctrader/data/audit/backfill-manifest-upbit-orderbooksnapshot.yaml`
 
 ## 7-layer 다층성 cross-ref (MCT-165 박제)
 
