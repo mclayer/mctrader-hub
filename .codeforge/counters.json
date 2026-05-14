@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 164
+      "next": 166
     },
     "mctrader-data": {
       "next": 1
@@ -128,6 +128,22 @@
       "repo": "mctrader-data",
       "phase_pair": "phase1_phase2",
       "rationale": "MCT-160 RETRO §7 surface (F3+F6+F7 3 finding 묶음). F3 (P1 DualWriter 내부 read_bytes 잔존, caller-side reduction만 달성 — dual_writer.py:156) + F6 (P1 true row-batch streaming = iter_batches(batch_size=1024) 필요, per-L1-file fully read 한계, D3/AC-3 1GB invariant 미증명) + F7 (P2 D7 nullability spec drift — Story §6 wording 'raw_json/node_id/collector_run_id nullable=True' vs impl 'raw_json만 True', impl narrower acceptable). D11 R6 cadence resolver 공통화는 별 sub-Story 영역 — 본 reservation = F3+F6+F7 묶음만."
+    },
+    "MCT-164": {
+      "title": "upbit L1 lost root cause (path discovery / ingester WAL layout) — MCT-160 R7 verify 잔존 시 발의 placeholder",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-data-accumulation-umbrella",
+      "repo": "mctrader-data",
+      "phase_pair": "tbd",
+      "rationale": "MCT-160 §11 R7 박제 + MCT-165 Phase 2 V2 verify 결과 잔존 시 본 Story 본문 작성 trigger. 잔존 = no 이면 close-as-not-needed."
+    },
+    "MCT-165": {
+      "title": "Data Accumulation Health Verification — Framework + 3 follow-up Verify (MCT-103/MCT-160 R7/50-sym 5d health 통합)",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-data-accumulation-umbrella",
+      "repo": "mctrader-hub",
+      "phase_pair": "phase1_phase2",
+      "rationale": "사용자 통합 의도 (3 follow-up 산분 시 검증 누락 우려) + Phase 0 4 에이전트 + Codex 합성 9 결정점 채택. 1 Story 통합 (D2=B), 4 layer MVP (D4=C), 정적 ±20% + rolling 자리 예약 (D5=C), CLI + JSON/CSV/markdown (D6=B)."
     }
   }
 }
