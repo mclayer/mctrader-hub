@@ -85,9 +85,9 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
   - ADR-029 D1=B + D2=B VERIFIED (mctrader-data#59)
 - cross-ref: `docs/retros/RETRO-MCT-163.md` + `docs/domain-knowledge/domain/parquet-streaming/cold-path-memory-invariant.md`
 
-## EPIC-tier-promotion-single-source (MCT-170 engine reader L1 확장 + DR mode LAND 2026-05-14)
+## EPIC-tier-promotion-single-source (MCT-171 DR runbook + invariant 8종 + 4 layer capacity LAND 2026-05-14)
 
-> milestone 4/6 박제 (MCT-167 + MCT-168 + MCT-169 + MCT-170 COMPLETED)
+> milestone 5/6 박제 (MCT-167 + MCT-168 + MCT-169 + MCT-170 + MCT-171 COMPLETED)
 
 ### ADR 산출물
 
@@ -112,18 +112,17 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 | D10 | Ambiguity invariant violation enforcement | A | MCT-169 + MCT-172 |
 | D11 | 4 layer capacity 제한 (WAL 30G / L1 20G / NAS 500G / Host 200G) | capacity_bounded | MCT-171 |
 
-### DR runbook stub 확장
+### DR runbook 본문 확장 (MCT-171 COMPLETED)
 
-- `docs/runbooks/nas-bucket-disaster-recovery.md` — Epic-level scope (5 fail mode + invariant 8종 + 용량 4 layer placeholder)
-- **본문 step-by-step = MCT-171 의무**
+- `docs/runbooks/nas-bucket-disaster-recovery.md` — 5 fail mode step-by-step + invariant 8종 본문 + 4 layer capacity step-by-step 박제 (MCT-171 Phase 1 LAND)
 
-### 다음 Story (sequential)
+### Story 완료 현황 (sequential)
 
 - **MCT-168** COMPLETED 2026-05-14 (hub#307 + data#59) — D1+D2 VERIFIED
 - **MCT-169** COMPLETED 2026-05-14 (hub#310 + data#60 + hub#311) — D3+D10 VERIFIED
-- **MCT-170** COMPLETED 2026-05-14 (hub#314 + data#61 + engine#53 + hub#TBD) — D7+D8+D10 VERIFIED (hit_ratio=0.95 ✓ + p99=0.016ms ✓)
-- **MCT-171** (DR runbook 본문, 진입 가능 — 별 세션 권고 + brainstorm 추가 의무) — D4+D5+D6+D11 owner
-- MCT-172 (Epic CLOSED, D9+D10 verify + D8 sunset finalize)
+- **MCT-170** COMPLETED 2026-05-14 (hub#314 + data#61 + engine#53) — D7+D8+D10 VERIFIED (hit_ratio=0.95 ✓ + p99=0.016ms ✓)
+- **MCT-171** COMPLETED 2026-05-14 (data#62 + hub#TBD) — D4+D5+D11 VERIFIED (38 신규 test PASS + 931 회귀 0)
+- **MCT-172** (Epic CLOSED, D9+D10 verify + D8 sunset finalize) — 다음 진입 가능
 
 ## MCT-170 COMPLETED (2026-05-14) — Engine reader L1 확장 + DR mode + reader cache byte budget
 
@@ -196,17 +195,52 @@ counters.json + scope_manifest 모두 retitle 박제.
 
 ### 다음 Story 진입 권고
 
-**MCT-171** (DR runbook 본문 + invariant 8종 + 용량 제한, D4+D5+D6+D11) — 별 세션 권고. brainstorm 추가 의무 (Phase 0 4 agent + Codex review). prompt path: `docs/superpowers/prompts/MCT-171-session-prompt.md` (작성 의무).
+**MCT-172** (Epic CLOSED — D9+D10 verify + D8 sunset finalize + promotion.py cleanup + WAL 30G production measurement). R-CRITICAL (WAL 30G 산정 미측정) carry over 의무.
+
+## MCT-171 COMPLETED (2026-05-14) — DR runbook 본문 + invariant 8종 + 4 layer capacity 정책
+
+> 2 PR cross-repo sequential LAND (data#62 + hub Phase 2 PR2)
+
+### 산출물 (mctrader-data)
+
+- `src/mctrader_data/capacity_probe.py` 신규 — 4 layer hybrid probe (5min+approach), CapacityThresholds SSOT
+- `src/mctrader_data/ingest_blocker.py` 신규 — graceful drain + 80%/95% hysteresis, collector hook
+- `src/mctrader_data/nas_migration/invariant_harness.py` 확장 — 8번째 ambiguity invariant 통합 (promotion.py 분산 흡수)
+- `src/mctrader_data/nas_metrics/prometheus_exporters.py` 확장 — +5 metric (capacity Gauge×2 + violation Counter + latency Histogram + ingest blocked Counter)
+- `src/mctrader_data/collector.py` 확장 — IngestBlocker hook 통합
+- `src/mctrader_data/compactor/promotion.py` — DEPRECATED 주석 (cleanup = MCT-172)
+- 38 신규 통합 test (test_invariant_harness_8: 8 + test_capacity_probe: 15 + test_ingest_blocker: 15) ALL PASS
+- 931 회귀 PASS, MCT-152/153/155/169 회귀 0
+
+### D4+D5+D11 verify (ADR-029 박제)
+
+- **D4=B VERIFIED**: WAL sealed segment NAS PUT 경로 0 confirm
+- **D5=A_modified VERIFIED**: ingest_blocker + collector hook. 95% block + 90% unblock hysteresis
+- **D6=B partial**: bucket versioning ✓ (MCT-161). cross-NAS = MCT-174 defer
+- **D11=capacity_bounded VERIFIED**: 4 layer CapacityThresholds (WAL 30G / L1 20G / NAS 1TB / Host 200G)
+
+### FIX 루프 3회
+
+1. ruff E501 + E741 + SIM105 + SIM108 + B905 + F401 (자동+수동)
+2. ruff F841 + UP037
+3. pyright forward ref (TYPE_CHECKING 패턴) + MagicMock cast 패턴
+
+### R-CRITICAL 유지 (MCT-172 carry over)
+
+WAL 30G 산정 = production 측정 없음. 50 sym × 3 channel × 12 seg/h 가정치. MCT-172 Epic CLOSE 전 collector runtime probe baseline 측정 의무.
 
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
 - **ADR-029 (신규, MCT-167 2026-05-14)**: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - EPIC-compactor-operations scope_manifest: `scope_manifests/EPIC-compactor-operations.yaml` (CLOSED 2026-05-14)
-- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 4/6 milestone completed)
+- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 5/6 milestone completed)
 - **MCT-170 spec**: `docs/superpowers/specs/2026-05-14-MCT-170-engine-reader-design.md`
 - **MCT-170 plan**: `docs/superpowers/plans/2026-05-14-mct-170-engine-reader.md`
 - **MCT-170 retro**: `docs/retros/RETRO-MCT-170.md`
+- **MCT-171 spec**: `docs/superpowers/specs/2026-05-14-MCT-171-dr-runbook-capacity-design.md`
+- **MCT-171 plan**: `docs/superpowers/plans/2026-05-14-mct-171-dr-runbook-capacity.md`
+- **MCT-171 retro**: `docs/retros/RETRO-MCT-171.md`
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-compactor-operations.md`
 - **EPIC-RESULTS (tier-promotion, IN_PROGRESS)**: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
 - MCT-174 reservation: `.codeforge/counters.json`
