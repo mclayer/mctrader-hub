@@ -44,6 +44,13 @@ Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance s
 - **D1=B VERIFIED** (mctrader-data#59): L1Compactor.compact_segment() 내 _write_parquet_atomic() 직후 DualWriter.put_l1() 호출 확인. compactor 측 timing 정합 (22 tests PASS).
 - **D2=B VERIFIED** (mctrader-data#59): DualWriter.put_l1() → NASUploader.put_streaming() + queued → local_only 경로 확인. retry_queue + local_only 재사용 정합 (INV-5 status enum 3종 exhaustive PASS).
 
+### D4+D5+D11 verify status (MCT-171 LAND, 2026-05-14)
+
+- **D4=B VERIFIED** (mctrader-data#62, 3fb9d60): WAL sealed segment NAS PUT 경로 부재 확인. `compactor/promotion.py` DEPRECATED 주석 박제. `wal/` module 내 NAS 업로드 호출 0 (grep verify). RPO=0 보장 = D1 (L1 ParquetWriter atomic NAS PUT) 단독 의존 구조 확인.
+- **D5=A_modified VERIFIED** (mctrader-data#62): `ingest_blocker.py` 신규 — WAL/L1 95% threshold 도달 시 graceful drain 후 신규 ingest reject. `collector.py` IngestBlocker hook 통합. 80% warn + 95% block + 90% unblock hysteresis (D7-8=C Codex 채택). 15 tests PASS.
+- **D6=B partial** (MCT-161 prerequisite VERIFIED, MCT-174 defer): bucket versioning ✓ (MCT-161 LAND, 2026-05-14). cross-NAS replication = MCT-174 defer (mcnas02 물리 미설치). D6=B 완전 달성 = MCT-174 진입 후.
+- **D11=capacity_bounded VERIFIED** (mctrader-data#62): `capacity_probe.py` 신규 — 4 layer hybrid probe (WAL 30G / L1 20G / NAS 1TB hard / Host 200G). `CapacityThresholds` SSOT 상수. `prometheus_exporters.py` +5 metric 확장 (capacity Gauge × 2 + violation Counter + latency Histogram + ingest blocked Counter). 15 tests PASS.
+
 ### MCT-170 amendment (2026-05-14) — D8 sunset criterion 박제 + D10 exemption scope 명시
 
 본 amendment = EPIC-tier-promotion-single-source Story-4 (MCT-170) Phase 1 박제분. 본 ADR §D8 + §D10 의 implementation gap (sunset criterion 미명시 + cutoff 판정 불가 legacy partition 처리 미명시) 해소.
