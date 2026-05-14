@@ -123,7 +123,7 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 - **MCT-169** COMPLETED 2026-05-14 (hub#310 + data#60 + hub#311) — D3+D10 VERIFIED
 - **MCT-170** COMPLETED 2026-05-14 (hub#314 + data#61 + engine#53 + hub#315) — D7+D8+D10 VERIFIED (hit_ratio=0.95 ✓ + p99=0.016ms ✓)
 - **MCT-171** COMPLETED 2026-05-14 (hub#317 + data#62 + hub#318 + hub#319) — D4+D5+D11 VERIFIED (38 신규 test PASS + 931 회귀 0)
-- **MCT-172** COMPLETED 2026-05-14 (hub#320 + data#63 + hub#TBD) — D8 sunset finalize + D9+D10 verify + promotion.py cleanup (89 lines deleted, src grep=0) + 3 신규 integration test green + 16 caller migrate + 954 회귀 0. **Epic POLICY_FINALIZED 박제**.
+- **MCT-172** COMPLETED 2026-05-14 (hub#320 + data#63 + hub#321) — D8 sunset finalize + D9+D10 verify + promotion.py cleanup (89 lines deleted, src grep=0) + 3 신규 integration test green + 16 caller migrate + 954 회귀 0. **Epic POLICY_FINALIZED 박제**.
 
 ### Epic CLOSED prerequisite (post-Epic carry over, 별 PR/Story 의무)
 

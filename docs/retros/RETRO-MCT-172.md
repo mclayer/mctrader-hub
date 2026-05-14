@@ -23,7 +23,7 @@ EPIC-tier-promotion-single-source 의 **마지막 Story (Story-6)** — Epic 의
 |------|------|
 | Phase 1 PR (hub docs + ADR-029 §D8 amendment) | mctrader-hub#320 MERGED (29028a8, 2026-05-14) |
 | Phase 2 PR1 (data promotion.py cleanup + 3 integration test green) | mctrader-data#63 MERGED (2026-05-14) |
-| Phase 2 PR2 (hub 박제, 본 PR) | mctrader-hub#TBD MERGED (2026-05-14) |
+| Phase 2 PR2 (hub 박제, 본 PR) | mctrader-hub#321 MERGED (70731e3, 2026-05-14T14:13:24Z) |
 | 총 AC | 6/6 PASS (AC-1~6) |
 | 총 INV | 5/5 PASS (INV-1~5) |
 | 산출물 | data 7 file (promotion.py + invariant_harness docstring + 5 test) / hub docs 박제 |
@@ -72,7 +72,7 @@ session prompt 부재 — 별 세션 prompt 미author, 본 세션 직접 진입 
 |------|------|------|
 | 2026-05-14 (mid) | Phase 1 PR (hub docs + ADR-029 §D8 amendment) | mctrader-hub#320 MERGED (29028a8) |
 | 2026-05-14 (late) | Phase 2 PR1 (data) — 7 file (promotion.py cleanup + invariant_harness docstring + 5 test) | mctrader-data#63 MERGED |
-| 2026-05-14 (late) | Phase 2 PR2 (hub 박제) — RETRO + EPIC-RESULTS + scope_manifest + CLAUDE.md + ADR verify | mctrader-hub#TBD MERGED (본 PR) |
+| 2026-05-14T14:13:24Z | Phase 2 PR2 (hub 박제) — RETRO + EPIC-RESULTS + scope_manifest + CLAUDE.md + ADR verify | mctrader-hub#321 MERGED (70731e3) |
 
 ## §4 AC + INV verify
 
@@ -207,4 +207,4 @@ post-Story carry over:
 - ADR-029: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - Phase 1 PR: mctrader-hub#320 (29028a8)
 - Phase 2 PR1: mctrader-data#63
-- Phase 2 PR2: mctrader-hub#TBD (본 PR)
+- Phase 2 PR2: mctrader-hub#321 (70731e3, 2026-05-14T14:13:24Z)
