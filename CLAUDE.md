@@ -80,11 +80,14 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 
 - MCT-161 + MCT-163 모두 COMPLETED (2026-05-14)
 - **MCT-167 (EPIC-tier-promotion governance singleton)** COMPLETED 2026-05-14 (PR #305, 1b83c28)
+- **MCT-168 (L1 NAS DualWriter wiring — D1+D2 impl)** COMPLETED 2026-05-14 (hub PR #307 + data PR #59)
+  - put_l1() 신규 + l1.py inject + runner pass-through + 22 tests ALL PASS
+  - ADR-029 D1=B + D2=B VERIFIED (mctrader-data#59)
 - cross-ref: `docs/retros/RETRO-MCT-163.md` + `docs/domain-knowledge/domain/parquet-streaming/cold-path-memory-invariant.md`
 
-## EPIC-tier-promotion-single-source (MCT-167 governance singleton 2026-05-14)
+## EPIC-tier-promotion-single-source (MCT-168 L1 NAS DualWriter wiring LAND 2026-05-14)
 
-> Phase 1 land: 2026-05-14, milestone 1/6 박제
+> milestone 2/6 박제 (MCT-167 + MCT-168 COMPLETED)
 
 ### ADR 산출물
 
@@ -116,8 +119,8 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 
 ### 다음 Story (sequential)
 
-- **MCT-168** (L1 NAS DualWriter wiring, D1+D2 impl) — 별 세션 권고
-- MCT-169 (immediate local delete + tier promotion, D3+D10) — MCT-168 LAND 후
+- **MCT-168** COMPLETED 2026-05-14 (hub#307 + data#59) — D1+D2 VERIFIED
+- **MCT-169** (immediate local delete + tier promotion, D3+D10) — **진입 가능** (MCT-168 LAND 후 gate 충족)
 - MCT-170 ∥ MCT-171 (engine reader ∥ DR runbook 본문) — MCT-168+169 LAND 후
 - MCT-172 (Epic CLOSED, D9+D10 verify)
 
@@ -126,7 +129,7 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
 - **ADR-029 (신규, MCT-167 2026-05-14)**: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - EPIC-compactor-operations scope_manifest: `scope_manifests/EPIC-compactor-operations.yaml` (CLOSED 2026-05-14)
-- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 1/6 milestone)
+- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 2/6 milestone)
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-compactor-operations.md`
 - **EPIC-RESULTS (tier-promotion, IN_PROGRESS)**: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
 - MCT-174 reservation: `.codeforge/counters.json`

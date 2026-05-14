@@ -151,21 +151,6 @@
         }
       ]
     },
-    "MCT-168": {
-      "title": "L1 NAS DualWriter wiring — l1.py DualWriter inject + put_l1() + runner pass-through + 3 test (D1=B atomic rename 직후 + D2=B retry_queue, EPIC-tier-promotion-single-source Story-2)",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-tier-promotion-single-source",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-167 LAND 후 진입, MCT-163 streaming prerequisite",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "L1 NAS DualWriter wiring (compactor hot path, D1 atomic 직후 + D2 retry_queue)",
-          "rationale": "Phase 1 brainstorm 완료 — scope 확정 (put_l1() 신규 method + l1.py inject + runner pass-through + 3 test + Prometheus L1 histogram) 박제"
-        }
-      ]
-    },
     "MCT-169": {
       "title": "L1 NAS verify + immediate local delete + tier promotion path 재구성 (D3=C + D10 invariant)",
       "reserved_at": "2026-05-14",
