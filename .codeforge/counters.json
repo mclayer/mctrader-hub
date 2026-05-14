@@ -216,12 +216,19 @@
       "rationale": "MCT-167-171 ALL LAND, Epic 종료 gate"
     },
     "MCT-173": {
-      "title": "upbit L1 backfill — frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (MCT-166 D3=B 별 Story)",
+      "title": "upbit L1 backfill — frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (compactor.runner --backfill extend + D7=C 단계 분할)",
       "reserved_at": "2026-05-14",
       "epic": "EPIC-data-accumulation-umbrella",
       "repo": "mctrader-data",
       "phase_pair": "phase1_phase2",
-      "rationale": "MCT-166 D3=B 결정 — backfill scope 통제 별 Story 분리. MCT-164 D4=C WAL 복구 verdict 부분 가능 (snapshot WAL → snapshot L1 직접 compaction). MCT-166 LAND 후 brainstorm 진입."
+      "rationale": "MCT-166 D3=B 결정 + MCT-164 D4=C 부분가능 verdict 인용. D1=B runner extend / D2=C Phase 2 entry 실측 / D3=A PIT snapshot / D4=A .compacted rename idempotency / D5=B frontmatter manifest / D6=B 당일 / D7=C 단계 분할 / D8=C 양쪽 verify / D9=C entry inventory.",
+      "retitle_history": [
+        {
+          "date": "2026-05-14",
+          "from": "upbit L1 backfill — frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (MCT-166 D3=B 별 Story) placeholder",
+          "rationale": "MCT-166 ALL LAND 후 brainstorm 진입. D1=B compactor runner --backfill extend / D7=C 1 Story + Phase 2 단계 분할 / D8=C MCT-165 V2=0 + 별 verify 스크립트."
+        }
+      ]
     }
   }
 }
