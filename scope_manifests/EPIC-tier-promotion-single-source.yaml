@@ -2,8 +2,9 @@ epic_key: EPIC-tier-promotion-single-source
 epic_title: "Cold tier governance v2 — NAS = single source of truth 전면 재설계"
 parent_dependency:
   - EPIC-compactor-operations (MCT-161 + MCT-163 LAND 후 진입)
-status: IN_PROGRESS
+status: POLICY_FINALIZED
 created: 2026-05-14
+policy_finalized_at: 2026-05-14
 governance_singleton_publish: 2026-05-14 (MCT-167 ADR-029 publish + ADR-017/027/009 amend 3건 + DR runbook stub)
 brainstorm_session: 2026-05-14
 brainstorm_phase0_agents: [DomainAgent, ResearcherAgent, RequirementsAnalystAgent, PMOAgent]
@@ -186,31 +187,55 @@ story_sequence:
   - { story: MCT-169, phase: 3, mode: sequential, rule: "local delete + promotion path — MCT-168 LAND 후, l1.py merge 충돌 회피", status: COMPLETED, started_date: 2026-05-14, land_date: 2026-05-14, pr: "mctrader-hub#310 + mctrader-data#60" }
   - { story: MCT-170, phase: 4, mode: parallel_with_171, rule: "engine reader, mctrader-engine disjoint", status: COMPLETED, started_date: 2026-05-14, land_date: 2026-05-14, pr: "mctrader-hub#314 (311b795) + mctrader-data#61 (9d26438) + mctrader-engine#53 (a00690bc) + mctrader-hub#TBD (본 PR Phase 2 박제)", note: "Phase 0 verify 발견 — MCT-154 LAND 3 module 존재. 재구현 아닌 확장+wiring (tier_reader facade + l1_reader + dr_mode 신규 + reader_cache byte budget). 4 PR cross-repo sequential LAND. D7 NFR 측정 hit_ratio=0.95 ✓ + p99=0.016ms ✓, R4 mitigation iter 1 적용 (FIX-MCT-170-001). AC-1~AC-7 ALL PASS, MCT-154 backward compat 회귀 0." }
   - { story: MCT-171, phase: 4, mode: parallel_with_170, rule: "DR runbook + invariant 8종 + 4 layer capacity, mctrader-data + hub. Phase 1 docs only + Phase 2 PR1 (data code) + Phase 2 PR2 (hub 박제) sequential", status: COMPLETED, started_date: 2026-05-14, land_date: 2026-05-14, pr: "mctrader-data#62 (3fb9d60) + mctrader-hub#TBD (본 PR Phase 2 박제)", phase2_pr1_merged: "mctrader-data#62 (3fb9d60, 2026-05-14T12:20Z)", note: "Codex review 9 결정점 채택. Phase 2 PR1 MERGED: capacity_probe + ingest_blocker + invariant 8종 + 38 신규 test (931 회귀 ALL PASS). D4=B + D5=A_modified + D11=capacity_bounded VERIFIED. FIX 루프 3회 (ruff+pyright). R-CRITICAL (WAL 30G 미측정) carry over → MCT-172." }
-  - { story: MCT-172, phase: 5, mode: sequential, rule: "Epic policy finalize — 8 invariant smoke + D8 sunset policy + promotion.py cleanup + WAL synthetic baseline. Epic CLOSED 는 production evidence 완성 후 별 PR (D8-9=C Codex 채택)", status: IN_PROGRESS, started_date: 2026-05-14, note: "Codex review 9 결정점 채택 (D8-1=A InvariantHarness 8종 SSOT / D8-2=C baseline+peak hybrid / D8-3=A 정책 finalize only / D8-4=C 2026-08-18~2026-09-01 14d window / D8-5=A verify_no_ambiguity 즉시 제거 + caller migrate / D8-6=A production deploy 후 실측 / D8-7=A 초과 시 Epic close FAIL / D8-8=A 동일 1h window / D8-9=C production 14d 후 Epic CLOSED 별 PR). 본 Story scope = policy finalize, Epic CLOSED 자체 박제는 production evidence 완성 후." }
+  - { story: MCT-172, phase: 5, mode: sequential, rule: "Epic policy finalize — 8 invariant smoke + D8 sunset policy + promotion.py cleanup + WAL synthetic baseline. Epic CLOSED 는 production evidence 완성 후 별 PR (D8-9=C Codex 채택)", status: COMPLETED, started_date: 2026-05-14, land_date: 2026-05-14, pr: "mctrader-hub#320 (29028a8) + mctrader-data#63 (f2fb28e) + mctrader-hub#TBD (Phase 2 PR2 박제)", note: "Codex review 9 결정점 채택 (D8-1=A InvariantHarness 8종 SSOT / D8-2=C baseline+peak hybrid / D8-3=A 정책 finalize only / D8-4=C 2026-08-18~2026-09-01 14d window / D8-5=A verify_no_ambiguity 즉시 제거 + caller migrate / D8-6=A production deploy 후 실측 / D8-7=A 초과 시 Epic close FAIL / D8-8=A 동일 1h window / D8-9=C production 14d 후 Epic CLOSED 별 PR). promotion.py cleanup 89 lines deleted + src/ grep 0 strict + 3 신규 integration test (test_epic_smoke + test_wal_synthetic_baseline + test_d8_sunset_telemetry_watcher) + 16 caller migrate ALL PASS + 954 회귀 0. R-CRITICAL (WAL 30G production measurement) carry over = Epic CLOSED prerequisite." }
 
 milestone_progress:
   total: 6
-  completed: 5
+  completed: 6
   completed_stories:
     - { story: MCT-167, land_date: 2026-05-14, pr: "mctrader-hub#305 (1b83c28)", retro: "docs/retros/RETRO-MCT-167.md" }
     - { story: MCT-168, land_date: 2026-05-14, pr: "mctrader-hub#307 (4d16a26) + mctrader-data#59 (a99d4e5)", retro: "docs/stories/MCT-168.md §11" }
     - { story: MCT-169, land_date: 2026-05-14, pr: "mctrader-hub#310 (a353090) + mctrader-data#60 (d65545f)", retro: "docs/retros/RETRO-MCT-169.md" }
     - { story: MCT-170, land_date: 2026-05-14, pr: "mctrader-hub#314 (311b795) + mctrader-data#61 (9d26438) + mctrader-engine#53 (a00690bc) + mctrader-hub#TBD (Phase 2 PR3 박제)", retro: "docs/retros/RETRO-MCT-170.md" }
     - { story: MCT-171, land_date: 2026-05-14, pr: "mctrader-hub#317 (3399abd) + mctrader-data#62 (3fb9d60) + mctrader-hub#318 (0b25975) + mctrader-hub#319 (6219418, PMO amend)", retro: "docs/retros/RETRO-MCT-171.md" }
-  in_progress: 1
-  in_progress_stories:
-    - { story: MCT-172, started_date: 2026-05-14, phase: 5, note: "Phase 1 docs only PR (hub) author 진행. Phase 2 PR1 (data promotion.py cleanup + integration smoke + WAL synthetic) + Phase 2 PR2 (hub 박제, Epic POLICY_FINALIZED + Epic CLOSED prerequisite) sequential LAND 의무. Codex review 9 결정점 채택 (D8-1~D8-9), Epic CLOSED 는 production evidence 완성 후 별 PR (D8-9=C)." }
+    - { story: MCT-172, land_date: 2026-05-14, pr: "mctrader-hub#320 (29028a8) + mctrader-data#63 (f2fb28e) + mctrader-hub#TBD (Phase 2 PR2 박제)", retro: "docs/retros/RETRO-MCT-172.md", status: POLICY_FINALIZED }
+  in_progress: 0
+  in_progress_stories: []
   reserved: 0
 
-epic_close_gate:
-  - "MCT-167 PR MERGED + ADR-NNN 신규 + ADR-017/027/009 amend 3건 LAND"
-  - "MCT-168 PR MERGED + L1 NAS dual-write production 검증 (NAS bucket L1 prefix 출현)"
-  - "MCT-169 PR MERGED + ambiguity invariant 위반 0 (1h production 측정)"
-  - "MCT-170 PR MERGED + engine reader latency baseline ±15% gate PASS"
-  - "MCT-171 PR MERGED + DR runbook smoke + invariant 8종 ALL PASS + 용량 제한 효과 verify"
-  - "MCT-172 PR MERGED + Epic integration e2e PASS"
-  - "PMOAgent retro + gate:retro-complete"
-  - "production evidence quad (bucket + log + Prometheus + drainage) ALL PASS (codeforge-plugin#620 Fix-1 정합)"
+epic_status: POLICY_FINALIZED
+epic_status_note: |
+  6/6 Story policy finalize 박제 완료 (2026-05-14). Epic CLOSED 자체 박제는 production evidence
+  완성 후 별 PR (D8-9=C Codex 채택). MCT-172 LAND 시점 EPIC-RESULTS POLICY_FINALIZED 박제.
+
+epic_close_gate_policy_finalized:
+  - "MCT-167 PR MERGED + ADR-029 신규 + ADR-017/027/009 amend 3건 LAND ✓"
+  - "MCT-168 PR MERGED + L1 NAS dual-write production wiring ✓"
+  - "MCT-169 PR MERGED + ambiguity invariant 위반 검출 enforcement ✓"
+  - "MCT-170 PR MERGED + engine reader latency D7 NFR PASS (hit_ratio=0.95 + p99=0.016ms) ✓"
+  - "MCT-171 PR MERGED + DR runbook 본문 + invariant 8종 통합 + 4 layer capacity 박제 ✓"
+  - "MCT-172 PR MERGED + Epic policy finalize (D8 sunset + promotion.py cleanup + WAL synthetic + 8 invariant smoke) ✓"
+
+epic_close_gate_remaining:
+  status: pending_production_evidence
+  description: "Epic POLICY_FINALIZED → CLOSED transition 의무 prerequisite (별 PR/Story)"
+  prerequisite:
+    - id: prod-1
+      desc: "production deploy 후 14d 0-hit telemetry"
+      window: "2026-08-18T00:00:00Z ~ 2026-09-01T00:00:00Z"
+      metric: "nas_reader_ambiguity_total Counter 14d rolling rate = 0/min"
+    - id: prod-2
+      desc: "WAL 30G production measurement (R-CRITICAL carry over from MCT-171)"
+      timing: "peak market open 09:00 KST burst"
+      escalation: "30G 초과 시 D11 hard_limit amendment 발의 (D8-7=A FAIL gate)"
+    - id: prod-3
+      desc: "production evidence quad 동일 1h window"
+      sources: ["bucket size delta", "dual_write_result log", "Prometheus invariant violation Counter", "retry_queue drainage"]
+      gate: "동일 1h window (D8-8=A Codex 채택, codeforge-plugin#620 Fix-1 정합)"
+    - id: prod-4
+      desc: "Epic CLOSED 박제 PR or scope_manifest amend"
+      transition: "POLICY_FINALIZED → CLOSED"
+      author: "별 PR (post-Epic carry over Story or scope_manifest direct amend)"
 
 prerequisite_session_handoff:
   - story: MCT-161

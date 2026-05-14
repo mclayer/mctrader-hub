@@ -85,9 +85,9 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
   - ADR-029 D1=B + D2=B VERIFIED (mctrader-data#59)
 - cross-ref: `docs/retros/RETRO-MCT-163.md` + `docs/domain-knowledge/domain/parquet-streaming/cold-path-memory-invariant.md`
 
-## EPIC-tier-promotion-single-source (MCT-171 DR runbook + invariant 8종 + 4 layer capacity LAND 2026-05-14)
+## EPIC-tier-promotion-single-source POLICY_FINALIZED (MCT-172 LAND 2026-05-14)
 
-> milestone 5/6 박제 (MCT-167 + MCT-168 + MCT-169 + MCT-170 + MCT-171 COMPLETED)
+> milestone **6/6 박제** (MCT-167 + MCT-168 + MCT-169 + MCT-170 + MCT-171 + MCT-172 COMPLETED). Epic CLOSED 자체 박제는 production evidence 완성 후 별 PR (D8-9=C Codex 채택).
 
 ### ADR 산출물
 
@@ -118,11 +118,21 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 
 ### Story 완료 현황 (sequential)
 
+- **MCT-167** COMPLETED 2026-05-14 (hub#305) — governance singleton + ADR-029 publish + ADR-017/027/009 amend 3건 + DR runbook stub
 - **MCT-168** COMPLETED 2026-05-14 (hub#307 + data#59) — D1+D2 VERIFIED
 - **MCT-169** COMPLETED 2026-05-14 (hub#310 + data#60 + hub#311) — D3+D10 VERIFIED
-- **MCT-170** COMPLETED 2026-05-14 (hub#314 + data#61 + engine#53) — D7+D8+D10 VERIFIED (hit_ratio=0.95 ✓ + p99=0.016ms ✓)
-- **MCT-171** COMPLETED 2026-05-14 (data#62 + hub#TBD) — D4+D5+D11 VERIFIED (38 신규 test PASS + 931 회귀 0)
-- **MCT-172** (Epic CLOSED, D9+D10 verify + D8 sunset finalize) — 다음 진입 가능
+- **MCT-170** COMPLETED 2026-05-14 (hub#314 + data#61 + engine#53 + hub#315) — D7+D8+D10 VERIFIED (hit_ratio=0.95 ✓ + p99=0.016ms ✓)
+- **MCT-171** COMPLETED 2026-05-14 (hub#317 + data#62 + hub#318 + hub#319) — D4+D5+D11 VERIFIED (38 신규 test PASS + 931 회귀 0)
+- **MCT-172** COMPLETED 2026-05-14 (hub#320 + data#63 + hub#TBD) — D8 sunset finalize + D9+D10 verify + promotion.py cleanup (89 lines deleted, src grep=0) + 3 신규 integration test green + 16 caller migrate + 954 회귀 0. **Epic POLICY_FINALIZED 박제**.
+
+### Epic CLOSED prerequisite (post-Epic carry over, 별 PR/Story 의무)
+
+| # | prerequisite | timing | gate |
+|---|--------------|--------|------|
+| prod-1 | production deploy 후 14d 0-hit telemetry | 2026-08-18 ~ 2026-09-01 | `nas_reader_ambiguity_total` Counter 14d rolling rate = 0 |
+| prod-2 | WAL 30G production measurement | peak market open 09:00 KST burst | 30G 이하 verify, 초과 시 D11 hard_limit amendment 발의 |
+| prod-3 | production evidence quad 동일 1h window | — | bucket size + log + Prometheus + drainage |
+| prod-4 | Epic CLOSED 박제 PR or scope_manifest amend | POLICY_FINALIZED → CLOSED | 별 PR or direct amend |
 
 ## MCT-170 COMPLETED (2026-05-14) — Engine reader L1 확장 + DR mode + reader cache byte budget
 
@@ -229,18 +239,80 @@ counters.json + scope_manifest 모두 retitle 박제.
 
 WAL 30G 산정 = production 측정 없음. 50 sym × 3 channel × 12 seg/h 가정치. MCT-172 Epic CLOSE 전 collector runtime probe baseline 측정 의무.
 
+## MCT-172 COMPLETED (2026-05-14) — Epic policy finalize (D8 sunset + D9+D10 verify + promotion.py cleanup + WAL synthetic baseline)
+
+> 3 PR cross-repo sequential LAND (hub#320 + data#63 + hub Phase 2 PR2 박제). Epic **POLICY_FINALIZED**, Epic CLOSED 는 별 PR.
+
+### Codex 9 결정점 D8-1~D8-9 채택
+
+| D8-N | Option | 결과 |
+|------|--------|------|
+| D8-1 | A — InvariantHarness 8종 SSOT | test_epic_smoke 8 invariant ALL PASS 게이트 |
+| D8-2 | C — baseline 30min + peak 30min hybrid | paper mode synthetic, production 측정 별 PR |
+| D8-3 | A — 정책 finalize only + telemetry watcher | 실 sunset 2026-09-01 별 Story |
+| D8-4 | C — 2026-08-18 ~ 2026-09-01 14d window | ADR-029 §D8 amendment 박제 |
+| D8-5 | A — verify_no_ambiguity 즉시 제거 + caller migrate | src/ grep = 0 strict 충족 |
+| D8-6 | A — production deploy 후 실측 | paper synthetic + R-CRITICAL carry over |
+| D8-7 | A — 초과 시 Epic close FAIL gate | conditional close 차단 |
+| D8-8 | A — 동일 1h window | bucket + log + Prometheus + drainage |
+| D8-9 | C — production 14d 후 Epic CLOSED 별 PR | POLICY_FINALIZED → CLOSED transition 별 PR |
+
+### 산출물 (mctrader-data, PR #63 f2fb28e)
+
+- `src/mctrader_data/compactor/promotion.py` — `verify_no_ambiguity` + `_check_nas_exists` 함수 **제거** (89 lines deleted). `AmbiguityViolation` exception class 보존.
+- `src/mctrader_data/nas_migration/invariant_harness.py` — docstring 일반화 (history 박제 reference)
+- `tests/integration/compactor/test_ambiguity_invariant.py` — 6 test `InvariantHarness._check_ambiguity()` 경유 migrate
+- `tests/integration/test_invariant_harness_8.py::test_mct169_d10_regression` — caller migrate
+- `tests/integration/test_epic_smoke.py` 신규 — 8 invariant cross-Story smoke + AC-4 게이트
+- `tests/integration/test_wal_synthetic_baseline.py` 신규 — paper mode WAL 30G synthetic
+- `tests/integration/test_d8_sunset_telemetry_watcher.py` 신규 — 14d rolling 0-hit alert rule
+
+### 측정 결과 (Phase 2 PR1 PASS)
+
+| 항목 | 결과 |
+|------|------|
+| `grep -rn "verify_no_ambiguity" src/` | **0건** (AC-4 strict 충족) |
+| 3 신규 integration test | ALL PASS (14 test) |
+| 16 caller migrate (test_ambiguity_invariant + d10_regression) | ALL PASS |
+| 49 Phase 2 PR1 scope | ALL PASS |
+| Full suite (954 passed + 24 skipped + 4 xfailed) | **회귀 0** |
+| ruff + pyright | PASS (1 FIX 루프 — F401 자동 fix) |
+
+### D8 sunset policy finalize (ADR-029 §D8 amendment, Phase 1)
+
+- 14d telemetry window = **2026-08-18T00:00:00Z ~ 2026-09-01T00:00:00Z** (cutoff 직전 14d)
+- AND condition: cutoff (2026-09-01 hard) AND telemetry 0-hit 14d
+- telemetry watcher: `nas_reader_ambiguity_total` Counter 14d rolling 0-hit alert rule 박제
+- 실 sunset 실행 = 2026-09-01 별 Story or scheduled cron
+
+### 8 invariant ↔ D1-D11 mapping
+
+D1-D11 = 설계결정 검토 범위 (ADR-029 design decision). 8 invariant = 운영 단위 실행 게이트 (InvariantHarness).
+
+| Invariant | D | 의미 |
+|-----------|---|------|
+| sha256 / object_count / row_count / column_count / column_order / dtype / schema_version (7종) | (legacy MCT-151) | Stage 2 invariant primitives |
+| **ambiguity** | **D10** | NAS+local XOR violation enforcement (MCT-169 origin + MCT-171 SSOT + MCT-172 cleanup) |
+
+### R-CRITICAL carry over (Epic CLOSED prerequisite)
+
+WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~ 45G hypothesis ±50% range). production 측정은 별 PR (peak market open 09:00 KST burst). 30G 초과 시 D11 hard_limit amendment 발의 (D8-7=A FAIL gate).
+
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
 - **ADR-029 (신규, MCT-167 2026-05-14)**: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - EPIC-compactor-operations scope_manifest: `scope_manifests/EPIC-compactor-operations.yaml` (CLOSED 2026-05-14)
-- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 5/6 milestone completed)
+- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (**POLICY_FINALIZED**, 6/6 milestone completed)
 - **MCT-170 spec**: `docs/superpowers/specs/2026-05-14-MCT-170-engine-reader-design.md`
 - **MCT-170 plan**: `docs/superpowers/plans/2026-05-14-mct-170-engine-reader.md`
 - **MCT-170 retro**: `docs/retros/RETRO-MCT-170.md`
 - **MCT-171 spec**: `docs/superpowers/specs/2026-05-14-MCT-171-dr-runbook-capacity-design.md`
 - **MCT-171 plan**: `docs/superpowers/plans/2026-05-14-mct-171-dr-runbook-capacity.md`
 - **MCT-171 retro**: `docs/retros/RETRO-MCT-171.md`
+- **MCT-172 spec**: `docs/superpowers/specs/2026-05-14-MCT-172-policy-finalize-design.md`
+- **MCT-172 plan**: `docs/superpowers/plans/2026-05-14-mct-172-policy-finalize.md`
+- **MCT-172 retro**: `docs/retros/RETRO-MCT-172.md`
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-compactor-operations.md`
-- **EPIC-RESULTS (tier-promotion, IN_PROGRESS)**: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
+- **EPIC-RESULTS (tier-promotion, POLICY_FINALIZED)**: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
 - MCT-174 reservation: `.codeforge/counters.json`

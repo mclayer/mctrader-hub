@@ -64,8 +64,8 @@ Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance s
 **D10 verify status (MCT-172, 2026-05-14)**:
 
 - **D10=A VERIFIED**: ambiguity invariant SSOT = `mctrader-data/src/mctrader_data/nas_migration/invariant_harness.py:140` `_INVARIANT_NAMES` tuple + `_check_ambiguity` method (MCT-171 LAND, 8번째 invariant 통합).
-- **MCT-172 cleanup**: `compactor/promotion.py:177` `verify_no_ambiguity` 함수 **제거** + caller migrate (D8-5=A Codex 채택). SSOT 단일 보존 invariant.
-- **telemetry watcher**: `tests/integration/test_d8_sunset_telemetry_watcher.py` 신규 — `nas_reader_ambiguity_total` Counter 14d rolling rate 측정 mock + Prometheus alert rule 박제.
+- **MCT-172 cleanup VERIFIED** (mctrader-data#63 f2fb28e, 2026-05-14T14:02:48Z): `compactor/promotion.py` 측 `verify_no_ambiguity` + `_check_nas_exists` 함수 **제거** (89 lines deleted) + caller migrate (D8-5=A Codex 채택). `grep -rn "verify_no_ambiguity" src/` = **0건** (AC-4 strict). caller migrate: `tests/integration/compactor/test_ambiguity_invariant.py` 6 test + `tests/integration/test_invariant_harness_8.py::test_mct169_d10_regression` → `InvariantHarness._check_ambiguity()` SSOT 경유. `AmbiguityViolation` exception class 는 보존 (외부 caller backward compat 가능성). SSOT 단일 보존 invariant.
+- **telemetry watcher VERIFIED**: `tests/integration/test_d8_sunset_telemetry_watcher.py` 신규 + 8 test ALL PASS — `nas_reader_ambiguity_total` Counter 14d rolling rate 측정 mock + Prometheus alert rule format verify + AND condition verify + Epic CLOSED prerequisite list 박제.
 
 **Epic CLOSED prerequisite (D8-9=C Codex 채택)**:
 
