@@ -272,11 +272,70 @@ aws --endpoint-url http://mcnas01.internal.mclayer.it:9000 \
 
 ---
 
+## Epic-level DR scope (MCT-167 stub 확장, 본문 = MCT-171)
+
+> **상태**: stub placeholder — 본문 = MCT-171 (DR runbook 본문 + invariant 8종 + 용량 제한 정책 Story) 작성 의무.
+>
+> **MCT-167 (governance singleton) scope** = 본 stub 확장만 — Epic-level DR 의 5 fail mode 박제 (placeholder), 본문 step-by-step = MCT-171 의무.
+
+EPIC-tier-promotion-single-source (ADR-029 publish 후) 의 DR scope 확장:
+
+### 5 Epic-level Fail Mode (MCT-171 본문 author)
+
+1. **L1 NAS PUT fail** (R1, ADR-029 D1+D2 정합):
+   - **검출**: compactor L1 path 에서 DualWriter status = `local_only` 또는 `hard_floor_blocked` 발생
+   - **대응**: retry_queue 처리 + Prometheus alert (`mctrader_dual_write_result_total{tier=L1,status=local_only}` Counter 증가)
+   - **escalate**: `hard_floor_blocked` 시 MANUAL_GATE (NAS unreachable + retry_queue 1000seg/10GB threshold 초과)
+   - **본문 (MCT-171)**: step-by-step 진단 + retry_queue 처리 + Slack notification + restart 절차
+
+2. **NAS unreachable (capacity-bounded ingest block)** (R2, ADR-029 D5 + D11 정합):
+   - **검출**: NAS health check fail + WAL local volume usage >= 30 GiB 또는 L1 local volume usage >= 20 GiB
+   - **대응**: collector ingest soft stop (graceful + alert) + L1 compactor pause + 4 layer capacity alert chain (80% / 95% / hard limit)
+   - **본문 (MCT-171)**: NAS 복구 절차 + capacity 모니터링 + ingest 재개 절차
+
+3. **Clock drift / version mismatch** (R4 ambiguity invariant false delete risk, ADR-029 D3 + D10 정합):
+   - **검출**: NAS HEAD verify 시 version/etag eventual consistency 미스 (race condition)
+   - **대응**: etag exact match 재시도 + sha256 verify + retry on NoSuchKey (3회 backoff)
+   - **본문 (MCT-171)**: NAS MinIO clock drift 검출 + Synology NTP 동기 + version history 복원 절차
+
+4. **Rate-limit / API throttle** (R6 신규, NAS MinIO API rate-limit):
+   - **검출**: NAS MinIO `429 TooManyRequests` 또는 connection pool 고갈
+   - **대응**: exponential backoff retry + connection pool 확대 + circuit breaker
+   - **본문 (MCT-171)**: NAS MinIO connection pool tuning + retry policy 튜닝
+
+5. **Replication failover (mcnas01 → mcnas02)** (R7 신규, ADR-029 D6 정합, MCT-174 의무):
+   - **검출**: mcnas01 hardware fail / network unreachable / replication lag > threshold
+   - **대응**: reader endpoint cutover (mcnas01 → mcnas02) + mcnas02 replica 검증 + 정상 운영 시 mcnas01 복구
+   - **본문 (MCT-174)**: cross-NAS replication setup + failover 절차 + replica 검증 invariant
+   - **현재 상태**: mcnas02 NAS box 물리 부재 (MCT-161 D2=D 결정 답습). MCT-174 별 backlog Story 의무.
+
+### Invariant 8종 (MCT-171 본문 author)
+
+MCT-151 InvariantHarness 7종 (sha256 / object count / row count / column count / column name order / dtype identity / schema_version pin) + **신규 8번째**:
+
+- **8. ambiguity invariant** (ADR-029 D10 정합) — "tier promotion 완료 후 동일 logical entity (schema_version × tier × exchange × symbol × date × hour × node) 가 NAS + local 양쪽 동시 존재 시 violation". MCT-172 의 cross-Story verify scope.
+
+### 용량 제한 4 layer (MCT-171 본문 author, ADR-029 D11 정합)
+
+| Layer | Hard Limit | Threshold Action |
+|---|---|---|
+| WAL local | 30 GiB | collector ingest block |
+| L1 local | 20 GiB | oldest L1 FIFO delete after NAS verify |
+| NAS bucket | target 500 GiB / hard 1 TiB | L3 cold archive 이전 (별 Story) |
+| Host disk | 200 GiB | alert + manual cleanup |
+
+---
+
 ## Cross-ref
 
 - `docs/stories/MCT-161.md` §5 AC-4 / §10 FIX Ledger
-- `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md` §D MCT-161 amendment
+- `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md` §D MCT-161 amendment + §D5/§D7/§D9 MCT-167 amendment
+- `docs/adr/ADR-029-tier-promotion-single-source.md` (D1-D11 박제, MCT-167 publish)
+- `docs/adr/ADR-017-zero-loss-ingestion-wal-tiered-compaction.md` §3 D3 MCT-167 amendment
+- `docs/adr/ADR-009-ohlcv-schema.md` §D12.2 MCT-167 amendment (forward-only invariant NAS object SoT 격상)
 - `scripts/enable_nas_versioning.py` — 초기 설정 스크립트
 - `scripts/verify_nas_versioning.py` — versioning 상태 verify
 - `docs/audit/MCT-161-versioning-enable.md` — 초기 enable 실행 결과
 - MCT-153 / RETRO-MCT-156 §13.5.2 — 4.2 GiB 손실 원인 박제 (본 runbook 필요성 근거)
+- **MCT-171** (DR runbook 본문 + invariant 8종 + 용량 제한 정책 — 본문 author)
+- **MCT-174** (NAS bucket replication — cross-NAS target mcnas02, MCT-161 D2=D deferred backlog)

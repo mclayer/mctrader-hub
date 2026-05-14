@@ -2,8 +2,9 @@ epic_key: EPIC-tier-promotion-single-source
 epic_title: "Cold tier governance v2 — NAS = single source of truth 전면 재설계"
 parent_dependency:
   - EPIC-compactor-operations (MCT-161 + MCT-163 LAND 후 진입)
-status: Proposed
+status: IN_PROGRESS
 created: 2026-05-14
+governance_singleton_publish: 2026-05-14 (MCT-167 ADR-029 publish + ADR-017/027/009 amend 3건 + DR runbook stub)
 brainstorm_session: 2026-05-14
 brainstorm_phase0_agents: [DomainAgent, ResearcherAgent, RequirementsAnalystAgent, PMOAgent]
 codex_review: 2026-05-14 (10 결정점 + Researcher↔PMO 충돌 1건 해소)
@@ -109,14 +110,16 @@ planned_adrs:
       change: "enforcement layer = local file system → NAS object SoT 격상 (versioning 기반)"
       owner_story: MCT-167
   new_proposals:
-    - adr: ADR-NNN-tier-promotion-single-source
+    - adr: ADR-029-tier-promotion-single-source
       title: "Cold tier governance v2 — NAS = SoT for ALL tiers"
       owner_story: MCT-167
       sections: D1 ~ D11 박제
+      status: Accepted
+      land_date: 2026-05-14
 
 planned_files:
   mctrader-hub:
-    - { path: docs/adr/ADR-NNN-tier-promotion-single-source.md, owner: MCT-167, change: 신규 ADR }
+    - { path: docs/adr/ADR-029-tier-promotion-single-source.md, owner: MCT-167, change: 신규 ADR }
     - { path: docs/adr/ADR-017-*.md, owner: MCT-167, change: §3 D3 amendment }
     - { path: docs/adr/ADR-027-*.md, owner: MCT-167, change: §D9 + §D7 amendment }
     - { path: docs/adr/ADR-009-*.md, owner: MCT-167, change: §D12.2 amendment }
