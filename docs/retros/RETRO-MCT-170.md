@@ -24,7 +24,7 @@ ADR-029 D7=A (Reader cache NFR 95% hit + p99 <100ms) + D8=B (forward-only + loca
 | Phase 1 PR (hub docs) | mctrader-hub#314 MERGED (311b795, 2026-05-14) |
 | Phase 2 PR#1 (data LRU) | mctrader-data#61 MERGED (9d26438, 2026-05-14) |
 | Phase 2 PR#2 (engine 3 module + 1 확장) | mctrader-engine#53 MERGED (a00690bc, 2026-05-14) |
-| Phase 2 PR#3 (hub 박제, 본 PR) | mctrader-hub#TBD MERGED (TBD, 2026-05-14) |
+| Phase 2 PR#3 (hub 박제, 본 PR) | mctrader-hub#315 MERGED (f1e04e6, 2026-05-14) |
 | 총 AC | 7/7 PASS (AC-1~7) |
 | 총 INV | 4/4 PASS (INV-1~4) |
 | 산출물 | engine 5 신규 + 1 확장 + 5 test 파일 / data 1 갱신 + 1 test 파일 / hub 11 file 박제 |
@@ -87,7 +87,7 @@ MCT-169 (immediate local delete + ambiguity invariant, D3+D10) LAND 후 단계. 
 | 2026-05-14 (early) | mctrader-hub#314 | 311b795 | Phase 1 docs — Story §1-§12 + spec + plan + ADR-029 §D7/§D8/§D10 amendment + scope_manifest IN_PROGRESS + CLAUDE.md + counters retitle (7 file) |
 | 2026-05-14 (mid) | mctrader-data#61 | 9d26438 | Phase 2 PR#1 — NullReaderCache 제거 + LRUReaderCache 구현 (Protocol get/put/invalidate, byte budget). 20 신규 test + 53 test ALL PASS, AC-7 grep verify 0건 |
 | 2026-05-14 (mid-late) | mctrader-engine#53 | a00690bc | Phase 2 PR#2 — tier_reader / l1_reader / dr_mode 3 module 신규 + reader_cache byte budget 확장 + __init__.py 갱신 + 5 test 신규 (107 io/ test ALL PASS, MCT-154 backward compat 회귀 0) |
-| 2026-05-14 (late) | mctrader-hub#TBD | TBD | Phase 2 PR#3 — RETRO + Story §11 retro_file + §12 측정 결과 fill + milestone 4/6 COMPLETED + EPIC-RESULTS Story-4 entry + counters MCT-170 reservation DELETE (6 file) |
+| 2026-05-14 | mctrader-hub#315 | f1e04e6 | Phase 2 PR#3 — RETRO + Story §11 retro_file + §12 측정 결과 fill + milestone 4/6 COMPLETED + EPIC-RESULTS Story-4 entry + counters MCT-170 reservation DELETE (6 file) |
 
 **race condition 해소**: PR#1 (data) admin merge 후 PR#2 (engine) 진입 강제 — engine 측 LRUReaderCache import 의존 (mctrader-data 측 pin) 회피. memory `feedback_admin_merge_autonomy` 활용.
 
@@ -233,7 +233,7 @@ EPIC-tier-promotion-single-source milestone progress:
 | 1 | **MCT-167** | **COMPLETED** | 2026-05-14 (hub#305) |
 | 2 | **MCT-168** | **COMPLETED** | 2026-05-14 (hub#307 + data#59 + hub#308) |
 | 3 | **MCT-169** | **COMPLETED** | 2026-05-14 (hub#310 + data#60 + hub#311) |
-| 4 | **MCT-170 (본 Story)** | **COMPLETED** | 2026-05-14 (hub#314 + data#61 + engine#53 + hub#TBD) |
+| 4 | **MCT-170 (본 Story)** | **COMPLETED** | 2026-05-14 (hub#314 + data#61 + engine#53 + hub#315) |
 | 5 | MCT-171 | Reserved | TBD (DR runbook 본문, 별 세션 권고) |
 | 6 | MCT-172 | Reserved | TBD (Epic integration smoke + CLOSED gate) |
 
@@ -248,7 +248,7 @@ EPIC-tier-promotion-single-source milestone progress:
 - Phase 1 PR: mctrader-hub#314 (311b795)
 - Phase 2 data PR: mctrader-data#61 (9d26438)
 - Phase 2 engine PR: mctrader-engine#53 (a00690bc)
-- Phase 2 hub PR: mctrader-hub#TBD (본 PR)
+- Phase 2 hub PR: mctrader-hub#315 (f1e04e6)
 - Epic scope_manifest: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (milestone 4/6)
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
 - prerequisite retros: RETRO-MCT-167.md / MCT-168 §11 / RETRO-MCT-169.md

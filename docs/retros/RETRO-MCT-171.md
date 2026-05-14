@@ -23,7 +23,7 @@ ADR-029 D4=B (WAL sealed local only) + D5=A_modified (capacity-bounded ingest bl
 |------|------|
 | Phase 1 PR (hub docs + DR runbook 본문) | mctrader-hub#317 + #318 MERGED (Phase 2 PR2 본 PR, 2026-05-14) |
 | Phase 2 PR#1 (data invariant+capacity+blocker) | mctrader-data#62 MERGED (3fb9d60, 2026-05-14T12:20:08Z) |
-| Phase 2 PR#2 (hub 박제, 본 PR) | mctrader-hub#317 + #318 MERGED (TBD, 2026-05-14) |
+| Phase 2 PR#2 (hub 박제, 본 PR) | mctrader-hub#317 (3399abd) + #318 (0b25975) MERGED 2026-05-14 |
 | 총 AC | 5/5 PASS (AC-1~5) |
 | 총 INV | 6/6 PASS (INV-1~6) |
 | 산출물 | data 6 신규/확장 + 3 test 파일 / hub docs 박제 |
@@ -74,9 +74,9 @@ MCT-169 (immediate local delete + ambiguity invariant) LAND 후 단계. 운영 �
 
 | 시각 | 작업 | 결과 |
 |------|------|------|
-| 2026-05-14 (mid) | Phase 1 PR (hub docs + DR runbook 본문 확장 + spec + plan) | hub#TBD MERGED |
+| 2026-05-14 (mid) | Phase 1 PR (hub docs + DR runbook 본문 확장 + spec + plan) | hub#317 MERGED (3399abd) |
 | 2026-05-14 (mid-late) | Phase 2 PR1 (data) — 6 file 신규/확장 + 3 test 파일 | data#62 MERGED (3fb9d60, 12:20Z) |
-| 2026-05-14 (late) | Phase 2 PR2 (hub 박제) — RETRO + §8.5 + ADR verify + scope_manifest + CLAUDE.md | hub#TBD MERGED (본 PR) |
+| 2026-05-14 (late) | Phase 2 PR2 (hub 박제) — RETRO + §8.5 + ADR verify + scope_manifest + CLAUDE.md | hub#318 MERGED (0b25975) |
 
 **FIX 루프 3회 (ruff + pyright)**:
 

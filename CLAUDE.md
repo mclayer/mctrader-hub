@@ -153,7 +153,7 @@ R4 mitigation iter 1 적용 (n_rounds 10→20 + cache max_bytes +50%, FIX-MCT-17
 - mctrader-hub#314 (311b795) — Phase 1 docs (7 file)
 - mctrader-data#61 (9d26438) — Phase 2 PR#1 LRU 구현 (20 신규 test)
 - mctrader-engine#53 (a00690bc) — Phase 2 PR#2 3 module 신규 + 1 확장 (107 io/ test ALL PASS)
-- mctrader-hub#TBD (본 PR) — Phase 2 PR#3 박제
+- mctrader-hub#315 (f1e04e6) — Phase 2 PR#3 박제
 
 ### AC-1 ~ AC-7 PASS / INV-1 ~ INV-4 PASS
 
