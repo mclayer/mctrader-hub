@@ -200,7 +200,7 @@ Cross-references: Story `docs/stories/MCT-160.md` §1-§11 + scope_manifest `EPI
 
 **MCT-161 amendment 박제 (2026-05-14)** — NAS bucket versioning + Object Lock governance 30d + Lifecycle ILM + DR runbook. EPIC-compactor-operations milestone 3/3 closure gate.
 
-**Background**: MCT-153 손실 (4.2 GiB / 1370 obj, RETRO-MCT-156 §13.5.2) = bucket versioning 미활성으로 hard delete vs 미진입 식별 불가, 영구 복구 불가. 본 amendment = prevention + DR. EPIC-tier-promotion-single-source D6 prerequisite (D9 sequential, MCT-161+163).
+**Background**: MCT-153 손실 (4.2 GiB / 1370 obj, RETRO-MCT-156 §13.5.2) = bucket versioning 미활성으로 hard delete vs 미진입 식별 불가, 영구 복구 불가. 본 amendment = prevention + DR. EPIC-tier-promotion-single-source D9 prerequisite (sequential, MCT-161+163).
 
 **Decision (Codex 합성 + Sonnet 채택)**:
 
@@ -210,7 +210,7 @@ Cross-references: Story `docs/stories/MCT-160.md` §1-§11 + scope_manifest `EPI
 4. **DeleteMarker replication OFF** (D4=B, 향후 replication 도입 시 적용): logical delete attack (실수 또는 악의) 보호 의무. 본 amendment scope 의 default 박제.
 5. **Hot path 무영향** (D7=A, INV-1): collector WAL append + L1 ParquetWriter latency 영향 0. ADR-027 §D5 정합. Integration Test 5 (MCT-156 박제) 회귀 검증 의무.
 6. **DR runbook** (D8=A): `docs/runbooks/nas-bucket-disaster-recovery.md` 신규 author. NAS data loss / hard delete / restore-from-version 5-step 단계별 명시. Chaos/bit rot scenario = 후속 Story (D8=A scope 제한).
-7. **Replication 후속 별 backlog Story** (D2=D, single NAS box 환경): mcnas02 물리 부재 가능 + cloud replication cost/credential 부담 — 본 amendment scope 외 명시. Phase 2 retro 시 별 Story reservation (예: MCT-174 placeholder).
+7. **Replication 후속 별 backlog Story** (D2=D, single NAS box 환경): mcnas02 물리 부재 + cloud replication cost/credential 부담 cumulative — 본 amendment scope 외 명시. Phase 2 retro 시 별 Story reservation (예: MCT-174 placeholder).
 8. **btrfs snapshot weekly** (D6=B): runbook 박제만 (host cron 별 작업), Story scope 외.
 
 **검증 의무**:
