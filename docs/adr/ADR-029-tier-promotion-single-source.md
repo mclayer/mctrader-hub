@@ -44,6 +44,40 @@ Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance s
 - **D1=B VERIFIED** (mctrader-data#59): L1Compactor.compact_segment() 내 _write_parquet_atomic() 직후 DualWriter.put_l1() 호출 확인. compactor 측 timing 정합 (22 tests PASS).
 - **D2=B VERIFIED** (mctrader-data#59): DualWriter.put_l1() → NASUploader.put_streaming() + queued → local_only 경로 확인. retry_queue + local_only 재사용 정합 (INV-5 status enum 3종 exhaustive PASS).
 
+### MCT-172 amendment (2026-05-14) — D8 sunset policy finalize + D9 + D10 verify status
+
+본 amendment = EPIC-tier-promotion-single-source Story-6 (MCT-172) Phase 1 박제분. Epic 의 **policy finalize Story**.
+
+**D8 sunset policy finalize (D8-3=A + D8-4=C Codex 채택)**:
+
+- **시점 cutoff**: 2026-09-01T00:00:00Z (MCT-170 amendment 박제분 유지)
+- **telemetry 14d window**: **2026-08-18T00:00:00Z ~ 2026-09-01T00:00:00Z** (cutoff 직전 14d, D8-4=C Codex 채택). MCT-170 amendment 의 "0-hit 연속 14d" 의 기준점 = cutoff 직전 14d 로 명시 finalize.
+- **rolling 0-hit metric**: `nas_reader_ambiguity_total` Counter 14d rolling rate = 0/min 의무 (Prometheus alert rule 박제)
+- **combined criterion (AND)**: cutoff timestamp 도달 **AND** 14d window 내 telemetry rate = 0 충족 → D8 local fallback 영구 disable
+- **실 sunset 실행**: 2026-09-01 별 Story or scheduled cron (telemetry watcher 측 alert rule trigger 시 별 PR 발의)
+- **본 Story (MCT-172) scope**: policy finalize + telemetry watcher 박제 only. 실 sunset 실행은 후속.
+
+**D9 verify status (MCT-172, 2026-05-14)**:
+
+- **D9=A VERIFIED**: MCT-161 (NAS bucket versioning, 2026-05-14 LAND) + MCT-163 (DualWriter streaming, 2026-05-14 LAND) ALL LAND prerequisite 충족. Epic 진입 sequential gate PASS. EPIC-tier-promotion-single-source MCT-167~171 LAND 박제분.
+
+**D10 verify status (MCT-172, 2026-05-14)**:
+
+- **D10=A VERIFIED**: ambiguity invariant SSOT = `mctrader-data/src/mctrader_data/nas_migration/invariant_harness.py:140` `_INVARIANT_NAMES` tuple + `_check_ambiguity` method (MCT-171 LAND, 8번째 invariant 통합).
+- **MCT-172 cleanup**: `compactor/promotion.py:177` `verify_no_ambiguity` 함수 **제거** + caller migrate (D8-5=A Codex 채택). SSOT 단일 보존 invariant.
+- **telemetry watcher**: `tests/integration/test_d8_sunset_telemetry_watcher.py` 신규 — `nas_reader_ambiguity_total` Counter 14d rolling rate 측정 mock + Prometheus alert rule 박제.
+
+**Epic CLOSED prerequisite (D8-9=C Codex 채택)**:
+
+본 MCT-172 LAND 후 Epic CLOSED 박제는 별 PR/Story 의무:
+
+1. **production deploy 후 14d 0-hit telemetry** (2026-08-18 ~ 2026-09-01)
+2. **WAL 30G production measurement** (R-CRITICAL carry over from MCT-171, peak market open 09:00 KST burst, 30G 초과 시 D11 hard_limit amendment 발의)
+3. **production evidence quad 동일 1h window** (bucket + log + Prometheus + drainage, D8-8=A Codex 채택, codeforge-plugin#620 Fix-1 정합)
+4. **Epic CLOSED 박제 PR or scope_manifest amend** (POLICY_FINALIZED → CLOSED transition)
+
+본 amendment 박제 시점 Epic status: **POLICY_FINALIZED** (Epic CLOSED 아님).
+
 ### D4+D5+D11 verify status (MCT-171 LAND, 2026-05-14)
 
 - **D4=B VERIFIED** (mctrader-data#62, 3fb9d60): WAL sealed segment NAS PUT 경로 부재 확인. `compactor/promotion.py` DEPRECATED 주석 박제. `wal/` module 내 NAS 업로드 호출 0 (grep verify). RPO=0 보장 = D1 (L1 ParquetWriter atomic NAS PUT) 단독 의존 구조 확인.
