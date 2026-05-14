@@ -12,9 +12,11 @@ issue: mclayer/mctrader-hub#295
 phase1_pr_hub: mclayer/mctrader-hub#296
 phase1_pr_hub_merge_sha: 330da52
 phase2_pr_data: mclayer/mctrader-data#56
-phase2_pr_data_merge_sha: 14244d4  # pre-merge commit SHA
+phase2_pr_data_merge_sha: 1c8a8df  # squash merge SHA
 phase2_pr_data_merged_at: 2026-05-14
-phase2_pr_hub: mclayer/mctrader-hub#TBD  # 본 RETRO 작성 시 open 중
+phase2_pr_hub: mclayer/mctrader-hub#297
+phase2_pr_hub_merge_sha: bc24889
+phase2_pr_hub_merged_at: 2026-05-14
 retro_author: PMOAgent
 retro_date: 2026-05-14
 sprint_period: "2026-05-14 ~ 2026-05-14"  # 단일일 cycle (D6=B 일반 Story flow + 당일 처리)
