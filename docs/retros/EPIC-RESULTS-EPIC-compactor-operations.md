@@ -65,7 +65,7 @@ MCT-156 (EPIC-cold-tier-stage-3-wiring entrypoint) production deploy (2026-05-13
 
 | Item | 상태 | 후속 |
 |------|------|------|
-| MCT-163 | PROPOSED | MCT-160 F3+F6+F7 follow-up (DualWriter streaming + row-batch + ADR-009 D7 amend) |
+| MCT-163 | **COMPLETED** (2026-05-14) | F3+F6+F7 carry surface fix MERGED — EPIC-tier-promotion D9 prerequisite 100% 충족 |
 | MCT-174 | RESERVED | NAS replication backlog (D2=D deferred, single NAS box 환경) |
 | Object Lock 재검토 | 후속 운영 결정 | bucket 재생성 또는 MinIO Console 경유 |
 
