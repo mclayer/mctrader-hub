@@ -60,6 +60,28 @@ NAS data loss / hard delete 복원 절차:
 
 MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5 의무 = 후속 별 Story 예약 완료.
 
+## Streaming refactor cross-ref (MCT-163, 2026-05-14)
+
+### F3 DualWriter streaming
+
+- `mctrader-data/src/mctrader_data/nas_storage/nas_uploader.py`: `put_streaming(Path|IO, key, sha256)` 신규
+- `mctrader-data/src/mctrader_data/nas_storage/dual_writer.py`: `write(Path)` read_bytes 0 (streaming)
+- INV-4: DualWriter peak RSS+TM delta ≤ 50 MB (105 MiB 실측: 0.2 MB / 0.0 MB)
+- INV-3: sha256 SSOT caller-side (multipart ETag ≠ sha256)
+
+### F6 L2/L3 iter_batches
+
+- `mctrader-data/src/mctrader_data/compactor/l2.py`: `pq.ParquetFile.read()` → `iter_batches(1024)` + `write_batch`
+- `mctrader-data/src/mctrader_data/compactor/l3.py`: 동형
+- INV-4: L2/L3 peak RSS+TM delta ≤ 256 MB (300k rows 실측: 0.0 MB / 0.3 MB)
+- INV-5: iter_batches per-batch write schema == 기존 L2/L3 schema
+
+### EPIC-tier-promotion D9 prerequisite
+
+- MCT-161 + MCT-163 모두 COMPLETED (2026-05-14)
+- **MCT-167 (EPIC-tier-promotion) 진입 가능**
+- cross-ref: `docs/retros/RETRO-MCT-163.md` + `docs/domain-knowledge/domain/parquet-streaming/cold-path-memory-invariant.md`
+
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
