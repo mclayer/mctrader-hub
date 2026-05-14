@@ -7,17 +7,19 @@
 epic_key: EPIC-compactor-operations
 epic_title: "compactor operations — L1 channel parity + L2 cadence + NAS durability (post-MCT-156 deploy 5중 차단 cycle)"
 parent_dependency: EPIC-cold-tier-stage-3-wiring  # post-deployment 발견 5중 차단 cycle
-status: In Progress  # MCT-162 + MCT-160 COMPLETED 2026-05-13 (2/3), MCT-161 PROPOSED → IN_PROGRESS transition (본 PMOAgent dispatch 후)
+status: COMPLETED  # MCT-161 Phase 2 LAND 2026-05-14 — milestone 3/3 CLOSED (MCT-162 + MCT-160 + MCT-161 ALL LAND)
 created: 2026-05-13
-last_updated: 2026-05-14  # MCT-160 Phase 2 land + RETRO + Story §12 + milestone 2/3 + MCT-161 IN_PROGRESS transition + MCT-163 reservation 박제 PMOAgent dispatch
+last_updated: 2026-05-14  # MCT-161 Phase 2 land + RETRO + EPIC-RESULTS + milestone 3/3 COMPLETED PMOAgent dispatch
+epic_closed_at: 2026-05-14
+epic_results_file: docs/retros/EPIC-RESULTS-EPIC-compactor-operations.md
 
 milestone_progression:
   total_stories: 3
-  completed: 2   # MCT-162 LAND 2026-05-13 + MCT-160 LAND 2026-05-13 (Phase 1 #287 cad60d2 + Phase 2 data#53 c96a9ef + Phase 2 hub PR 본 dispatch MERGED)
-  in_progress: 1   # MCT-161 (PROPOSED → IN_PROGRESS transition, NAS bucket versioning + replication + MCT-153 손실 재발 방지)
+  completed: 3   # MCT-162 LAND 2026-05-13 + MCT-160 LAND 2026-05-13 + MCT-161 LAND 2026-05-14
+  in_progress: 0
   proposed: 0
-  progress_percent: 66.6
-  last_completion: 2026-05-13  # MCT-160 Phase 2 merge 2026-05-13T15:51:09Z (c96a9ef)
+  progress_percent: 100.0
+  last_completion: 2026-05-14  # MCT-161 Phase 2 merge (본 dispatch)
 
 story_status:
   MCT-162:
@@ -72,12 +74,34 @@ story_status:
       - "MCT-163 (DualWriter 내부 streaming + L2/L3 row-batch streaming + ADR-009 D7 spec amend — F3+F6+F7 묶음 follow-up + D11 R6 cadence resolver 공통화는 별 sub-Story, 2-3sp)"
       - "MCT-164 (upbit L1 lost 별 root cause 진단, R7 escalate — MCT-160 D9 measurement 결과 의존)"
   MCT-161:
-    status: IN_PROGRESS  # MCT-160 LAND 후 sequential 진입 (NAS durability 정책 정립), 본 PMOAgent dispatch 시점 transition
+    status: COMPLETED  # Phase 1 #301 MERGED + Phase 2 hub PR (본 dispatch) MERGED 2026-05-14
     depends_on: [MCT-162, MCT-160]
     sp: 3
+    started_at: 2026-05-14
+    completed_at: 2026-05-14
     addresses_root_cause: ["MCT-153_loss_replay_prevention"]
-    decisions_owned: [D8]
-    title: "NAS bucket versioning + replication + MCT-153 손실 재발 방지"
+    decisions_owned: [D1, D2, D4, D5, D6, D7, D8, D9]  # 9 D (D3=N/A)
+    title: "NAS bucket versioning + Object Lock + Lifecycle ILM + DR runbook + MCT-153 손실 재발 방지"
+    phase1_pr: "mclayer/mctrader-hub#301 MERGED"
+    phase2_pr_hub: "mclayer/mctrader-hub#TBD (본 Phase 2 dispatch)"
+    retro_file: "docs/retros/RETRO-MCT-161.md"
+    ac_verdict:
+      ac1_versioning: PASS
+      ac2_object_lock: SKIP  # 기존 bucket MinIO 제약
+      ac3_lifecycle: PASS
+      ac4_dr_runbook: PASS
+      ac5_adr_amendment: PASS
+    fix_iterations: 2  # UnicodeEncodeError + mc CLI FileNotFoundError (모두 구현 원인 minor)
+    design_decisions:
+      D1: "A — versioning retention 30d NoncurrentVersionExpiration"
+      D2: "D — replication deferred (single NAS box mcnas02 물리 부재 가능), MCT-174 후속 reservation 박제"
+      D4: "B — DeleteMarker replication OFF (향후 replication 도입 시 적용 의무)"
+      D5: "A — Object Lock governance 30d (기존 bucket 제약으로 SKIP, 향후 재검토)"
+      D6: "B — btrfs snapshot runbook 박제만 (host cron 별 작업)"
+      D7: "A — ADR-027 §D MCT-161 amendment"
+      D8: "A — DR runbook = NAS data loss 복구 path only"
+      D9: "A — 1 Story (사용자 명시, replication = 후속 별 backlog)"
+    mct174_replication_reservation: ".codeforge/counters.json MCT-174 reserved"
   MCT-163:
     status: PROPOSED  # MCT-160 RETRO §7 surface (F3+F6+F7 묶음 follow-up)
     depends_on: [MCT-160]

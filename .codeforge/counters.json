@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 174
+      "next": 175
     },
     "mctrader-data": {
       "next": 1
@@ -236,6 +236,14 @@
           "rationale": "MCT-166 ALL LAND 후 brainstorm 진입. D1=B compactor runner --backfill extend / D7=C 1 Story + Phase 2 단계 분할 / D8=C MCT-165 V2=0 + 별 verify 스크립트."
         }
       ]
+    },
+    "MCT-174": {
+      "title": "NAS bucket replication — cross-NAS target (mcnas02) + DeleteMarker OFF + async replication (MCT-161 D2=D deferred backlog)",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-compactor-operations-followup",
+      "repo": "mctrader-hub",
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-161 D2=D (replication deferred, single NAS box mcnas02 물리 부재). INV-5 의무 = 후속 별 Story 예약. D4=B DeleteMarker replication OFF (향후 replication 도입 시 적용 의무). 진입 gate: mcnas02 NAS box 도입 후."
     }
   }
 }
