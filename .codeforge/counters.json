@@ -152,12 +152,19 @@
       ]
     },
     "MCT-172": {
-      "title": "EPIC-tier-promotion-single-source 통합 smoke + ambiguity invariant cross-Story verify + EPIC CLOSED",
+      "title": "EPIC-tier-promotion-single-source policy finalize — 8 invariant smoke + D8 sunset policy + promotion.py cleanup + WAL synthetic baseline (Epic close blocked pending production evidence)",
       "reserved_at": "2026-05-14",
       "epic": "EPIC-tier-promotion-single-source",
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
-      "rationale": "MCT-167-171 ALL LAND, Epic 종료 gate"
+      "rationale": "MCT-167-171 ALL LAND, Epic 종료 gate. Codex review 9 결정점 채택 (D8-1=A InvariantHarness 8종 SSOT / D8-2=C baseline+peak hybrid / D8-3=A 정책 finalize only / D8-4=C 2026-08-18 14d window / D8-5=A verify_no_ambiguity 즉시 제거 + caller migrate / D8-6=A production deploy 후 실측 / D8-7=A 초과 시 Epic close FAIL / D8-8=A 동일 1h window / D8-9=C production 14d 후 Epic CLOSED 별 PR). 본 Story = policy finalize + cleanup 박제, Epic CLOSED 는 production evidence 완성 후 별 PR 또는 scope_manifest amend.",
+      "retitle_history": [
+        {
+          "date": "2026-05-14",
+          "from": "EPIC-tier-promotion-single-source 통합 smoke + ambiguity invariant cross-Story verify + EPIC CLOSED",
+          "rationale": "Codex review 9 결정점 합성 — Epic CLOSED 는 production evidence 완성 후 의무 (D8-3 + D8-6 + D8-9). 본 Story scope = policy finalize (ADR-029 §D8 amendment + 14d window 명시 + telemetry watcher 박제) + promotion.py cleanup (D8-5=A 즉시 제거 + caller migrate) + integration smoke (8 invariant cross-Story verify) + WAL synthetic baseline. Epic CLOSED 자체 박제는 production deploy 후 별 PR."
+        }
+      ]
     },
     "MCT-173": {
       "title": "upbit L1 backfill — frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (compactor.runner --backfill extend + D7=C 단계 분할)",
