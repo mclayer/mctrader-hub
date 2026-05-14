@@ -120,16 +120,67 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 ### 다음 Story (sequential)
 
 - **MCT-168** COMPLETED 2026-05-14 (hub#307 + data#59) — D1+D2 VERIFIED
-- **MCT-169** (immediate local delete + tier promotion, D3+D10) — **진입 가능** (MCT-168 LAND 후 gate 충족)
-- MCT-170 ∥ MCT-171 (engine reader ∥ DR runbook 본문) — MCT-168+169 LAND 후
-- MCT-172 (Epic CLOSED, D9+D10 verify)
+- **MCT-169** COMPLETED 2026-05-14 (hub#310 + data#60) — D3+D10 VERIFIED
+- **MCT-170** IN_PROGRESS 2026-05-14 (Phase 1 docs 박제 진행 중) — D7=A + D8=B + D6=D sunset + D10 UNKNOWN_TIER owner
+- MCT-171 (DR runbook 본문, MCT-170 LAND 후 — parallel 가능하나 hub docs/runbook 충돌 회피 sequential 권고)
+- MCT-172 (Epic CLOSED, D9+D10 verify + D8 sunset finalize)
+
+## MCT-170 IN_PROGRESS (2026-05-14) — Engine reader L1 확장 + DR mode + reader cache byte budget
+
+> Phase 1 docs only 박제 진행, Phase 2 cross-repo 3 PR sequential 진입 대기
+
+### Phase 0 verify 발견 (중대 amendment)
+
+session prompt 의 "engine reader 재구현 — 4 module 신규" 표현이 부정확. verified-via 결과 mctrader-engine `io/` 측 **MCT-154 LAND 3 module 존재** (1058 lines):
+- `cold_reader.py` (319 lines) — L2/L3 specialized
+- `reader_cache.py` (269 lines) — LRU+TTL 자체 구현
+- `endpoint_router.py` (442 lines) — env-based + atomic flip + 7d grace mode
+
+→ MCT-170 = **확장 + wiring** (재구현 아님): tier_reader facade + l1_reader + dr_mode 신규 + reader_cache byte budget 확장. cold_reader + endpoint_router = 수정 0 (backward compat preserve, D9=A).
+
+counters.json + scope_manifest 모두 retitle 박제.
+
+### §Engine reader L1 확장 (tier_reader facade + l1_reader + cold_reader preserve)
+
+- `mctrader_engine/io/tier_reader.py` 신규 (Phase 2 PR#3) — facade orchestration (priority chain: cache → NAS L1/L2/L3 → local fallback)
+- `mctrader_engine/io/l1_reader.py` 신규 — L1 specialized read (prefix `tier=L1/`, ETag verify)
+- `mctrader_engine/io/cold_reader.py` 유지 — L2/L3 specialized (MCT-154 LAND preserve)
+- `mctrader_engine/io/__init__.py` export 갱신 — TierReader / L1Reader / DRMode 추가
+- D9=A backward compat: ColdReader 공개 API 유지, TierReader 신규 wrapper
+
+### §DR mode state machine (CLOSED/OPEN/HALF_OPEN + explicit override + UNKNOWN_TIER)
+
+- `mctrader_engine/io/dr_mode.py` 신규 (Phase 2 PR#3) — state machine + explicit mode flag override + Prometheus emit
+- 4 state: CLOSED (정상) / OPEN (NAS 차단) / HALF_OPEN (probe) / UNKNOWN_TIER (D10 exemption)
+- D8=C trigger hybrid: sliding window 60s 내 5xx 5회 OR p99 >500ms 3회 + consecutive failure 5회
+- HALF_OPEN: OPEN 30s 후 자동 전이, probe 1회 success → CLOSED
+- manual override: `set_mode(state, reason)` API (operator gate)
+- Prometheus `nas_reader_dr_state` Gauge + `nas_reader_ambiguity_total` Counter
+
+### §Reader cache byte budget (LRU+TTL + RSS bound)
+
+- `mctrader_engine/io/reader_cache.py` 갱신 (Phase 2 PR#3) — byte-size budget enforcement 추가 (D2=C)
+- `mctrader_data/compactor/reader_cache.py` 갱신 (Phase 2 PR#2) — NullReaderCache 제거 + LRUReaderCache 구현 (Protocol get/put/invalidate)
+- `max_bytes` constructor param (default 256 MB)
+- `current_bytes() -> int` method 신규 (Prometheus metric input)
+- put() 측 enforcement: OrderedDict.popitem(last=False) 반복 while _current_bytes + len(value) > max_bytes
+- D7=C TTL configurable env (`READER_CACHE_TTL_L1=3600` default), MCT-154 API preserve
+
+### ADR-029 amendment (MCT-170 박제분, 2026-05-14)
+
+- **Status section "MCT-170 amendment"** — D6=D sunset criterion + D10 exemption scope 명시 박제
+- **§D7 amendment box** — D7=C TTL configurable env (default 1h/24h/7d, env override 가능)
+- **§D8 amendment box** — D6=D sunset criterion (cutoff 2026-09-01 + telemetry 0-hit 14d + MCT-172 gate)
+- **§D10 footnote** — dr_mode.UNKNOWN_TIER 상태 신규 + 30d exemption window (2026-05-14 ~ 2026-06-13) + Prometheus `nas_reader_ambiguity_total` emit
 
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
 - **ADR-029 (신규, MCT-167 2026-05-14)**: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - EPIC-compactor-operations scope_manifest: `scope_manifests/EPIC-compactor-operations.yaml` (CLOSED 2026-05-14)
-- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 2/6 milestone)
+- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 3/6 milestone completed + MCT-170 IN_PROGRESS)
+- **MCT-170 spec**: `docs/superpowers/specs/2026-05-14-MCT-170-engine-reader-design.md`
+- **MCT-170 plan**: `docs/superpowers/plans/2026-05-14-mct-170-engine-reader.md`
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-compactor-operations.md`
 - **EPIC-RESULTS (tier-promotion, IN_PROGRESS)**: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
 - MCT-174 reservation: `.codeforge/counters.json`
