@@ -85,9 +85,9 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
   - ADR-029 D1=B + D2=B VERIFIED (mctrader-data#59)
 - cross-ref: `docs/retros/RETRO-MCT-163.md` + `docs/domain-knowledge/domain/parquet-streaming/cold-path-memory-invariant.md`
 
-## EPIC-tier-promotion-single-source (MCT-168 L1 NAS DualWriter wiring LAND 2026-05-14)
+## EPIC-tier-promotion-single-source (MCT-170 engine reader L1 확장 + DR mode LAND 2026-05-14)
 
-> milestone 2/6 박제 (MCT-167 + MCT-168 COMPLETED)
+> milestone 4/6 박제 (MCT-167 + MCT-168 + MCT-169 + MCT-170 COMPLETED)
 
 ### ADR 산출물
 
@@ -120,14 +120,35 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 ### 다음 Story (sequential)
 
 - **MCT-168** COMPLETED 2026-05-14 (hub#307 + data#59) — D1+D2 VERIFIED
-- **MCT-169** COMPLETED 2026-05-14 (hub#310 + data#60) — D3+D10 VERIFIED
-- **MCT-170** IN_PROGRESS 2026-05-14 (Phase 1 docs 박제 진행 중) — D7=A + D8=B + D6=D sunset + D10 UNKNOWN_TIER owner
-- MCT-171 (DR runbook 본문, MCT-170 LAND 후 — parallel 가능하나 hub docs/runbook 충돌 회피 sequential 권고)
+- **MCT-169** COMPLETED 2026-05-14 (hub#310 + data#60 + hub#311) — D3+D10 VERIFIED
+- **MCT-170** COMPLETED 2026-05-14 (hub#314 + data#61 + engine#53 + hub#TBD) — D7+D8+D10 VERIFIED (hit_ratio=0.95 ✓ + p99=0.016ms ✓)
+- **MCT-171** (DR runbook 본문, 진입 가능 — 별 세션 권고 + brainstorm 추가 의무) — D4+D5+D6+D11 owner
 - MCT-172 (Epic CLOSED, D9+D10 verify + D8 sunset finalize)
 
-## MCT-170 IN_PROGRESS (2026-05-14) — Engine reader L1 확장 + DR mode + reader cache byte budget
+## MCT-170 COMPLETED (2026-05-14) — Engine reader L1 확장 + DR mode + reader cache byte budget
 
-> Phase 1 docs only 박제 진행, Phase 2 cross-repo 3 PR sequential 진입 대기
+> 4 PR cross-repo sequential LAND, D7 NFR 측정 PASS
+
+### 측정 결과 (D7 NFR)
+
+| 항목 | 결과 | gate | verdict |
+|------|------|------|---------|
+| hit_ratio (10k read benchmark) | 0.95 | ≥ 0.95 | PASS |
+| p99 latency | 0.016 ms | < 100 ms | PASS (대폭 마진) |
+| benchmark mean | 1.99 μs | — | ~503k OPS |
+
+R4 mitigation iter 1 적용 (n_rounds 10→20 + cache max_bytes +50%, FIX-MCT-170-001).
+
+### 4 PR LAND timeline
+
+- mctrader-hub#314 (311b795) — Phase 1 docs (7 file)
+- mctrader-data#61 (9d26438) — Phase 2 PR#1 LRU 구현 (20 신규 test)
+- mctrader-engine#53 (a00690bc) — Phase 2 PR#2 3 module 신규 + 1 확장 (107 io/ test ALL PASS)
+- mctrader-hub#TBD (본 PR) — Phase 2 PR#3 박제
+
+### AC-1 ~ AC-7 PASS / INV-1 ~ INV-4 PASS
+
+ALL PASS. MCT-154 backward compat 회귀 0 (cold_reader + reader_cache MCT-154 API + endpoint_router 전수 green).
 
 ### Phase 0 verify 발견 (중대 amendment)
 
@@ -173,14 +194,19 @@ counters.json + scope_manifest 모두 retitle 박제.
 - **§D8 amendment box** — D6=D sunset criterion (cutoff 2026-09-01 + telemetry 0-hit 14d + MCT-172 gate)
 - **§D10 footnote** — dr_mode.UNKNOWN_TIER 상태 신규 + 30d exemption window (2026-05-14 ~ 2026-06-13) + Prometheus `nas_reader_ambiguity_total` emit
 
+### 다음 Story 진입 권고
+
+**MCT-171** (DR runbook 본문 + invariant 8종 + 용량 제한, D4+D5+D6+D11) — 별 세션 권고. brainstorm 추가 의무 (Phase 0 4 agent + Codex review). prompt path: `docs/superpowers/prompts/MCT-171-session-prompt.md` (작성 의무).
+
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
 - **ADR-029 (신규, MCT-167 2026-05-14)**: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - EPIC-compactor-operations scope_manifest: `scope_manifests/EPIC-compactor-operations.yaml` (CLOSED 2026-05-14)
-- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 3/6 milestone completed + MCT-170 IN_PROGRESS)
+- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 4/6 milestone completed)
 - **MCT-170 spec**: `docs/superpowers/specs/2026-05-14-MCT-170-engine-reader-design.md`
 - **MCT-170 plan**: `docs/superpowers/plans/2026-05-14-mct-170-engine-reader.md`
+- **MCT-170 retro**: `docs/retros/RETRO-MCT-170.md`
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-compactor-operations.md`
 - **EPIC-RESULTS (tier-promotion, IN_PROGRESS)**: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
 - MCT-174 reservation: `.codeforge/counters.json`
