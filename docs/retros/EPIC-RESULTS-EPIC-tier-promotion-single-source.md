@@ -33,7 +33,7 @@ MCT-156/162/160 3-cycle 누적 실패 patterns ("review lane PASS vs production 
 | **MCT-169** | L1 NAS verify + immediate local delete + tier promotion (D3+D10) | 4 | **2026-05-14** | mctrader-hub#310 (a353090) + mctrader-data#60 (d65545f) + mctrader-hub#311 (eb2c0cc) MERGED | **COMPLETED** |
 | **MCT-170** | Engine reader L1 확장 + DR mode + reader cache byte budget (D7+D8+D10) | 5 | **2026-05-14** | mctrader-hub#314 (311b795) + mctrader-data#61 (9d26438) + mctrader-engine#53 (a00690bc) + mctrader-hub#315 (f1e04e6) MERGED | **COMPLETED** |
 | **MCT-171** | DR runbook 본문 + invariant 8종 + 용량 제한 (D4+D5+D6+D11) | 5 | **2026-05-14** | mctrader-hub#317 (3399abd) + mctrader-data#62 (3fb9d60) + mctrader-hub#318 (0b25975) MERGED | **COMPLETED** |
-| **MCT-172** | Epic policy finalize (D8 sunset + D9+D10 verify + promotion.py cleanup + WAL synthetic baseline) | 3 | **2026-05-14** | mctrader-hub#320 (29028a8) + mctrader-data#63 (f2fb28e) + mctrader-hub#TBD MERGED | **POLICY_FINALIZED** |
+| **MCT-172** | Epic policy finalize (D8 sunset + D9+D10 verify + promotion.py cleanup + WAL synthetic baseline) | 3 | **2026-05-14** | mctrader-hub#320 (29028a8) + mctrader-data#63 (f2fb28e) + mctrader-hub#321 (70731e3) MERGED | **POLICY_FINALIZED** |
 | **합계** | | **22 (6/6)** | | | |
 
 ## Story-4 결과 박제 (MCT-170, 2026-05-14)
@@ -108,7 +108,7 @@ MCT-154 backward compat 회귀 0 (cold_reader + reader_cache MCT-154 API + endpo
 |------|-----|-------------|-----------|
 | 2026-05-14 (mid) | mctrader-hub#320 | 29028a8 | Phase 1 docs — Story §1-§12 + spec + plan + ADR-029 §D8 amendment (14d window 2026-08-18~2026-09-01) + §D9 + §D10 verify status entry + scope_manifest IN_PROGRESS + counters retitle |
 | 2026-05-14T14:02:48Z | mctrader-data#63 | f2fb28e | Phase 2 PR1 — promotion.py `verify_no_ambiguity` + `_check_nas_exists` 제거 (89 lines) + caller migrate (test_ambiguity_invariant 6 test + test_invariant_harness_8 d10_regression) + 3 신규 integration test (test_epic_smoke + test_wal_synthetic_baseline + test_d8_sunset_telemetry_watcher, 14 test). 954 passed + 24 skipped + 4 xfailed (회귀 0). ruff + pyright PASS. |
-| 2026-05-14 (late) | mctrader-hub#TBD | TBD | Phase 2 PR2 — RETRO-MCT-172 + ADR-029 §D10 verify status (Phase 2 PR1 LAND verify) + EPIC-RESULTS Story-6 + scope_manifest milestone 6/6 + Epic status POLICY_FINALIZED + CLAUDE.md (본 PR) |
+| 2026-05-14T14:13:24Z | mctrader-hub#321 | 70731e3 | Phase 2 PR2 — RETRO-MCT-172 + ADR-029 §D10 verify status (Phase 2 PR1 LAND verify) + EPIC-RESULTS Story-6 + scope_manifest milestone 6/6 + Epic status POLICY_FINALIZED + CLAUDE.md |
 
 ### Codex 9 결정점 D8-1~D8-9 박제
 
