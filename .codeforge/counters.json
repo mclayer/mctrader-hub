@@ -114,12 +114,19 @@
       ]
     },
     "MCT-161": {
-      "title": "NAS bucket versioning 활성화 + replication 정책 + MCT-153 손실 재발 방지",
+      "title": "NAS bucket versioning 활성화 + Object Lock governance 30d + ADR-027 §D amendment + DR runbook (replication deferred 별 backlog Story)",
       "reserved_at": "2026-05-13",
       "epic": "EPIC-compactor-operations",
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
-      "rationale": "MCT-159 brainstorm Phase 1 D7 (Codex 권고) — bucket versioning 미활성으로 MCT-153 4.2 GiB 복구 불가 확정. 본 Story 가 versioning 정책 + replication + 손실 재발 방지 영역."
+      "rationale": "EPIC-compactor-operations milestone 3/3 CLOSED gate. D1=A 30d retention / D2=D replication deferred / D3=C N/A / D4=B DeleteMarker OFF (향후 replication 시) / D5=A Object Lock 30d governance / D6=B btrfs snapshot runbook 박제만 / D7=A ADR-027 §D amend / D8=A 복구 path / D9=A 1 Story 사용자 명시.",
+      "retitle_history": [
+        {
+          "date": "2026-05-14",
+          "from": "NAS bucket versioning 활성화 + replication 정책 + MCT-153 손실 재발 방지",
+          "rationale": "Codex 합성 + Sonnet 채택: D2=D replication deferred (single NAS box mcnas02 물리 부재 가능 + EPIC closure gate 우선). 본 Story scope = versioning + Object Lock governance 30d + ADR-027 §D amendment + DR runbook. replication = 후속 별 backlog Story."
+        }
+      ]
     },
     "MCT-163": {
       "title": "DualWriter 내부 streaming + L2/L3 row-batch streaming + ADR-009 D7 spec amend (MCT-160 F3+F6+F7 follow-up)",

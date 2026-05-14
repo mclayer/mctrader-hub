@@ -198,6 +198,38 @@ Cross-references: Story `docs/stories/MCT-160.md` §1-§11 + scope_manifest `EPI
 - MCT-166 (fix Story, 본 amendment 정합 fix 의무)
 - Cross-references: Story `docs/stories/MCT-164.md` §1-§12 + ADR-027 Amendment 1 (MCT-160 cadence path silent-skip) sibling
 
+**MCT-161 amendment 박제 (2026-05-14)** — NAS bucket versioning + Object Lock governance 30d + Lifecycle ILM + DR runbook. EPIC-compactor-operations milestone 3/3 closure gate.
+
+**Background**: MCT-153 손실 (4.2 GiB / 1370 obj, RETRO-MCT-156 §13.5.2) = bucket versioning 미활성으로 hard delete vs 미진입 식별 불가, 영구 복구 불가. 본 amendment = prevention + DR. EPIC-tier-promotion-single-source D9 prerequisite (sequential, MCT-161+163).
+
+**Decision (Codex 합성 + Sonnet 채택)**:
+
+1. **Bucket versioning enable** (D1=A 30d retention): `mctrader-market` bucket `Status: Enabled` (MinIO admin API `put_bucket_versioning`). hard delete 시 DeleteMarker 만 추가, version history 보존.
+2. **Object Lock governance 30d** (D5=A): GovernanceRetention 30d. 30d 이내 version delete 시 GovernanceRetentionPolicy violation error (사용자 명시 override 가능). MCT-153 같은 hard delete 실수 30d 복구 window 보장.
+3. **Lifecycle ILM** (D1=A): `NoncurrentVersionExpiration 30d` 자동 expiration. storage cost 1.5x 미만 (append-only 특성 1.1x-1.3x 예상).
+4. **DeleteMarker replication OFF** (D4=B, 향후 replication 도입 시 적용): logical delete attack (실수 또는 악의) 보호 의무. 본 amendment scope 의 default 박제.
+5. **Hot path 무영향** (D7=A, INV-1): collector WAL append + L1 ParquetWriter latency 영향 0. ADR-027 §D5 정합. Integration Test 5 (MCT-156 박제) 회귀 검증 의무.
+6. **DR runbook** (D8=A): `docs/runbooks/nas-bucket-disaster-recovery.md` 신규 author. NAS data loss / hard delete / restore-from-version 5-step 단계별 명시. Chaos/bit rot scenario = 후속 Story (D8=A scope 제한).
+7. **Replication 후속 별 backlog Story** (D2=D, single NAS box 환경): mcnas02 물리 부재 + cloud replication cost/credential 부담 cumulative — 본 amendment scope 외 명시. Phase 2 retro 시 별 Story reservation (예: MCT-174 placeholder).
+8. **btrfs snapshot weekly** (D6=B): runbook 박제만 (host cron 별 작업), Story scope 외.
+
+**검증 의무**:
+
+- AC-1 `get_bucket_versioning() == "Enabled"` + delete 시 DeleteMarker
+- AC-2 `get_object_lock_configuration` GOVERNANCE 30d
+- AC-3 `get_bucket_lifecycle_configuration` NoncurrentVersionExpiration 30d
+- AC-4 DR runbook 5-step 실행 가능
+- INV-1 hot path latency 회귀 0 (Integration Test 5 통과 재검증)
+
+**Cross-ref**:
+
+- MCT-153 손실 evidence (RETRO-MCT-156 §13.5.2)
+- MCT-159 D7 (versioning 미활성 식별, 본 amendment trigger source)
+- MCT-147 (NAS deployment fact + 4중 mitigation)
+- MCT-167 (EPIC-tier-promotion governance, 본 amendment prerequisite consumer)
+- EPIC-compactor-operations milestone 3/3 closure gate
+- ADR-027 §D5 (hot path 무영향, INV-1 정합)
+
 ### D5. Failure mode — compactor retry queue + alert, hot path 무영향
 
 NAS unreachable 시:
@@ -501,3 +533,5 @@ NAS DSM UI 의 Container Manager STOP/START 후 recovery time = 30.56ms (NFR-3 l
 - 2026-05-13 — **D6 amendment** (MCT-155, Stage 2 마지막 Story Phase 2 PR — `mctrader-hub#276` MERGED). 3종 → 7종 invariant 명시화 (S5 박제, MCT-151 InvariantHarness 정합). byte-level (1) + set-level (2) + schema-level (4) = 7종 ALL PASS 의무.
 - 2026-05-13 — **D4/D5/D9 amendment** (MCT-156, EPIC-cold-tier-stage-3-wiring Stage 3 wiring entrypoint — 본 PR). Stage 2 EPIC CLOSED 후 사용자 NAS bucket 실측에서 발견된 hot pipeline NAS wiring gap 해소. D4 = Stage 3 wiring obligation 박제 (`compactor/runner.py` L2/L3 DualWriter inject 의무 + legacy MinioUploader deprecation 마킹). D5 = retry queue + Prometheus alert wiring obligation (DualWriter status enum 3종 caller contract + `mctrader_dual_write_result_total{status, tier}` Counter emit). D9 = reader read-through cache 의 mixed layout 책임 경계 (legacy + 신규 mixed scan = ADR-009 §D2.1+§D14 fallback 자연 양립). D6 (RPO=0) amend 0 = invariant, wiring 변경 무관.
 - 2026-05-13 — **D4/D6/D9 amendment** (MCT-159, EPIC-cold-tier-stage-3-wiring sibling — L2/L3 cold tier backlog NAS migration). Stage 3 wiring (MCT-156 LAND) 후 hot pipeline NAS PUT 정상화되었으나 wiring 이전 로컬 누적 L2/L3 backlog (8.85 GiB / 7118 file, orderbooksnapshot + transaction × L2/L3) 의 자연 cadence 적용 외 영역 (orderbookdepth channel NotImplementedError 영구 fail, L2 자연 trigger ETA 9.2h 무효). D4 = backlog migration wiring obligation 박제 (MCT-153 BackfillOrchestrator channel parametrize + hour key 처리 2 amendment 후 재호출). D6 = 7종 invariant ALL PASS gate backlog path 자동 적용 명시 (MCT-151 InvariantHarness inject, wording 변경 0). D9 = mixed layout 재해석 (RETRO-MCT-156 §13.5.2 박제 — legacy NAS 4.2 GiB 손실 확정으로 (a) 사실상 무존재, reader fallback 의존 0, local source 보존 = forward-only invariant 위반 0, MCT-161 reserve 별 Story versioning 활성화 책임).
+- 2026-05-14 — **MCT-164 amendment** (multi-channel exchange silent-skip 차단). ADR-027 Amendment 1 (MCT-160 cadence path) sibling — multi-channel source 영역 확장. L1/L2/L3 compactor 의 미지원 source channel = fail-fast + `compactor_unsupported_source_total{tier,exchange,channel}` Counter emit + channel matrix SSOT dispatch 의무. MCT-165 V2 verify 잔존 YES (upbit L1 partition 0) trigger. ADR-017 Amendment (channel matrix SSOT) sibling.
+- 2026-05-14 — **MCT-161 amendment** (NAS bucket versioning + Object Lock governance 30d + Lifecycle ILM + DR runbook). EPIC-compactor-operations milestone 3/3 closure gate. MCT-153 4.2 GiB 손실 prevention + DR. Decision 8 (versioning Enable / Object Lock 30d / NoncurrentVersionExpiration 30d / DeleteMarker replication OFF / hot path 무영향 INV-1 / DR runbook 5-step / replication 후속 별 backlog Story D2=D / btrfs snapshot runbook 박제만 D6=B). EPIC-tier-promotion-single-source D9 prerequisite (MCT-161+163 sequential, MCT-167 governance prerequisite consumer).
