@@ -151,23 +151,6 @@
         }
       ]
     },
-    "MCT-169": {
-      "title": "L1 NAS verify + immediate local delete + tier promotion path 재구성 (EPIC-tier-promotion-single-source Story-3, D3=C + D10=A invariant)",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-tier-promotion-single-source",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-168 LAND 후, NAS HEAD verify + grace 0 immediate delete + L2/L3 source = NAS GET stream (D3=C) + ambiguity invariant enforcement (D10=A)",
-      "status": "IN_PROGRESS",
-      "started_at": "2026-05-14",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "L1 NAS verify + immediate local delete + tier promotion path 재구성 (D3=C + D10 invariant)",
-          "rationale": "Story scope 확정: NAS HEAD verify + grace 0 immediate delete (D3=C) + L2/L3 NAS GET source swap + ambiguity invariant D10=A 명시"
-        }
-      ]
-    },
     "MCT-170": {
       "title": "engine reader 재구현 — L1 tier 추가 + reader 우선순위 NAS-first + DR mode degradation (D7 cache 95% hit)",
       "reserved_at": "2026-05-14",
