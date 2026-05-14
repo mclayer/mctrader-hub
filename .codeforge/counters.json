@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 173
+      "next": 174
     },
     "mctrader-data": {
       "next": 1
@@ -153,12 +153,19 @@
       "rationale": "사용자 통합 의도 (3 follow-up 산분 시 검증 누락 우려) + Phase 0 4 에이전트 + Codex 합성 9 결정점 채택. 1 Story 통합 (D2=B), 4 layer MVP (D4=C), 정적 ±20% + rolling 자리 예약 (D5=C), CLI + JSON/CSV/markdown (D6=B)."
     },
     "MCT-166": {
-      "title": "upbit L1 forward-only loss fix (MCT-164 진단 결과 기반 — scope 확정 후 brainstorm) placeholder",
+      "title": "upbit L1 forward-only loss fix — channel mismatch 해소 (collector.py L82 fix or compactor 분기 활성화) + fail-fast + verify + WAL freeze 해제",
       "reserved_at": "2026-05-14",
       "epic": "EPIC-data-accumulation-umbrella",
       "repo": "mctrader-data",
-      "phase_pair": "tbd",
-      "rationale": "MCT-164 §10 진단 결과 (channel mismatch / path mismatch / compactor 미지원 / discovery skip 4 후보 중 확정 영역) 인용 후 fix scope brainstorm. INV-5 정합 (진단 → fix 인과 chain 강제)."
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-164 INV-5 진단→fix 인과 chain. D1=B 선결 검증 / D2=C 자율 / D3=B backfill 별 / D4=C 양쪽 fail-fast / D5=A matrix 전이 / D6=B 당일 / D7=C 선결 게이트 / D8=A fix LAND verify 후 freeze 해제 / D9=C health framework + verify 스크립트.",
+      "retitle_history": [
+        {
+          "date": "2026-05-14",
+          "from": "upbit L1 forward-only loss fix (MCT-164 진단 결과 기반 — scope 확정 후 brainstorm) placeholder",
+          "rationale": "MCT-164 §10 채택 후 brainstorm 진입 — channel mismatch root cause 단일 확정 인용. D7=C 1 Story + 선결 게이트 분기, D3=B backfill 별 MCT-173."
+        }
+      ]
     },
     "MCT-167": {
       "title": "tier-promotion governance — ADR-NNN-tier-promotion-single-source 신규 + ADR-017/027/009 amend 3건 + DR runbook stub",
@@ -207,6 +214,14 @@
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
       "rationale": "MCT-167-171 ALL LAND, Epic 종료 gate"
+    },
+    "MCT-173": {
+      "title": "upbit L1 backfill — frozen orderbooksnapshot WAL → orderbooksnapshot L1 historical compaction (MCT-166 D3=B 별 Story)",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-data-accumulation-umbrella",
+      "repo": "mctrader-data",
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-166 D3=B 결정 — backfill scope 통제 별 Story 분리. MCT-164 D4=C WAL 복구 verdict 부분 가능 (snapshot WAL → snapshot L1 직접 compaction). MCT-166 LAND 후 brainstorm 진입."
     }
   }
 }
