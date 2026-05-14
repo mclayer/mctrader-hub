@@ -527,3 +527,52 @@ WAL: MCTRADER_DATA_ROOT/wal/{exchange}/orderbookdepth/{symbol}/{YYYY-MM-DD}/segm
 **D+7 (2026-05-16)**: 5d 완전 window V1 재검증 예정. 별 세션.
 
 **Cross-ref**: MCT-165 Story / ADR-028 Reserved / ADR-009 §D12 / MCT-164 (upbit L1 root cause placeholder).
+
+---
+
+## Collector channel allowlist 규약 (MCT-164, 2026-05-14)
+
+**Root cause 확정 (MCT-164 §10)**: `collector.py _build_ingesters()` 에서 `exchange == "bithumb"` 조건으로
+`orderbookdepth` ingester 를 bithumb 전용으로 제한. upbit = orderbooksnapshot WAL 만 생성.
+
+```python
+# collector.py _build_ingesters() 현재 상태 (MCT-164 확정 root cause — MCT-166 fix 대상)
+if self._include_orderbook and self._exchange == "bithumb":
+    ingesters["orderbookdepth"] = WalIngester(channel="orderbookdepth", ...)
+```
+
+- **bithumb**: orderbookdepth + orderbooksnapshot + transaction WAL
+- **upbit**: orderbooksnapshot + transaction WAL 만 (orderbookdepth 없음 → L1 = 0)
+- **신규 exchange 추가**: channel allowlist + WS adapter event 지원 여부 동시 확인 의무
+
+**channel matrix SSOT**: `docs/domain-knowledge/domain/data-health/exchange-channel-matrix.md`
+
+## Ingester partition key 규약 (MCT-164, 2026-05-14)
+
+`WalIngester(channel=<channel>)` 파라미터 = WAL path `<channel>` 디렉터리 결정.
+collector emit channel = WAL partition key = L1 output channel 디렉터리 (1:1 정합).
+
+## Compactor source 분기 규약 (MCT-164, ADR-017 Amendment 2)
+
+L1 compactor `_CHANNEL_SCHEMA_VERSION` allowlist: transaction / orderbooksnapshot / orderbookdepth.
+exchange 별 분기 없음. 미지원 channel = NotImplementedError raise (silent skip 금지 — ADR-027 Amendment 1).
+channel 추가 시 allowlist + `_convert_to_arrow` + `_arrow_schema_for_channel` 동시 갱신 의무.
+
+## WAL path layout (MCT-164)
+
+```
+<root>/wal/<exchange>/<channel>/<symbol>/<date>/
+    segment-<ts>-<node_id>.ndjson
+    segment-<ts>-<node_id>.ndjson.sealed
+    segment-<ts>-<node_id>.ndjson.sealed.compacted
+```
+
+**WAL freeze 도구** (forward-only loss 즉시 차단):
+```bash
+python scripts/wal_freeze.py --root <data_root> --exchange upbit --execute --verify
+```
+
+## exchange-channel-matrix cross-ref (MCT-164, ADR-017 Amendment 2)
+
+- `docs/domain-knowledge/domain/data-health/exchange-channel-matrix.md` — SSOT (hypothesis → confirmed 2026-05-14)
+- MCT-166 fix Story = 본 matrix "결함" 행 fix 의무 (INV-5 인과 chain 강제)

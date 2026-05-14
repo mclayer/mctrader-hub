@@ -5,33 +5,53 @@ story: MCT-164
 related_adrs:
   - ADR-017 Amendment (compactor source 규약 + channel matrix SSOT)
   - ADR-027 Amendment (미지원 source silent-skip 차단)
-status: hypothesis  # MCT-164 Phase 2 진단 결과 후 fact 로 update
+status: confirmed  # MCT-164 Phase 2 진단 완료 (2026-05-14) — hypothesis → fact
 ---
 
 # Exchange × Channel × Tier Matrix
 
 mctrader-data 의 multi-exchange × multi-channel × multi-tier 매핑 SSOT. ADR-017 / ADR-027 amendment (MCT-164) 가 본 file 을 SSOT 로 인용.
 
-## 추정 매트릭스 (2026-05-14 진단 전 hypothesis)
+## 확정 매트릭스 (2026-05-14 MCT-164 Phase 2 진단 결과 기반)
 
-| Exchange | Collector Channel (WAL) | L1 Dataset | L2 Dataset | L3 Dataset | 상태 |
-|---|---|---|---|---|---|
-| bithumb | orderbookdepth | orderbookdepth | orderbooksnapshot | orderbooksnapshot | MCT-162 LAND 후 정상 (MCT-165 V1 PASS) |
-| bithumb | transaction | transaction | transaction | transaction | 정상 |
-| upbit | orderbooksnapshot | (미지원 ← MCT-164 진단 대상) | (미지원) | (미지원) | **MCT-164 root cause 영역** (MCT-165 V2 잔존 YES) |
-| upbit | transaction | transaction | transaction | transaction | 추정 정상 (별 진단 필요, MCT-164 scope) |
+| Exchange | Collector Channel (WAL) | L1 Dataset | L2 Dataset | L3 Dataset | 상태 | Root Cause |
+|---|---|---|---|---|---|---|
+| bithumb | orderbookdepth | orderbookdepth | orderbooksnapshot | orderbooksnapshot | **정상** (MCT-162 LAND, MCT-165 V1 PASS) | N/A |
+| bithumb | transaction | transaction | transaction | transaction | **정상** | N/A |
+| upbit | orderbooksnapshot | orderbooksnapshot (WAL 있음) | — | — | **결함** (WAL 있음, L1 compaction 미실행) | **(c) channel_mismatch** — MCT-164 확정 |
+| upbit | orderbookdepth | — | — | — | **결함** (WAL 없음 = collector 미생성) | **(c) channel_mismatch** — collector exchange=="bithumb" 조건 |
+| upbit | transaction | transaction | transaction | transaction | **정상** (추정) | N/A |
 
-## 변환 의무 (ADR-017 Amendment)
+### Root Cause 요약 (MCT-164 §10 인용)
+
+**확정 원인: collector.py `_build_ingesters()` exchange == "bithumb" 조건**
+
+```
+collector.py:82
+if self._include_orderbook and self._exchange == "bithumb":
+    ingesters["orderbookdepth"] = WalIngester(channel="orderbookdepth", ...)
+```
+
+- MCT-162 (2026-05-13) bithumb orderbookdepth 활성화 시 upbit scope 미포함
+- upbit = orderbooksnapshot WAL 만 생성
+- L1 compactor 입력 없음 → upbit L1 = 0 → MCT-165 V2 잔존 YES
+
+### WAL 복구 가능성 (MCT-164 §10 인용, D4=C)
+
+- **verdict**: 부분가능
+- orderbooksnapshot WAL → orderbooksnapshot L1 직접 compaction: 가능 (L1 기지원)
+- MCT-166 에서 backfill 방향 결정
+
+## 변환 의무 (ADR-017 Amendment 2)
 
 - **Collector channel ≠ L1 dataset 시 compactor 변환 의무**
-- 예: upbit orderbooksnapshot WAL → L1 orderbookdepth 변환 가능성 = MCT-164 AC-5 D4=C 검증 대상 (`scripts/wal_recovery_probe.py`)
+- upbit orderbooksnapshot WAL → orderbooksnapshot L1: L1 compactor `_ob_snapshot_dicts_to_arrow()` 기지원
+- MCT-166 fix scope: collector 수정 또는 compactor orderbooksnapshot L1 활성화 결정 의무
 
-## 진단 후 update 의무
+## MCT-166 Fix Obligation (INV-5)
 
-본 표는 hypothesis. MCT-164 Phase 2 진단 결과 (`docs/stories/MCT-164.md` §10) 박제 후 본 file 본문 갱신 의무 (Phase 2 PR 에서 update):
-- "미지원" → 실제 root cause 확정 영역 ("collector channel mismatch" / "compactor source 처리 미구현" / "ingester partition key mismatch" / "discovery skip" 중 하나)
-- 변환 가능성 = "가능 (WAL 복구)" / "불가 (forward-only acceptable)" 확정
-- MCT-166 fix Story 의 scope 박제 cross-ref
+본 matrix 상태가 "결함" 인 행은 MCT-166 fix Story 의 fix scope 에 포함 의무.
+MCT-166 brainstorm 진입 시 본 matrix §Root Cause 요약 인용 의무.
 
 ## 7-layer 다층성 cross-ref (MCT-165 박제)
 
