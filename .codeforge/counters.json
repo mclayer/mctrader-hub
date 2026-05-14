@@ -152,12 +152,19 @@
       ]
     },
     "MCT-171": {
-      "title": "DR runbook 본문 + invariant 8종 확장 + 용량 제한 정책 (D4=B WAL local + D5 capacity-based ingest block + D6 versioning+replication)",
+      "title": "DR runbook 본문 + invariant 8종 확장 + 4 layer 용량 제한 정책 (D4=B WAL local + D5=A_modified graceful drain + D6=B versioning + D11 80%/95% hysteresis)",
       "reserved_at": "2026-05-14",
       "epic": "EPIC-tier-promotion-single-source",
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
-      "rationale": "MCT-167-170 LAND 후, D11 신규 용량 제한 (WAL 30G + L1 20G + NAS 500G target + host 200G hard limit)"
+      "rationale": "MCT-167-170 LAND 후, D11 신규 용량 제한 (WAL 30G + L1 20G + NAS 500G target + host 200G hard limit). Codex review 9 결정점 채택 (D7-1=A InvariantHarness 8종 통합 / D7-2=A capacity_probe.py 단독 / D7-3=B 1h periodic sweep / D7-4=C hybrid / D7-5=B graceful drain / D7-6 cardinality 제한 / D7-7 priority 유지 + disk full mode2 / D7-8=C 80% rotate + 95% block hysteresis / D7-9 A+C bridge). Critical risk WAL 30G 산정 근거 미검증 — Phase 2 runtime probe baseline 측정 의무.",
+      "retitle_history": [
+        {
+          "date": "2026-05-14",
+          "from": "DR runbook 본문 + invariant 8종 확장 + 용량 제한 정책 (D4=B WAL local + D5 capacity-based ingest block + D6 versioning+replication)",
+          "rationale": "Codex review 9 결정점 합성 채택 박제 + Phase 0 verify 발견 (InvariantHarness 실 위치 nas_migration/ + collector.py 단일 + ambiguity invariant promotion.py 단독 분산 + production data dir 부재). D5=A_modified graceful drain (D7-5=B) + D11 80%/95% hysteresis (D7-8=C) 합성 박제."
+        }
+      ]
     },
     "MCT-172": {
       "title": "EPIC-tier-promotion-single-source 통합 smoke + ambiguity invariant cross-Story verify + EPIC CLOSED",

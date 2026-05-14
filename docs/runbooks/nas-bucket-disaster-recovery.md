@@ -326,6 +326,372 @@ MCT-151 InvariantHarness 7종 (sha256 / object count / row count / column count 
 
 ---
 
+## Epic-level DR 본문 (MCT-171 LAND 2026-05-14, Codex review 9 결정점 합성 박제)
+
+> **상태**: 본문 정식 (stub 격상). MCT-171 Phase 1 LAND 분. 본문 = 5 fail mode step-by-step + invariant 8종 enforcement + 4 layer capacity 운영 매뉴얼.
+
+### Quick triage flowchart (운영자 첫 act)
+
+알람 수신 시 다음 순서:
+
+```
+1. NAS reachable? (mc admin info mcnas01)
+   - NO → Fail mode (2) NAS unreachable: §3.2 절차
+   - YES → next
+2. WAL/L1/NAS/Host capacity ≥ 80%?
+   - YES → Fail mode (2) 하위 disk full: §3.2 절차 + capacity probe report
+   - NO → next
+3. mctrader_dual_write_result_total{status=local_only} 증가?
+   - YES → Fail mode (1) L1 NAS PUT fail: §3.1 절차
+   - NO → next
+4. NAS 429 TooManyRequests log?
+   - YES → Fail mode (4) Rate-limit: §3.4 절차
+   - NO → next
+5. ambiguity invariant violation total > 0?
+   - YES → Fail mode (3) Clock drift / version mismatch: §3.3 절차
+   - NO → Fail mode (5) Replication failover (MCT-174 LAND 후 deploy): §3.5 절차
+```
+
+### §3.1 Fail Mode (1) — L1 NAS PUT fail
+
+**Priority**: 2번째 (data loss risk: NAS unreachable 다음 수준)
+
+**검출 신호**:
+- Prometheus: `mctrader_dual_write_result_total{tier=L1,status=local_only}` Counter 증가 (1min rate > 5/min)
+- Prometheus: `mctrader_dual_write_retry_queue_depth` Gauge > 100 (10min sustained)
+- Slack alert: `[ALERT] L1 NAS PUT fail rate spike — retry_queue accumulating`
+
+**진단 절차** (5분 이내):
+
+```bash
+# 1. retry_queue 상태 점검
+docker exec mctrader-data python -c "
+from mctrader_data.nas_storage.retry_queue import RetryQueue
+rq = RetryQueue.from_default()
+print(f'queue depth: {rq.depth()}')
+print(f'oldest entry age: {rq.oldest_age()}s')
+print(f'last successful PUT: {rq.last_success_ts()}')"
+
+# 2. NAS reachability + capacity
+docker exec mctrader-data mc admin info mcnas01
+docker exec mctrader-data mc du mcnas01/mctrader-market
+
+# 3. dual_write log 조회 (최근 100건)
+docker logs mctrader-data --since 10m 2>&1 | grep "dual_write_result" | tail -100
+```
+
+**복구 절차**:
+
+1. **NAS reachable + capacity OK** (retry 정상 가능):
+   ```bash
+   # retry_queue 수동 drain 시작
+   docker exec mctrader-data python -m mctrader_data.cli retry-queue --drain --batch-size 10
+   # 5분 후 queue depth 감소 verify
+   ```
+
+2. **NAS unreachable**: Fail Mode (2) escalate (§3.2 절차)
+
+3. **NAS capacity 95% 도달**: 즉시 L3 cold archive 이전 절차 trigger (별 Story 의무)
+
+4. **hard_floor_blocked** (retry_queue > 10GB or > 1000 segments):
+   - MANUAL_GATE: 운영자 결재 필요
+   - Slack: @oncall + @data-platform tag
+   - escalate: Fail Mode (2) 동치 처리
+
+**Verify**:
+- `mctrader_dual_write_result_total{status=local_only}` rate → 0/min
+- `mctrader_dual_write_retry_queue_depth` → 0
+- NAS bucket `tier=L1/` prefix 의 최근 segment 출현 verify
+
+**Postmortem**:
+- audit log 박제 (`docs/audit/MCT-171-fail-mode-1-<date>.md`)
+- root cause classification: NAS 측 (network / capacity / API) vs mctrader 측 (DualWriter bug / WAL corrupt)
+- ADR-027 §D5 retry_queue 정책 보강 필요 시 amendment 발의
+
+---
+
+### §3.2 Fail Mode (2) — NAS unreachable + capacity-bounded ingest block
+
+**Priority**: **최상위** (RPO ≠ 0 risk, 시장 실시간 data 손실)
+
+**하위 trigger**: disk full (WAL/L1/Host capacity ≥ 95%) 도 본 mode 하위 (운영자 동일 절차 적용)
+
+**검출 신호**:
+- Prometheus: `mctrader_capacity_threshold_ratio{layer=WAL_local}` >= 0.95 또는 `{layer=L1_local}` >= 0.95
+- Prometheus: `mctrader_ingest_blocked_total{reason=nas_unreachable}` Counter 증가
+- Prometheus: NAS health probe `up{job=nas_minio}` == 0 (5min sustained)
+- Slack alert: `[CRITICAL] NAS unreachable + capacity hard limit — ingest blocked`
+
+**진단 절차** (3분 이내):
+
+```bash
+# 1. NAS reachability 즉시 verify
+docker exec mctrader-data mc admin info mcnas01 || echo "NAS UNREACHABLE"
+
+# 2. 4 layer capacity report
+docker exec mctrader-data python -c "
+from mctrader_data.capacity_probe import CapacityProbe
+probe = CapacityProbe.from_default()
+report = probe.probe_once()
+print(report.summary())"
+
+# 3. collector ingest state
+docker exec mctrader-data python -c "
+from mctrader_data.ingest_blocker import IngestBlocker
+ib = IngestBlocker.from_default()
+print(f'state: {ib.state()}')
+print(f'last_block_reason: {ib.last_block_reason()}')"
+
+# 4. network 진단 (NAS host ping + port check)
+docker exec mctrader-data ping -c 3 mcnas01.internal.mclayer.it
+docker exec mctrader-data nc -zv mcnas01.internal.mclayer.it 9000
+```
+
+**복구 절차**:
+
+1. **NAS 측 복구** (Synology NAS 측 트리거):
+   - Synology DSM 콘솔 접속 (`https://mcnas01.internal.mclayer.it:5001`)
+   - MinIO 컨테이너 status 확인 + restart 필요 시 진행
+   - network / firewall / DNS 정상화
+
+2. **NAS reachable 회복 후** (mctrader 측 절차):
+   ```bash
+   # 1. dual_write retry_queue drain
+   docker exec mctrader-data python -m mctrader_data.cli retry-queue --drain --batch-size 20
+   # 2. capacity_probe 5분 sample → 80% 이하 확인
+   # 3. ingest_blocker state == NORMAL 자동 전이 verify (90% unblock hysteresis)
+   docker exec mctrader-data python -c "
+   from mctrader_data.ingest_blocker import IngestBlocker
+   print(IngestBlocker.from_default().state())"  # expected: NORMAL
+   ```
+
+3. **WAL/L1 capacity 95% hard limit 도달 + NAS 복구 지연**:
+   - **option A** (data 우선): collector graceful stop (manual gate)
+   - **option B** (운영 우선): WAL segment manual rotate + L1 oldest FIFO delete (NAS verify 없이 cold path 만 정리)
+   - Slack: @oncall + @data-platform escalate
+
+**Verify**:
+- `up{job=nas_minio}` == 1
+- `mctrader_capacity_threshold_ratio{layer=*}` < 0.95
+- `mctrader_ingest_blocked_total` rate → 0/min
+- collector ingest 정상 재개 (rate 정상 수준 회복)
+
+**Postmortem**:
+- audit log + Slack 박제
+- NAS RTO 측정 (down → up time)
+- WAL/L1 capacity 도달 시점 + drain window 측정 (graceful drain 정상 동작 verify)
+- ingest_blocker hysteresis 전이 그래프 박제
+
+---
+
+### §3.3 Fail Mode (3) — Clock drift / version mismatch (ambiguity invariant 트리거 가능)
+
+**Priority**: 4번째 (detective only, data 손실 직접 trigger 0)
+
+**ambiguity invariant 트리거 가능성 명시** (Codex review 보완): clock drift 가 NAS HEAD eventual consistency 미스 유발 → D3 local delete fail → NAS+local 양쪽 동시 존재 → ambiguity invariant violation 발생.
+
+**검출 신호**:
+- Prometheus: `mctrader_invariant_violation_total{invariant_name=ambiguity}` Counter 증가
+- Prometheus: `nas_reader_ambiguity_total` Counter 증가 (MCT-170 LAND, engine reader 측)
+- mctrader log: `verify_no_ambiguity FAIL` 발생
+- Slack alert: `[WARN] ambiguity invariant violation — clock drift suspected`
+
+**진단 절차**:
+
+```bash
+# 1. NAS MinIO 시각 확인
+docker exec mctrader-data mc admin info mcnas01 | grep -i time
+
+# 2. mctrader host NTP status
+docker exec mctrader-data chronyc tracking 2>/dev/null || timedatectl status
+
+# 3. clock drift 측정 (NAS - host)
+docker exec mctrader-data python -c "
+import datetime, requests
+nas_time_resp = requests.head('http://mcnas01.internal.mclayer.it:9000/').headers.get('Date')
+nas_dt = datetime.datetime.strptime(nas_time_resp, '%a, %d %b %Y %H:%M:%S %Z')
+host_dt = datetime.datetime.utcnow()
+print(f'drift: {(host_dt - nas_dt).total_seconds()}s')"
+```
+
+**복구 절차**:
+
+1. **drift > 1초**: NAS MinIO NTP 동기 재실행
+   - Synology DSM → Control Panel → Regional Options → Time → Synchronize with NTP server (`pool.ntp.org`)
+2. **drift < 1초 + ambiguity 지속**: version history 복원 절차 (§Step 2-3 본 runbook 위 본문)
+3. **ambiguity 자동 해소 confirm**: 1h periodic sweep 후 `mctrader_invariant_violation_total{invariant_name=ambiguity}` rate → 0/min verify
+
+**Verify**:
+- NAS - host clock drift < 1초
+- ambiguity violation Counter rate → 0/min
+- 1h periodic InvariantHarness sweep ALL PASS
+
+**Postmortem**:
+- NTP 동기 빈도 정책 검토 (현재 default chrony 1024s interval 적정성)
+- ambiguity 발생 시점 ↔ clock drift 측정값 상관관계 audit
+
+---
+
+### §3.4 Fail Mode (4) — Rate-limit / API throttle
+
+**Priority**: 3번째 (capacity 미도달 시 transient, retry 정상 가능)
+
+**검출 신호**:
+- Prometheus: NAS MinIO 429 response rate > 5/min
+- mctrader log: `requests.exceptions.HTTPError: 429 Too Many Requests`
+- connection pool 고갈: `urllib3.exceptions.MaxRetryError`
+
+**진단 절차**:
+
+```bash
+# 1. recent 429 errors
+docker logs mctrader-data --since 5m 2>&1 | grep "429" | wc -l
+
+# 2. connection pool status
+docker exec mctrader-data python -c "
+from mctrader_data.nas_storage.nas_uploader import NASUploader
+up = NASUploader.from_default()
+print(f'pool_size: {up.pool_size()}')
+print(f'pool_active: {up.pool_active()}')"
+
+# 3. NAS MinIO API rate
+docker exec mctrader-data mc admin trace mcnas01 --verbose 2>&1 | head -50
+```
+
+**복구 절차**:
+
+1. **transient 429** (5min 내 자연 회복):
+   - 자동 exponential backoff retry 의존 (개입 0)
+2. **sustained 429** (10min 이상):
+   - connection pool 확대: `NAS_MINIO_POOL_SIZE` env 50 → 100
+   - circuit breaker manual trigger (NASUploader 측 5min cooldown)
+   - mctrader-data 컨테이너 restart (pool 초기화)
+3. **NAS API throttle** (NAS 측 정책 변경):
+   - Synology MinIO config 측 rate-limit policy 검토 + 조정
+
+**Verify**:
+- 429 rate → 0/min
+- connection pool active < pool_size × 80%
+
+**Postmortem**:
+- rate-limit 발생 시점 ↔ collector ingest spike 상관관계
+- ADR-027 §retry policy amendment 필요 시 발의
+
+---
+
+### §3.5 Fail Mode (5) — Replication failover (mcnas01 → mcnas02)
+
+**Priority**: 최하위 (mcnas02 물리 부재 상태에서는 deploy 0, MCT-174 LAND 후 진입)
+
+**현재 상태**: MCT-174 reservation active. mcnas02 NAS box 물리 도입 후 본 절차 deploy.
+
+**검출 신호** (MCT-174 LAND 후):
+- mcnas01 hardware fail (Synology NAS 측 alert)
+- network unreachable (5min sustained)
+- replication lag > 10min (MCT-174 LAND 후 정의)
+
+**복구 절차** (MCT-174 LAND 후 본문):
+- engine reader endpoint cutover (mcnas01 → mcnas02, `NAS_MINIO_ENDPOINT` env update)
+- mcnas02 replica 검증 invariant (MCT-174 의무 정의)
+- 정상 운영 시 mcnas01 복구
+
+**현 시점 절차** (MCT-174 미LAND):
+- mcnas01 단일 의존, 본 fail mode 발생 = data 손실 risk HIGH
+- 운영 절차: NAS bucket versioning 의존 (MCT-161 LAND), 30d window 내 version 복원 (본 runbook §Step 2-3)
+
+---
+
+## §4 Invariant 8종 enforcement 본문 (MCT-171 LAND)
+
+InvariantHarness (`mctrader-data/src/mctrader_data/nas_migration/invariant_harness.py`) 8종 = MCT-151 7종 + ambiguity 8번째 통합 (D7-1=A Codex 채택, MCT-171 LAND).
+
+| # | Invariant | 검출 layer | violation 시 action | Prometheus emit |
+|---|---|---|---|---|
+| 1 | sha256 | byte-level | mismatch_files 박제 + Slack alert | `mctrader_invariant_violation_total{invariant_name=sha256}` |
+| 2 | object_count | set-level | NAS+local set diff log + audit | `{invariant_name=object_count}` |
+| 3 | row_count | set-level | per-file granularity diff log | `{invariant_name=row_count}` |
+| 4 | column_count | schema-level | ADR009_CHANNEL_SCHEMA_MATRIX SSOT 비교 | `{invariant_name=column_count}` |
+| 5 | column_order | schema-level | ADR-009 §D2.1 정의 비교 | `{invariant_name=column_order}` |
+| 6 | dtype | schema-level | pyarrow type identity 비교 (Decimal precision/scale 포함) | `{invariant_name=dtype}` |
+| 7 | schema_version | schema-level | partition prefix vs schema_version=v1 비교 | `{invariant_name=schema_version}` |
+| **8** | **ambiguity** | **logical entity-level** | **NAS+local XOR violation log + ingest_blocker trigger consideration** | `{invariant_name=ambiguity}` |
+
+**Enforcement timing** (D7-3=B Codex 채택): 1h periodic sweep — collector hot path 영향 0 (ADR-017 §D5 정합).
+
+**Violation 시 escalate 절차**:
+1. mismatch_files audit log 박제 (`docs/audit/MCT-171-invariant-violation-<date>.md`)
+2. 8번째 ambiguity violation = 즉시 fail mode (3) Clock drift 진단 (§3.3 절차)
+3. 1~7번 violation = D6 verify (bucket versioning) 검증 + version 복원 후보 평가
+
+**1h periodic sweep 실행**:
+```bash
+# cron-style (별 Story or systemd timer)
+docker exec mctrader-data python -m mctrader_data.cli invariant-sweep --interval 1h
+```
+
+---
+
+## §5 4 layer capacity step-by-step 본문 (MCT-171 LAND)
+
+`capacity_probe.py` (D7-2=A Codex 채택, `mctrader-data/src/mctrader_data/capacity_probe.py`) — hybrid timing (5min audit + threshold approach continuous, D7-4=C).
+
+### §5.1 WAL local (30 GiB hard limit)
+
+**Probe**: `du -sh /data/wal/` (LVM mount or fallback to host disk)
+**Threshold action** (D7-8=C 80%/95% hysteresis):
+- 80% (24 GiB): warn + aggressive L1 rotate trigger (`compactor signal`)
+- 95% (28.5 GiB): graceful drain + ingest block (in-flight WAL write 완료 후 reject)
+- 90% (27 GiB) 회복: ingest unblock 자동 전이 (5% gap hysteresis)
+
+**측정 baseline** (Phase 2 runtime probe 의무):
+- 50 sym × 3 channel × 12 seg/h ingest rate × NDJSON byte/record × retention window 역산
+- peak market open burst (09:00 KST) 시 fill rate vs L1 promotion rate 측정
+- **R-CRITICAL**: 30G 산정 근거 미검증 — 초과 risk 검출 시 D11 hard_limit amendment 발의
+
+### §5.2 L1 local (20 GiB hard limit)
+
+**Probe**: `du -sh /data/l1/`
+**Threshold action**:
+- 80% (16 GiB): warn + oldest L1 FIFO delete after NAS verify trigger
+- 95% (19 GiB): graceful drain + ingest block (WAL 측 동치 처리)
+- 90% (18 GiB) 회복: unblock 전이
+
+### §5.3 NAS bucket (target 500 GiB / hard 1 TiB)
+
+**Probe**: `mc du mcnas01/mctrader-market`
+**Threshold action**:
+- 80% target (400 GiB): warn + L3 cold archive 이전 plan trigger (별 Story)
+- 95% target (475 GiB): critical + L3 cold archive 즉시 실행
+- 100% hard (1 TiB) 도달: 시스템 stop + 운영자 결재 의무
+
+### §5.4 Host disk (200 GiB hard limit)
+
+**Probe**: `df -h <host_mount>` (LVM volume or fallback to host disk total)
+**Threshold action** (D7-9 A+C bridge):
+- **장기 (A)**: LVM/Docker volume quota 분리 mount — 별 infra task 의무
+- **단기 (C bridge)**: Prometheus `mctrader_capacity_usage_bytes{layer=Host_disk}` alert + 운영자 수동 cleanup
+
+**Host disk 200 GiB 산정 근거** (사용자 환경): Host C: 476G 의 ~42%, mctrader 외 다른 영역과 공유. 별 infra task 측 LVM 분리 의무.
+
+---
+
+## §6 Slack notification template
+
+각 fail mode 별 alert template (mctrader-data 측 emit, Slack webhook 수신):
+
+```text
+[<SEVERITY>] MCT-171 DR — Fail Mode (<N>) <name>
+- 발생 시각: <UTC ISO>
+- detect signal: <metric_name>=<value>
+- 영향 범위: <layer / sym / partition>
+- runbook: docs/runbooks/nas-bucket-disaster-recovery.md §3.<N>
+- escalate: <@oncall | @data-platform | @ALL>
+```
+
+SEVERITY enum: `INFO` / `WARN` / `CRITICAL`. Slack channel: `#mctrader-alerts`.
+
+---
+
 ## Cross-ref
 
 - `docs/stories/MCT-161.md` §5 AC-4 / §10 FIX Ledger
