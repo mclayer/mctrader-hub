@@ -181,12 +181,20 @@ dependency:
     - NASUnreachableSOPRunner (MCT-152)
 
 story_sequence:
-  - { story: MCT-167, phase: 1, mode: sequential, rule: "governance singleton — ADR 4건 author" }
-  - { story: MCT-168, phase: 2, mode: sequential, rule: "L1 NAS wiring entry — MCT-167 LAND 후" }
-  - { story: MCT-169, phase: 3, mode: sequential, rule: "local delete + promotion path — MCT-168 LAND 후, l1.py merge 충돌 회피" }
-  - { story: MCT-170, phase: 4, mode: parallel_with_171, rule: "engine reader, mctrader-engine disjoint" }
-  - { story: MCT-171, phase: 4, mode: parallel_with_170, rule: "DR runbook + invariant 8종 + 용량 제한, mctrader-data + hub" }
-  - { story: MCT-172, phase: 5, mode: sequential, rule: "Epic-level integration smoke + EPIC CLOSED gate" }
+  - { story: MCT-167, phase: 1, mode: sequential, rule: "governance singleton — ADR 4건 author", status: COMPLETED, land_date: 2026-05-14, pr: "mctrader-hub#305 (1b83c28)" }
+  - { story: MCT-168, phase: 2, mode: sequential, rule: "L1 NAS wiring entry — MCT-167 LAND 후", status: Reserved }
+  - { story: MCT-169, phase: 3, mode: sequential, rule: "local delete + promotion path — MCT-168 LAND 후, l1.py merge 충돌 회피", status: Reserved }
+  - { story: MCT-170, phase: 4, mode: parallel_with_171, rule: "engine reader, mctrader-engine disjoint", status: Reserved }
+  - { story: MCT-171, phase: 4, mode: parallel_with_170, rule: "DR runbook + invariant 8종 + 용량 제한, mctrader-data + hub", status: Reserved }
+  - { story: MCT-172, phase: 5, mode: sequential, rule: "Epic-level integration smoke + EPIC CLOSED gate", status: Reserved }
+
+milestone_progress:
+  total: 6
+  completed: 1
+  completed_stories:
+    - { story: MCT-167, land_date: 2026-05-14, pr: "mctrader-hub#305 (1b83c28)", retro: "docs/retros/RETRO-MCT-167.md" }
+  in_progress: 0
+  reserved: 5
 
 epic_close_gate:
   - "MCT-167 PR MERGED + ADR-NNN 신규 + ADR-017/027/009 amend 3건 LAND"

@@ -113,36 +113,6 @@
         }
       ]
     },
-    "MCT-161": {
-      "title": "NAS bucket versioning 활성화 + Object Lock governance 30d + ADR-027 §D amendment + DR runbook (replication deferred 별 backlog Story)",
-      "reserved_at": "2026-05-13",
-      "epic": "EPIC-compactor-operations",
-      "repo": "mctrader-hub",
-      "phase_pair": "phase1_phase2",
-      "rationale": "EPIC-compactor-operations milestone 3/3 CLOSED gate. D1=A 30d retention / D2=D replication deferred / D3=C N/A / D4=B DeleteMarker OFF (향후 replication 시) / D5=A Object Lock 30d governance / D6=B btrfs snapshot runbook 박제만 / D7=A ADR-027 §D amend / D8=A 복구 path / D9=A 1 Story 사용자 명시.",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "NAS bucket versioning 활성화 + replication 정책 + MCT-153 손실 재발 방지",
-          "rationale": "Codex 합성 + Sonnet 채택: D2=D replication deferred (single NAS box mcnas02 물리 부재 가능 + EPIC closure gate 우선). 본 Story scope = versioning + Object Lock governance 30d + ADR-027 §D amendment + DR runbook. replication = 후속 별 backlog Story."
-        }
-      ]
-    },
-    "MCT-163": {
-      "title": "DualWriter put_streaming + L2/L3 iter_batches per-batch write + ADR-009 §D2.7 amend (MCT-160 F3+F6+F7 fix, EPIC-tier-promotion D9 last prerequisite)",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-compactor-operations",
-      "repo": "mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "rationale": "MCT-160 RETRO §7 surface (F3+F6+F7 3 finding 묶음). F3 (P1 DualWriter 내부 read_bytes 잔존, caller-side reduction만 달성 — dual_writer.py:156) + F6 (P1 true row-batch streaming = iter_batches(batch_size=1024) 필요, per-L1-file fully read 한계, D3/AC-3 1GB invariant 미증명) + F7 (P2 D7 nullability spec drift — Story §6 wording 'raw_json/node_id/collector_run_id nullable=True' vs impl 'raw_json만 True', impl narrower acceptable). D11 R6 cadence resolver 공통화는 별 sub-Story 영역 — 본 reservation = F3+F6+F7 묶음만.",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "DualWriter 내부 streaming + L2/L3 row-batch streaming + ADR-009 D7 spec amend (MCT-160 F3+F6+F7 follow-up)",
-          "rationale": "Codex 9D + Sonnet: D1=B upload_fileobj+TransferConfig / D2=A caller sha256 / D3=A put_streaming 별 method / D4=A 1024 / D5=A per-batch write_batch / D6=C RSS+tracemalloc / D7=A impl narrower / D8=B integration extend / D9=A 1 Story."
-        }
-      ]
-    },
     "MCT-164": {
       "title": "upbit WAL forward-only loss 진단 (channel mismatch + compactor source 규약 + ADR-017/027 amendment)",
       "reserved_at": "2026-05-14",
@@ -178,21 +148,6 @@
           "date": "2026-05-14",
           "from": "upbit L1 forward-only loss fix (MCT-164 진단 결과 기반 — scope 확정 후 brainstorm) placeholder",
           "rationale": "MCT-164 §10 채택 후 brainstorm 진입 — channel mismatch root cause 단일 확정 인용. D7=C 1 Story + 선결 게이트 분기, D3=B backfill 별 MCT-173."
-        }
-      ]
-    },
-    "MCT-167": {
-      "title": "tier-promotion governance — ADR-029-tier-promotion-single-source 신규 + ADR-017/027/009 amend 3건 + DR runbook stub",
-      "reserved_at": "2026-05-14",
-      "epic": "EPIC-tier-promotion-single-source",
-      "repo": "mctrader-hub",
-      "phase_pair": "phase1_only",
-      "rationale": "EPIC governance singleton — D1-D11 박제. ADR-NNN number assigned = ADR-029 (ls docs/adr/ 다음 free 번호 확인).",
-      "retitle_history": [
-        {
-          "date": "2026-05-14",
-          "from": "tier-promotion governance — ADR-NNN-tier-promotion-single-source 신규 + ADR-017/027/009 amend 3건 + DR runbook stub",
-          "rationale": "ADR-NNN 번호 확정 박제 — ADR-029. ls docs/adr/ 결과 = ADR-028 까지 land, 다음 free = ADR-029."
         }
       ]
     },
