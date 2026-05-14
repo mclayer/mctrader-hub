@@ -129,12 +129,19 @@
       ]
     },
     "MCT-163": {
-      "title": "DualWriter 내부 streaming + L2/L3 row-batch streaming + ADR-009 D7 spec amend (MCT-160 F3+F6+F7 follow-up)",
+      "title": "DualWriter put_streaming + L2/L3 iter_batches per-batch write + ADR-009 §D2.7 amend (MCT-160 F3+F6+F7 fix, EPIC-tier-promotion D9 last prerequisite)",
       "reserved_at": "2026-05-14",
       "epic": "EPIC-compactor-operations",
       "repo": "mctrader-data",
       "phase_pair": "phase1_phase2",
-      "rationale": "MCT-160 RETRO §7 surface (F3+F6+F7 3 finding 묶음). F3 (P1 DualWriter 내부 read_bytes 잔존, caller-side reduction만 달성 — dual_writer.py:156) + F6 (P1 true row-batch streaming = iter_batches(batch_size=1024) 필요, per-L1-file fully read 한계, D3/AC-3 1GB invariant 미증명) + F7 (P2 D7 nullability spec drift — Story §6 wording 'raw_json/node_id/collector_run_id nullable=True' vs impl 'raw_json만 True', impl narrower acceptable). D11 R6 cadence resolver 공통화는 별 sub-Story 영역 — 본 reservation = F3+F6+F7 묶음만."
+      "rationale": "MCT-160 RETRO §7 surface (F3+F6+F7 3 finding 묶음). F3 (P1 DualWriter 내부 read_bytes 잔존, caller-side reduction만 달성 — dual_writer.py:156) + F6 (P1 true row-batch streaming = iter_batches(batch_size=1024) 필요, per-L1-file fully read 한계, D3/AC-3 1GB invariant 미증명) + F7 (P2 D7 nullability spec drift — Story §6 wording 'raw_json/node_id/collector_run_id nullable=True' vs impl 'raw_json만 True', impl narrower acceptable). D11 R6 cadence resolver 공통화는 별 sub-Story 영역 — 본 reservation = F3+F6+F7 묶음만.",
+      "retitle_history": [
+        {
+          "date": "2026-05-14",
+          "from": "DualWriter 내부 streaming + L2/L3 row-batch streaming + ADR-009 D7 spec amend (MCT-160 F3+F6+F7 follow-up)",
+          "rationale": "Codex 9D + Sonnet: D1=B upload_fileobj+TransferConfig / D2=A caller sha256 / D3=A put_streaming 별 method / D4=A 1024 / D5=A per-batch write_batch / D6=C RSS+tracemalloc / D7=A impl narrower / D8=B integration extend / D9=A 1 Story."
+        }
+      ]
     },
     "MCT-164": {
       "title": "upbit WAL forward-only loss 진단 (channel mismatch + compactor source 규약 + ADR-017/027 amendment)",
