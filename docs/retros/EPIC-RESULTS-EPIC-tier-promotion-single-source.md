@@ -6,16 +6,16 @@ parent_epic: EPIC-compactor-operations
 status: IN_PROGRESS
 created_at: 2026-05-14
 total_stories: 6
-completed_stories: 4
+completed_stories: 5
 scope_manifest: scope_manifests/EPIC-tier-promotion-single-source.yaml
 ---
 
-# EPIC-RESULTS — EPIC-tier-promotion-single-source (IN_PROGRESS, 4/6 완료)
+# EPIC-RESULTS — EPIC-tier-promotion-single-source (IN_PROGRESS, 5/6 완료)
 
 > **Epic**: Cold tier governance v2 — NAS = single source of truth for ALL tiers (L1 + L2 + L3)
 > **Parent**: EPIC-compactor-operations (sibling)
-> **Status**: IN_PROGRESS (governance singleton + L1 wiring + local delete + engine reader LAND 2026-05-14, 2 Story 잔존)
-> **Stories**: MCT-167-172 (4/6 완료)
+> **Status**: IN_PROGRESS (governance singleton + L1 wiring + local delete + engine reader + DR runbook 본문 LAND 2026-05-14, 1 Story 잔존 — MCT-172 Epic CLOSE)
+> **Stories**: MCT-167-172 (5/6 완료)
 
 ## Epic Summary
 
@@ -30,10 +30,10 @@ MCT-156/162/160 3-cycle 누적 실패 patterns ("review lane PASS vs production 
 | **MCT-167** | governance singleton (ADR-029 publish + ADR-017/027/009 amend 3건 + DR runbook stub) | 2 | **2026-05-14** | mctrader-hub#305 (1b83c28) MERGED | **COMPLETED** |
 | **MCT-168** | L1 NAS DualWriter wiring (D1+D2) | 3 | **2026-05-14** | mctrader-hub#307 (4d16a26) + mctrader-data#59 (a99d4e5) MERGED | **COMPLETED** |
 | **MCT-169** | L1 NAS verify + immediate local delete + tier promotion (D3+D10) | 4 | **2026-05-14** | mctrader-hub#310 (a353090) + mctrader-data#60 (d65545f) + mctrader-hub#311 (eb2c0cc) MERGED | **COMPLETED** |
-| **MCT-170** | Engine reader L1 확장 + DR mode + reader cache byte budget (D7+D8+D10) | 5 | **2026-05-14** | mctrader-hub#314 (311b795) + mctrader-data#61 (9d26438) + mctrader-engine#53 (a00690bc) + mctrader-hub#TBD (본 PR) MERGED | **COMPLETED** |
-| MCT-171 | DR runbook 본문 + invariant 8종 + 용량 제한 (D4+D5+D6+D11) | TBD | TBD | TBD | Reserved |
+| **MCT-170** | Engine reader L1 확장 + DR mode + reader cache byte budget (D7+D8+D10) | 5 | **2026-05-14** | mctrader-hub#314 (311b795) + mctrader-data#61 (9d26438) + mctrader-engine#53 (a00690bc) + mctrader-hub#315 (f1e04e6) MERGED | **COMPLETED** |
+| **MCT-171** | DR runbook 본문 + invariant 8종 + 용량 제한 (D4+D5+D6+D11) | 5 | **2026-05-14** | mctrader-hub#317 (3399abd) + mctrader-data#62 (3fb9d60) + mctrader-hub#318 (0b25975) MERGED | **COMPLETED** |
 | MCT-172 | Epic integration smoke + EPIC CLOSED (D9+D10 verify) | TBD | TBD | TBD | Reserved |
-| **합계** | | **14 (4/6)** | | | |
+| **합계** | | **19 (5/6)** | | | |
 
 ## Story-4 결과 박제 (MCT-170, 2026-05-14)
 
@@ -68,7 +68,36 @@ MCT-154 backward compat 회귀 0 (cold_reader + reader_cache MCT-154 API + endpo
 
 ### 다음 Story chain
 
-**MCT-171** (DR runbook 본문 + invariant 8종 + 용량 제한, D4+D5+D6+D11) — 진입 가능. 별 세션 권고.
+**MCT-171** (DR runbook 본문 + invariant 8종 + 용량 제한, D4+D5+D6+D11) — COMPLETED 2026-05-14 (3 PR cross-repo sequential LAND).
+
+## Story-5 결과 박제 (MCT-171, 2026-05-14)
+
+### 3 PR cross-repo sequential LAND timeline
+
+| 시각 | PR | LAND commit | 박제 내용 |
+|------|-----|-------------|-----------|
+| 2026-05-14T11:41Z | mctrader-hub#317 | 3399abd | Phase 1 docs — Story §1-§12 + spec + plan + DR runbook 본문 707 lines + scope_manifest IN_PROGRESS + counters retitle |
+| 2026-05-14T12:20Z | mctrader-data#62 | 3fb9d60 | Phase 2 PR1 — capacity_probe + ingest_blocker + invariant 8종 통합 + Prometheus +5 metric + collector hook + 38 신규 test (931 회귀 ALL PASS) |
+| 2026-05-14T12:30Z | mctrader-hub#318 | 0b25975 | Phase 2 PR2 — RETRO-MCT-171 + ADR-029 D4+D5+D11 verify + scope_manifest 5/6 + CLAUDE.md MCT-171 COMPLETED |
+
+### D4+D5+D11 verify 결과
+
+- **D4=B VERIFIED**: WAL sealed segment NAS PUT 0 (grep `wal/` NAS 호출 verify), `promotion.py` DEPRECATED 주석 박제
+- **D5=A_modified VERIFIED**: `ingest_blocker.py` + collector hook. 95% block + 90% unblock 5% gap hysteresis. graceful drain test PASS
+- **D6=B partial**: bucket versioning ✓ (MCT-161 LAND), cross-NAS = MCT-174 defer (mcnas02 물리 부재)
+- **D11=capacity_bounded VERIFIED**: 4 layer `CapacityThresholds` SSOT (WAL 30G / L1 20G / NAS 1TB hard / Host 200G), 5 Prometheus metric 확장
+
+### AC-1 ~ AC-5 / INV-1 ~ INV-6 ALL PASS
+
+신규 test 38 (test_invariant_harness_8: 8 + test_capacity_probe: 15 + test_ingest_blocker: 15) + 931 회귀 0 (MCT-152/153/155/169 backward compat 모두 PASS). FIX 루프 3회 (ruff lint 2-pass + pyright type 1-pass — 구현 lane lint/type drift, MCT-175 ESCALATE 후보 아님).
+
+### R-CRITICAL carry over → MCT-172
+
+**WAL 30G 산정 근거 미검증** — Production data dir 부재 → MCT-172 Epic CLOSE 전 collector runtime probe baseline 측정 의무. 측정 결과 30G 초과 risk 검출 시 D11 WAL hard_limit 갱신 amendment 발의.
+
+### 다음 Story chain
+
+**MCT-172** (Epic CLOSED, D9+D10 verify + D8 sunset finalize + promotion.py cleanup + WAL 30G production measurement carry over + EPIC-RESULTS author) — 진입 가능. 별 세션 권고.
 
 ## D1-D11 11 결정 박제
 
