@@ -23,7 +23,7 @@ references:
   - ADR-027 (Cold tier object storage)
 related_stories:
   - MCT-167 (governance singleton — 본 ADR + 3 amendment 박제)
-  - MCT-168 (L1 NAS DualWriter wiring — D1 + D2 impl)
+  - MCT-168 (L1 NAS DualWriter wiring — D1 + D2 impl, LAND 2026-05-14, mctrader-data#59)
   - MCT-169 (L1 NAS verify + immediate local delete + tier promotion — D3 + D10 impl)
   - MCT-170 (engine reader 재구현 — D7 + D8 impl)
   - MCT-171 (DR runbook + invariant 8종 + 용량 제한 — D4 + D5 + D6 + D11 impl)
@@ -37,7 +37,12 @@ prerequisite_stories:
 
 ## Status
 
-Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance singleton Story) 가 본 ADR 본문을 publish. 본 ADR 은 ADR-017 (hot path WAL/L1) + ADR-027 (cold tier L2/L3) 의 누적 운영 evidence (MCT-156/162/160 3-cycle 누적 실패 patterns) 를 근거로 cold tier governance 의 **single source of truth 모델 격상** 을 박제. ADR-017 의 zero-loss invariant + ADR-027 의 cold tier S3 abstraction 은 본 ADR 의 입력 정합 — 본 ADR 의 D1 (L1 NAS PUT 의무) + D3 (immediate local delete after verify) + D10 (ambiguity invariant) 가 새로운 cross-tier governance 의 anchor.
+Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance singleton Story) 가 본 ADR 본문을 publish.
+
+### D1+D2 verify status (MCT-168 LAND, 2026-05-14)
+
+- **D1=B VERIFIED** (mctrader-data#59): L1Compactor.compact_segment() 내 _write_parquet_atomic() 직후 DualWriter.put_l1() 호출 확인. compactor 측 timing 정합 (22 tests PASS).
+- **D2=B VERIFIED** (mctrader-data#59): DualWriter.put_l1() → NASUploader.put_streaming() + queued → local_only 경로 확인. retry_queue + local_only 재사용 정합 (INV-5 status enum 3종 exhaustive PASS). 본 ADR 은 ADR-017 (hot path WAL/L1) + ADR-027 (cold tier L2/L3) 의 누적 운영 evidence (MCT-156/162/160 3-cycle 누적 실패 patterns) 를 근거로 cold tier governance 의 **single source of truth 모델 격상** 을 박제. ADR-017 의 zero-loss invariant + ADR-027 의 cold tier S3 abstraction 은 본 ADR 의 입력 정합 — 본 ADR 의 D1 (L1 NAS PUT 의무) + D3 (immediate local delete after verify) + D10 (ambiguity invariant) 가 새로운 cross-tier governance 의 anchor.
 
 ## 해소 기준
 

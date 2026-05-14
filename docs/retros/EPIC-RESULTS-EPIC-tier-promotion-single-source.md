@@ -6,7 +6,7 @@ parent_epic: EPIC-compactor-operations
 status: IN_PROGRESS
 created_at: 2026-05-14
 total_stories: 6
-completed_stories: 1
+completed_stories: 2
 scope_manifest: scope_manifests/EPIC-tier-promotion-single-source.yaml
 ---
 
