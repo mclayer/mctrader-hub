@@ -1,0 +1,204 @@
+epic_key: EPIC-tier-promotion-single-source
+epic_title: "Cold tier governance v2 — NAS = single source of truth 전면 재설계"
+parent_dependency:
+  - EPIC-compactor-operations (MCT-161 + MCT-163 LAND 후 진입)
+status: Proposed
+created: 2026-05-14
+brainstorm_session: 2026-05-14
+brainstorm_phase0_agents: [DomainAgent, ResearcherAgent, RequirementsAnalystAgent, PMOAgent]
+codex_review: 2026-05-14 (10 결정점 + Researcher↔PMO 충돌 1건 해소)
+
+motivation: |
+  MCT-156/162/160 3-cycle 누적 실패 패턴 ("review lane PASS vs production 실측 결함") 의
+  근본 원인 = local-NAS dual-storage ambiguity. NAS = single source of truth 전환으로
+  ambiguity 차단 + production evidence direct surface.
+
+  추가: codeforge-plugin#620 post-mortem Issue 의 R1-R5 fix-1~5 plugin-level 개선과
+  병렬 진행. 본 Epic 의 D10 invariant violation enforcement 가 plugin Fix-1 (production
+  evidence gate) 의 mctrader-consumer 측 implementation.
+
+design_decisions:
+  D1:
+    decision: "L1 NAS PUT timing = L1 ParquetWriter atomic 직후 (compactor 측)"
+    option_chosen: B
+    rationale: "파일 단위 정합성 + hot path 지연 균형, sealed segment 가 D4 mitigation"
+    owner_story: MCT-168
+  D2:
+    decision: "NAS PUT 동기/비동기 = 기존 DualWriter retry_queue + local_only 재사용"
+    option_chosen: B
+    rationale: "hot path block 최소 + MCT-150/151 primitive 재사용 (logical sync)"
+    owner_story: MCT-168
+  D3:
+    decision: "Local delete = NAS HEAD verify + grace 0 (immediate after verify)"
+    option_chosen: C
+    rationale: "Researcher↔PMO 충돌 해소: version/etag 검증으로 24h grace 대체, ambiguity 즉시 차단"
+    owner_story: MCT-169
+  D4:
+    decision: "WAL sealed segment = local only 유지 (사용자 directive 3)"
+    option_chosen: B
+    rationale: "사용자 directive 2026-05-14: WAL local 유지. RPO=0 보장은 D1 (L1 ParquetWriter atomic 직후 NAS PUT) 단독 의존"
+    owner_story: MCT-171
+    note: "Codex 원 권고 = C (sealed NAS PUT). 사용자 directive 로 B 채택. WAL local fail 시 sealed→L1 derive fail risk = D11 용량 제한 정책 + collector ingest block (D5) 으로 mitigation"
+  D5:
+    decision: "NAS unreachable 시 collector ingest block (capacity-bounded)"
+    option_chosen: A_modified
+    rationale: "RPO=0 우선 + D11 용량 제한 임계 도달 시점에만 block. 정상 운영 시 hot path 영향 0"
+    owner_story: MCT-171
+  D6:
+    decision: "NAS replication = bucket versioning + cross-NAS replication (2nd NAS box)"
+    option_chosen: B
+    rationale: "single NAS 장애 + overwrite/delete 실수 동시 완화"
+    owner_story: MCT-171 (MCT-161 prerequisite)
+  D7:
+    decision: "Reader cache = 95% hit + <100ms p99 (aggressive cache)"
+    option_chosen: A
+    rationale: "NAS 우선 reader 의 hot path 체감 지연 억제"
+    owner_story: MCT-170
+  D8:
+    decision: "기존 local data migration = forward-only + local fallback (migration window 동안)"
+    option_chosen: B
+    rationale: "bulk 전환 risk 회피, 점진적 전환"
+    owner_story: MCT-170 (engine reader)
+  D9:
+    decision: "MCT-161 + MCT-163 prerequisite = 둘 다 LAND 후 본 Epic 진입 (sequential)"
+    option_chosen: A
+    rationale: "versioning + streaming 전제 완성 후 시작 = 재설계 비용 < 일정 cost"
+    owner_story: epic-level
+  D10:
+    decision: "ambiguity 차단 = invariant violation enforcement (NAS+local 동시 존재 = violation)"
+    option_chosen: A
+    rationale: "차단이 설계가 아닌 보증 (codeforge-plugin#620 Fix-1 의 production evidence gate 정합)"
+    owner_story: MCT-169 (invariant test) + MCT-172 (cross-Story verify)
+  D11:
+    decision: "용량 제한 정책 — 사용자 directive 1번 (4 layer 임계)"
+    option_chosen: capacity_bounded
+    rationale: |
+      사용자 directive 2026-05-14: D5 ingest block 의 mitigation = 용량 선 기반 제한
+    layers:
+      WAL_local:
+        hard_limit: 30 GiB
+        threshold_action: collector ingest block (D5 정합)
+        rationale: "NAS 무한 장애 시에만 block, 정상 운영 시 hot path 영향 0"
+      L1_local:
+        hard_limit: 20 GiB
+        threshold_action: oldest L1 FIFO delete after NAS verify (D3=C 정합, 7-day grace 기본)
+        rationale: "raw_json large column 대형 (orderbooksnapshot 9.5G/3day), 7-day rolling cleanup"
+      NAS_bucket:
+        target: 500 GiB
+        hard_limit: 1 TiB
+        threshold_action: "L3 (oldest 30day+) cold archive 이전 (별 Story or 외부 cloud)"
+        rationale: "L3 daily archive forward 누적, 30day+ archive tier 후보"
+      Host_disk:
+        hard_limit: 200 GiB (사용자 환경 — Host C: 476G 의 ~42%)
+        threshold_action: alert + manual cleanup
+        rationale: "host disk pressure mitigation, mctrader 외 다른 영역과 공유"
+    owner_story: MCT-171
+
+planned_adrs:
+  amendments:
+    - adr: ADR-017
+      section: §3 D3 (L1/L2/L3 tier layout)
+      change: "storage backend 정의 local-only → NAS=SoT 확장 + hot path retry queue 정책 박제"
+      owner_story: MCT-167
+    - adr: ADR-027
+      section: §D9 read-through cache + §D7 grace 정책
+      change: "SoT 정의 cold-tier-only → all-tier 격상 + L1 vs L2/L3 grace 정책 분리"
+      owner_story: MCT-167
+    - adr: ADR-009
+      section: §D12.2 forward-only invariant
+      change: "enforcement layer = local file system → NAS object SoT 격상 (versioning 기반)"
+      owner_story: MCT-167
+  new_proposals:
+    - adr: ADR-NNN-tier-promotion-single-source
+      title: "Cold tier governance v2 — NAS = SoT for ALL tiers"
+      owner_story: MCT-167
+      sections: D1 ~ D11 박제
+
+planned_files:
+  mctrader-hub:
+    - { path: docs/adr/ADR-NNN-tier-promotion-single-source.md, owner: MCT-167, change: 신규 ADR }
+    - { path: docs/adr/ADR-017-*.md, owner: MCT-167, change: §3 D3 amendment }
+    - { path: docs/adr/ADR-027-*.md, owner: MCT-167, change: §D9 + §D7 amendment }
+    - { path: docs/adr/ADR-009-*.md, owner: MCT-167, change: §D12.2 amendment }
+    - { path: docs/runbooks/nas-bucket-disaster-recovery.md, owner: MCT-167 stub + MCT-171 본문, change: DR runbook }
+    - { path: docs/stories/MCT-167.md ~ MCT-172.md, owner: each, change: Story §1-§11 }
+    - { path: scope_manifests/EPIC-tier-promotion-single-source.yaml, owner: MCT-167, change: 본 manifest }
+  mctrader-data:
+    - { path: src/mctrader_data/compactor/runner.py, owner: MCT-168, change: L1 write path 에 DualWriter inject }
+    - { path: src/mctrader_data/compactor/l1.py, owner: MCT-168, change: L1 NAS PUT 호출 + sha256 verify + retry_queue }
+    - { path: src/mctrader_data/compactor/l2.py + l3.py, owner: MCT-169, change: source read path = local Path → NAS GET stream }
+    - { path: src/mctrader_data/compactor/promotion.py, owner: MCT-169, change: 신규 tier promotion module }
+    - { path: src/mctrader_data/nas_storage/dual_writer.py, owner: MCT-168, change: L1 mode 추가 (필요 시) }
+    - { path: tests/integration/test_l1_nas_dual_write.py + test_promotion_path.py + test_l1_local_delete.py, owner: MCT-168/169, change: 신규 }
+  mctrader-engine:
+    - { path: src/mctrader_engine/io/tier_reader.py (cold_reader rename + L1 확장), owner: MCT-170, change: NAS-first read + L1 path }
+    - { path: src/mctrader_engine/io/reader_cache.py + endpoint_router.py, owner: MCT-170, change: cache LRU L1 추가 + NAS endpoint }
+    - { path: tests/io/test_l1_tier_read.py + test_reader_priority.py + test_dr_mode_smoke.py, owner: MCT-170 + MCT-171, change: 신규 }
+
+risks:
+  R1:
+    severity: HIGH
+    desc: "L1 NAS PUT latency 가 compactor throughput 영향 (50 sym × 3 channel × 12 seg/h ≈ 30 PUT/min)"
+    mitigation: "MCT-163 DualWriter streaming prerequisite + MCT-148 T2 baseline ±15% gate"
+    owner_story: MCT-168
+  R2:
+    severity: HIGH
+    desc: "NAS unreachable 시 ingest block 정책 (D5) = 시장 실시간 데이터 손실 risk"
+    mitigation: "D11 capacity-bounded (WAL 30G 도달 시에만 block) + D6 cross-NAS replication"
+    owner_story: MCT-171
+  R3:
+    severity: MEDIUM
+    desc: "WAL local only (D4=B 사용자 directive) = sealed→L1 derive fail 시 RPO ≠ 0"
+    mitigation: "D5 ingest block + WAL 30G hard limit + Grafana alert"
+    owner_story: MCT-171
+  R4:
+    severity: MEDIUM
+    desc: "Local delete (D3=C) version/etag 검증 false delete risk (NAS HEAD eventual consistency)"
+    mitigation: "etag exact match + sha256 verify + retry on NoSuchKey"
+    owner_story: MCT-169
+  R5:
+    severity: LOW
+    desc: "MCT-154 engine reader 재구현 (MCT-170) = latency baseline 재측정 의무"
+    mitigation: "MCT-148 T2 baseline ±15% gate"
+    owner_story: MCT-170
+
+dependency:
+  blocked_by:
+    - story_key: MCT-161
+      epic: EPIC-compactor-operations
+      reason: "NAS bucket versioning + cross-NAS replication 의무 (D6 prerequisite)"
+    - story_key: MCT-163
+      epic: EPIC-compactor-operations
+      reason: "DualWriter 내부 streaming 의무 (L1 NAS PUT latency 완화, R1 mitigation)"
+  reuses_primitives:
+    - NASUploader (MCT-150)
+    - DualWriter (MCT-151)
+    - RetryQueue (MCT-150)
+    - InvariantHarness (MCT-151, 7종 → 8종 확장)
+    - NASUnreachableSOPRunner (MCT-152)
+
+story_sequence:
+  - { story: MCT-167, phase: 1, mode: sequential, rule: "governance singleton — ADR 4건 author" }
+  - { story: MCT-168, phase: 2, mode: sequential, rule: "L1 NAS wiring entry — MCT-167 LAND 후" }
+  - { story: MCT-169, phase: 3, mode: sequential, rule: "local delete + promotion path — MCT-168 LAND 후, l1.py merge 충돌 회피" }
+  - { story: MCT-170, phase: 4, mode: parallel_with_171, rule: "engine reader, mctrader-engine disjoint" }
+  - { story: MCT-171, phase: 4, mode: parallel_with_170, rule: "DR runbook + invariant 8종 + 용량 제한, mctrader-data + hub" }
+  - { story: MCT-172, phase: 5, mode: sequential, rule: "Epic-level integration smoke + EPIC CLOSED gate" }
+
+epic_close_gate:
+  - "MCT-167 PR MERGED + ADR-NNN 신규 + ADR-017/027/009 amend 3건 LAND"
+  - "MCT-168 PR MERGED + L1 NAS dual-write production 검증 (NAS bucket L1 prefix 출현)"
+  - "MCT-169 PR MERGED + ambiguity invariant 위반 0 (1h production 측정)"
+  - "MCT-170 PR MERGED + engine reader latency baseline ±15% gate PASS"
+  - "MCT-171 PR MERGED + DR runbook smoke + invariant 8종 ALL PASS + 용량 제한 효과 verify"
+  - "MCT-172 PR MERGED + Epic integration e2e PASS"
+  - "PMOAgent retro + gate:retro-complete"
+  - "production evidence quad (bucket + log + Prometheus + drainage) ALL PASS (codeforge-plugin#620 Fix-1 정합)"
+
+prerequisite_session_handoff:
+  - story: MCT-161
+    prompt_file: docs/superpowers/prompts/MCT-161-session-prompt.md
+    note: "별 Claude 세션에서 paste — NAS bucket versioning + cross-NAS replication brainstorm Phase 0 자동 진입"
+  - story: MCT-163
+    prompt_file: docs/superpowers/prompts/MCT-163-session-prompt.md
+    note: "별 Claude 세션에서 paste — DualWriter streaming + L2/L3 row-batch + D7 spec amend brainstorm 자동 진입"
