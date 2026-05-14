@@ -79,12 +79,54 @@ MCT-174 근거: ADR-027 §D MCT-161 amendment D2=D (replication deferred). INV-5
 ### EPIC-tier-promotion D9 prerequisite
 
 - MCT-161 + MCT-163 모두 COMPLETED (2026-05-14)
-- **MCT-167 (EPIC-tier-promotion) 진입 가능**
+- **MCT-167 (EPIC-tier-promotion governance singleton)** COMPLETED 2026-05-14 (PR #305, 1b83c28)
 - cross-ref: `docs/retros/RETRO-MCT-163.md` + `docs/domain-knowledge/domain/parquet-streaming/cold-path-memory-invariant.md`
+
+## EPIC-tier-promotion-single-source (MCT-167 governance singleton 2026-05-14)
+
+> Phase 1 land: 2026-05-14, milestone 1/6 박제
+
+### ADR 산출물
+
+- **ADR-029** (신규, MCT-167 publish) — Cold tier governance v2 — NAS = SoT for ALL tiers (D1-D11 박제)
+- **ADR-017 §3 D3 amendment** — L1 NAS PUT 의무 박제
+- **ADR-027 §D5+D7+D9 amendment** — L1 NAS upload 금지 invariant 폐기 + L1 grace 0 + SoT all-tier 격상
+- **ADR-009 §D12.2 amendment** — forward-only invariant NAS object SoT 격상
+
+### 핵심 결정 (D1-D11)
+
+| D | 결정 | Option | Owner Story |
+|---|---|---|---|
+| D1 | L1 NAS PUT timing — ParquetWriter atomic 직후 | B | MCT-168 |
+| D2 | DualWriter retry_queue + local_only 재사용 | B | MCT-168 |
+| D3 | Local delete — NAS HEAD verify + grace 0 | C | MCT-169 |
+| D4 | WAL sealed local only 유지 | B | MCT-171 |
+| D5 | Capacity-bounded ingest block | A_modified | MCT-171 |
+| D6 | bucket versioning + cross-NAS replication | B | MCT-171 (MCT-161 ✓) |
+| D7 | Reader cache 95% hit + p99 <100ms | A | MCT-170 |
+| D8 | forward-only + local fallback migration | B | MCT-170 |
+| D9 | MCT-161 + MCT-163 prerequisite sequential ✓ | A | epic-level ✓ |
+| D10 | Ambiguity invariant violation enforcement | A | MCT-169 + MCT-172 |
+| D11 | 4 layer capacity 제한 (WAL 30G / L1 20G / NAS 500G / Host 200G) | capacity_bounded | MCT-171 |
+
+### DR runbook stub 확장
+
+- `docs/runbooks/nas-bucket-disaster-recovery.md` — Epic-level scope (5 fail mode + invariant 8종 + 용량 4 layer placeholder)
+- **본문 step-by-step = MCT-171 의무**
+
+### 다음 Story (sequential)
+
+- **MCT-168** (L1 NAS DualWriter wiring, D1+D2 impl) — 별 세션 권고
+- MCT-169 (immediate local delete + tier promotion, D3+D10) — MCT-168 LAND 후
+- MCT-170 ∥ MCT-171 (engine reader ∥ DR runbook 본문) — MCT-168+169 LAND 후
+- MCT-172 (Epic CLOSED, D9+D10 verify)
 
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
+- **ADR-029 (신규, MCT-167 2026-05-14)**: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - EPIC-compactor-operations scope_manifest: `scope_manifests/EPIC-compactor-operations.yaml` (CLOSED 2026-05-14)
+- **EPIC-tier-promotion-single-source scope_manifest**: `scope_manifests/EPIC-tier-promotion-single-source.yaml` (IN_PROGRESS, 1/6 milestone)
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-compactor-operations.md`
+- **EPIC-RESULTS (tier-promotion, IN_PROGRESS)**: `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
 - MCT-174 reservation: `.codeforge/counters.json`
