@@ -173,6 +173,31 @@ MinIO 의 `format.json` 등 atomic operation 은 **POSIX-compliant filesystem** 
 
 Cross-references: Story `docs/stories/MCT-160.md` §1-§11 + scope_manifest `EPIC-compactor-operations.yaml` MCT-160 design_decisions + Plan `docs/superpowers/plans/2026-05-13-mct-160-l2-l3-cadence-streaming.md` + Spec `docs/superpowers/specs/2026-05-13-compactor-operations-design.md` + ADR-009 §D2.7 nullability discipline amendment (sibling).
 
+**MCT-164 amendment 박제 (2026-05-14)** — 미지원 source channel silent-skip 차단 (multi-channel exchange 영역 확장). MCT-165 V2 verify 잔존 YES (upbit L1 partition 0) trigger.
+
+**Background**: ADR-027 Amendment 1 (MCT-160) 의 silent-skip 차단 정책이 cadence path 영역. 본 amendment = **multi-channel exchange source** 영역으로 확장. upbit WAL = orderbooksnapshot 만 emit, L1 dataset = orderbookdepth 인데 compactor 가 orderbooksnapshot source 처리 미구현 → silent skip 위험 (정확한 root cause = MCT-164 §10 진단 결과 후 박제).
+
+**Decision**:
+
+1. **미지원 Source Silent-skip 차단**: L1 / L2 / L3 compactor 가 미지원 source channel 발견 시 silent skip 금지 → **fail-fast + surface 의무**.
+2. **Prometheus emit**: `compactor_unsupported_source_total{tier, exchange, channel}` Counter +1.
+3. **ADR-017 Amendment (MCT-164 sibling)** 의 channel matrix SSOT dispatch 의무.
+4. **변환 미구현 시 ValueError**: `ValueError(f"compactor: unsupported source {channel} for {exchange}/{tier} — see exchange-channel-matrix")` raise.
+
+**검증 의무**:
+
+- MCT-166 fix Story = 본 amendment 정합 검증 의무 (compactor source 분기 코드에 fail-fast 적용)
+- Phase 2 회귀 test = upbit orderbooksnapshot source 주입 → ValueError + Prometheus emit 확인
+- channel matrix 진단 결과 (`docs/domain-knowledge/domain/data-health/exchange-channel-matrix.md`) 와 정합 검증
+
+**Cross-ref**:
+
+- ADR-017 Amendment (MCT-164 sibling — compactor source 규약 + channel matrix SSOT)
+- MCT-165 V2 (upbit L1 trigger source — verify-d5-2026-05-14.md §V2)
+- MCT-164 (본 amendment 발의 Story)
+- MCT-166 (fix Story, 본 amendment 정합 fix 의무)
+- Cross-references: Story `docs/stories/MCT-164.md` §1-§12 + ADR-027 Amendment 1 (MCT-160 cadence path silent-skip) sibling
+
 ### D5. Failure mode — compactor retry queue + alert, hot path 무영향
 
 NAS unreachable 시:
