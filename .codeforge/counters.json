@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 166
+      "next": 173
     },
     "mctrader-data": {
       "next": 1
@@ -144,6 +144,54 @@
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
       "rationale": "사용자 통합 의도 (3 follow-up 산분 시 검증 누락 우려) + Phase 0 4 에이전트 + Codex 합성 9 결정점 채택. 1 Story 통합 (D2=B), 4 layer MVP (D4=C), 정적 ±20% + rolling 자리 예약 (D5=C), CLI + JSON/CSV/markdown (D6=B)."
+    },
+    "MCT-167": {
+      "title": "tier-promotion governance — ADR-NNN-tier-promotion-single-source 신규 + ADR-017/027/009 amend 3건 + DR runbook stub",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-tier-promotion-single-source",
+      "repo": "mctrader-hub",
+      "phase_pair": "phase1_only",
+      "rationale": "EPIC governance singleton — D1-D11 박제"
+    },
+    "MCT-168": {
+      "title": "L1 NAS DualWriter wiring (compactor hot path, D1 atomic 직후 + D2 retry_queue)",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-tier-promotion-single-source",
+      "repo": "mctrader-data",
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-167 LAND 후 진입, MCT-163 streaming prerequisite"
+    },
+    "MCT-169": {
+      "title": "L1 NAS verify + immediate local delete + tier promotion path 재구성 (D3=C + D10 invariant)",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-tier-promotion-single-source",
+      "repo": "mctrader-data",
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-168 LAND 후, l2.py/l3.py source read 를 local Path → NAS GET stream"
+    },
+    "MCT-170": {
+      "title": "engine reader 재구현 — L1 tier 추가 + reader 우선순위 NAS-first + DR mode degradation (D7 cache 95% hit)",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-tier-promotion-single-source",
+      "repo": "mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-168+169 LAND 후, mctrader-engine repo cross-Epic"
+    },
+    "MCT-171": {
+      "title": "DR runbook 본문 + invariant 8종 확장 + 용량 제한 정책 (D4=B WAL local + D5 capacity-based ingest block + D6 versioning+replication)",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-tier-promotion-single-source",
+      "repo": "mctrader-hub",
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-167-170 LAND 후, D11 신규 용량 제한 (WAL 30G + L1 20G + NAS 500G target + host 200G hard limit)"
+    },
+    "MCT-172": {
+      "title": "EPIC-tier-promotion-single-source 통합 smoke + ambiguity invariant cross-Story verify + EPIC CLOSED",
+      "reserved_at": "2026-05-14",
+      "epic": "EPIC-tier-promotion-single-source",
+      "repo": "mctrader-hub",
+      "phase_pair": "phase1_phase2",
+      "rationale": "MCT-167-171 ALL LAND, Epic 종료 gate"
     }
   }
 }
