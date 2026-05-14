@@ -501,3 +501,29 @@ milestone 1/3 = 33.3% (post-MCT-162 LAND).
 - **upbit L1 lost 별 진단 의무** (R4 HIGH surface, MCT-160 Phase 1 또는 별 Story 발의 결정)
 - **P1 nullability follow-up** (CodeReviewPL surface, MCT-160 scope 합병 권고)
 - **ADR-XXX-post-cutover-wiring-gap-prevention 발의 권고** (PMOAgent → ArchitectAgent inline ADR draft dispatch, 누적 2회 pattern 박제)
+
+### 데이터 헬스 프레임워크 (MCT-165, 2026-05-14)
+
+`mctrader-data#54` (PR mct-165-phase-2) — 4-layer data accumulation health verification CLI.
+
+**4 layer**: volume / gap / file_count / lag
+**CLI**: `mctrader-data health-check --target collector --window 5d --start-date 2026-05-09 --output markdown`
+**Exit code**: 0=ALL PASS, 1=any FAIL, 2=tool error (INV-4)
+**Rolling baseline**: NotImplementedError (ADR-028 Reserved — 후속 PR)
+
+**실제 storage layout** (reconciled 2026-05-14):
+```
+MCTRADER_DATA_ROOT/market/orderbookdepth/schema_version=orderbook_depth.v1/
+  tier={L1|L2|L3}/exchange={exchange}/symbol={symbol}/
+  date={YYYY-MM-DD}/[hour={H}/][node={node}/]part-*.parquet
+WAL: MCTRADER_DATA_ROOT/wal/{exchange}/orderbookdepth/{symbol}/{YYYY-MM-DD}/segment-*.ndjson
+```
+
+**D+5 verify 결과 (2026-05-14)**:
+- V1 volume: FAIL (5d expected 기준) / PASS (4d 기준 재추산, 실측 4d=2.973 GiB)
+- V2 upbit L1: 잔존 YES → **MCT-164 trigger**
+- V3 per-sym: median 35 MiB / p10 14 MiB / p90 110 MiB (50 sym × 4d, L1 bithumb)
+
+**D+7 (2026-05-16)**: 5d 완전 window V1 재검증 예정. 별 세션.
+
+**Cross-ref**: MCT-165 Story / ADR-028 Reserved / ADR-009 §D12 / MCT-164 (upbit L1 root cause placeholder).

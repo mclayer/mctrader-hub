@@ -1,0 +1,51 @@
+story: MCT-165
+status: DONE
+title: Data Accumulation Health Verification — Framework + 3 follow-up Verify
+brainstorm_spec: docs/superpowers/specs/2026-05-14-MCT-165-data-accumulation-health-design.md
+plan: docs/superpowers/plans/2026-05-14-mct-165-data-accumulation-health.md
+
+planned_adrs:
+  reservation_only:
+    - rolling-baseline-threshold  # ADR-028 Reserved stub (Phase 1 PR)
+  amendment: []
+
+actual_files:
+  mctrader-hub:
+    - docs/stories/MCT-165.md
+    - docs/adr/ADR-028-rolling-baseline-threshold.md (stub Reserved)
+    - docs/domain-knowledge/domain/data-health/README.md
+    - docs/domain-knowledge/domain/data-health/verify-d5-2026-05-14.md
+    - scope_manifests/MCT-165.yaml
+    - .codeforge/counters.json (MCT-165 reservation)
+    - .claude/_overlay/CLAUDE.md (§데이터 헬스 프레임워크)
+  mctrader-data:
+    - src/mctrader_data/health/__init__.py
+    - src/mctrader_data/health/volume.py
+    - src/mctrader_data/health/gap.py
+    - src/mctrader_data/health/file_count.py
+    - src/mctrader_data/health/lag.py
+    - src/mctrader_data/health/thresholds.py
+    - src/mctrader_data/health/report.py
+    - src/mctrader_data/cli.py (health-check subcommand)
+    - tests/unit/health/test_thresholds.py
+    - tests/unit/health/test_volume.py
+    - tests/unit/health/test_gap.py
+    - tests/unit/health/test_file_count.py
+    - tests/unit/health/test_lag.py
+    - tests/unit/health/test_report.py
+    - tests/integration/health/test_cli_exit_code.py
+    - .claude/_overlay/CLAUDE.md (§health 모듈)
+
+prs:
+  phase1: mctrader-hub#290 (MERGED)
+  phase2_data: mctrader-data#54
+  phase2_hub: mctrader-hub#TBD
+
+verify:
+  d5_result: verify-d5-2026-05-14.md
+  d7_pending: verify-d7-2026-05-16.md (별 세션 2026-05-16)
+  d30_pending: verify-d30-2026-06-08.md (PR scope 외)
+
+follow_up:
+  MCT-164: upbit L1 partition 0 root cause (V2 잔존 trigger)
+  ADR-028: rolling baseline threshold (후속 PR)
