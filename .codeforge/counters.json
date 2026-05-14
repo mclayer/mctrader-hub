@@ -182,12 +182,19 @@
       ]
     },
     "MCT-167": {
-      "title": "tier-promotion governance — ADR-NNN-tier-promotion-single-source 신규 + ADR-017/027/009 amend 3건 + DR runbook stub",
+      "title": "tier-promotion governance — ADR-029-tier-promotion-single-source 신규 + ADR-017/027/009 amend 3건 + DR runbook stub",
       "reserved_at": "2026-05-14",
       "epic": "EPIC-tier-promotion-single-source",
       "repo": "mctrader-hub",
       "phase_pair": "phase1_only",
-      "rationale": "EPIC governance singleton — D1-D11 박제"
+      "rationale": "EPIC governance singleton — D1-D11 박제. ADR-NNN number assigned = ADR-029 (ls docs/adr/ 다음 free 번호 확인).",
+      "retitle_history": [
+        {
+          "date": "2026-05-14",
+          "from": "tier-promotion governance — ADR-NNN-tier-promotion-single-source 신규 + ADR-017/027/009 amend 3건 + DR runbook stub",
+          "rationale": "ADR-NNN 번호 확정 박제 — ADR-029. ls docs/adr/ 결과 = ADR-028 까지 land, 다음 free = ADR-029."
+        }
+      ]
     },
     "MCT-168": {
       "title": "L1 NAS DualWriter wiring (compactor hot path, D1 atomic 직후 + D2 retry_queue)",
