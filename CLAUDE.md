@@ -52,6 +52,54 @@ NAS data loss / hard delete 복원 절차:
 - `docs/runbooks/nas-bucket-disaster-recovery.md` — 5-step (Triage / Version 조회 / Restore / Verify / Postmortem)
 - 복원 가능 window: versioning 활성화 이후 + 30d NoncurrentVersionExpiration 이내
 
+## Docker stack 확장 (EPIC-mctrader-docker-stack, MCT-175 IN_PROGRESS 2026-05-15)
+
+mctrader 어플리케이션 (mctrader-data collector + mctrader-engine paper-engine / backtest-runner) 을
+compose stack 에 통합. NAS MinIO (prod) vs hub MinIO (dev) profile 전환 + observability +
+WAL 30G production measurement (EPIC-tier-promotion CLOSED prereq).
+
+### 목적
+
+- `compose.yml` 어플리케이션 service 추가 (collector + paper-engine + backtest-runner)
+- dev/prod profile 분리 (D3=A): `--profile dev .env.dev` vs `--profile prod .env.prod`
+- WAL host bind mount (D1=C, ADR-030 §D1, forward-only invariant 정합)
+- NAS DNS preflight (D7=A): `scripts/preflight-nas-dns.sh` (DNS+TCP+S3 gate)
+- cross-repo lock CI gate (D13=D): 6 repo python_version + lib major drift 차단
+
+### ADR-030 (신규, MCT-175 publish)
+
+`docs/adr/ADR-030-docker-stack-governance.md` — 8 D 본문 박제:
+D1 (WAL host mount) / D2 (paper daemon + backtest profile) / D3 (compose profiles) /
+D7 (NAS preflight) / D12 (image registry) / D13 (cross-repo lock) / D17 (host disk risk) / D18 (limits)
+Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
+
+### 7 Story sequential chain
+
+| sequential_phase | Story | 상태 | 결정 | 내용 |
+|---|-------|------|------|------|
+| 1 | **MCT-175** | IN_PROGRESS | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 |
+| 2 | MCT-176 | PLANNED | D7/D9/D14 | collector container + NAS credential rotation + effective config dump |
+| 3 | MCT-177 | PLANNED | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix |
+| 4 | MCT-178 | PLANNED | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint |
+| 5 | MCT-179 | PLANNED | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
+| 6 | MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
+| 7 | MCT-181 | PLANNED | D12/D19 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED |
+
+### Key References
+
+- spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
+- scope_manifest: `scope_manifests/EPIC-mctrader-docker-stack.yaml`
+- runbook stub: `docs/runbooks/docker-stack-deploy.md`
+- ADR-030: `docs/adr/ADR-030-docker-stack-governance.md`
+
+### Risk 현황
+
+| Risk | Severity | 상태 |
+|------|----------|------|
+| R1 NAS HTTP-only 평문 | HIGH | **사용자 explicit accept (2026-05-15)** — MCT-155 TLS cutover 별 Story 백로그 |
+| R2 WAL 30G 미측정 | CRITICAL | MCT-179 에서 peak 09:00 KST 1h burst 측정 의무 (EPIC-tier-promotion CLOSED prereq) |
+| R4 host disk 손실 → WAL 영구 손실 | MEDIUM | **사용자 explicit accept (2026-05-15)** — forward-only invariant (ADR-029 §D4), 1d max |
+
 ## Pending Stories (Replication Backlog)
 
 | Story | 상태 | 내용 |

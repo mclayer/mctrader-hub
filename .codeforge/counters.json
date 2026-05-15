@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 175
+      "next": 182
     },
     "mctrader-data": {
       "next": 1
@@ -77,6 +77,94 @@
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
       "rationale": "MCT-161 D2=D (replication deferred, single NAS box mcnas02 물리 부재). INV-5 의무 = 후속 별 Story 예약. D4=B DeleteMarker replication OFF (향후 replication 도입 시 적용 의무). 진입 gate: mcnas02 NAS box 도입 후."
+    },
+    "MCT-175": {
+      "title": "compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 publish",
+      "reserved_at": "2026-05-15",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D1", "D3", "D7", "D13"],
+      "sequential_phase": 1,
+      "depends_on": [],
+      "rationale": "Epic entry — infrastructure 기반. WAL host disk bind mount (D1=C) + L1 named volume + dev/prod profile (D3=A, .env.dev/.env.prod) + NAS DNS preflight (D7=A) + cross-repo lock CI gate (D13=D). ADR-030 docker-stack-governance publish."
+    },
+    "MCT-176": {
+      "title": "collector container + NAS credential rotation + effective config dump",
+      "reserved_at": "2026-05-15",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub + mctrader-data",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D7", "D9", "D14"],
+      "sequential_phase": 2,
+      "depends_on": ["MCT-175"],
+      "rationale": "compose 진입 후 첫 어플리케이션 service. mctrader-data collector container 추가 + NAS endpoint preflight (D7=A) + rotate-nas-credentials.sh 90d (D9=D) + effective config stdout dump (D14=D, env↔YAML 우선순위 표기). ADR-027 §D2 HTTP gate amendment 결정 의무 (R1 HIGH)."
+    },
+    "MCT-177": {
+      "title": "paper-engine daemon + SIGTERM graceful + universe override + Redis key prefix",
+      "reserved_at": "2026-05-15",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D2", "D4", "D10", "D15"],
+      "sequential_phase": 3,
+      "depends_on": ["MCT-176"],
+      "rationale": "daemon mode 첫 service. paper-engine restart unless-stopped (D2=A) + SIGTERM handler + 60s grace (D4=C) + universe env↔command override (D10=D) + redis key prefix signal:/market:/engine: (D15=C). NAS endpoint 정합 의존 → MCT-176 LAND 후."
+    },
+    "MCT-178": {
+      "title": "backtest-runner profile + oneshot + compose config CI lint + universe override",
+      "reserved_at": "2026-05-15",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D2", "D4", "D10", "D16"],
+      "sequential_phase": 4,
+      "depends_on": ["MCT-177"],
+      "rationale": "paper-engine 와 동일 image, command override 로 backtest 분기 (D2=A). compose profile=backtest + restart=no oneshot. docker compose config + up --wait healthcheck gate (D16=B). paper-engine image 재사용 → MCT-177 LAND 후."
+    },
+    "MCT-179": {
+      "title": "observability + WAL 30G production measurement + DR mode integration + alert rule",
+      "reserved_at": "2026-05-15",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub + mctrader-data + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D5", "D8", "D17"],
+      "sequential_phase": 5,
+      "depends_on": ["MCT-178"],
+      "rationale": "EPIC-tier-promotion R-CRITICAL 해소 (WAL 30G prod measurement, peak 09:00 KST 1h burst, D5=C amendment trigger). 모든 service /metrics expose + Grafana dashboard + alert rule (D8=C). 시작 시 InvariantHarness 8종 scan (D17=A, host disk loss risk 사용자 explicit accept 의무)."
+    },
+    "MCT-180": {
+      "title": "integration smoke + testcontainers + resource limits + capacity alert rule",
+      "reserved_at": "2026-05-15",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub + mctrader-data + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D4", "D11", "D18"],
+      "sequential_phase": 6,
+      "depends_on": ["MCT-179"],
+      "rationale": "stack-level (compose up --wait + smoke) + repo-level (testcontainers) 2 layer gate (D11=C). compose deploy.resources.limits 명시 + container_memory_usage_bytes >80% warn alert (D18=D). SIGTERM graceful 회귀 검증 (D4=C)."
+    },
+    "MCT-181": {
+      "title": "image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제",
+      "reserved_at": "2026-05-15",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub + mctrader-data + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D12", "D19"],
+      "sequential_phase": 7,
+      "depends_on": ["MCT-180"],
+      "rationale": "Epic 박제 — image registry semver+sha+latest (D12=B, prod=sha-* pin, dev=latest, ghcr.io/mclayer/*) + mctrader_runs named volume + NAS sync on completion (D19=C, completion marker + 3회 retry). EPIC-RESULTS-EPIC-mctrader-docker-stack.md + CLAUDE.md POLICY_FINALIZED."
+    },
+    "ADR-030": {
+      "title": "Docker stack governance — single-host compose + dev/prod profile + image registry + observability",
+      "reserved_at": "2026-05-15",
+      "drafted_at": "2026-05-15",
+      "status": "Proposed",
+      "epic": "EPIC-mctrader-docker-stack",
+      "repo": "mctrader-hub",
+      "owner_story": "MCT-175",
+      "expected_sections": "D1 (WAL host mount + L1 volume) / D2 (paper daemon + backtest profile) / D3 (dev/prod profile) / D7 (NAS DNS preflight) / D12 (image registry pin) / D13 (cross-repo lock gate) / D17 (host disk loss risk acceptance) / D18 (resource limits) — 8 D 박제 대상",
+      "rationale": "본 Epic 의 governance singleton. D4/D5/D8/D9/D10/D11/D14/D15/D16/D19 = Story 구현 detail (ADR 본문 박제 제외, manifest 박제로 충분). MCT-175 Phase 1 PR 박제 (Status: Proposed). MCT-175 LAND 시 Accepted 전환."
     }
   }
 }
