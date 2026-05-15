@@ -305,11 +305,108 @@ Prometheus alert:
 | `_register_signal_handlers` + `_SHUTDOWN_REQUESTED` collect loop wiring | Phase 2 PR1 = stub (F-006 P2 fix = TODO 헤더 + docstring 확장 only) | MCT-177 에서 non-asyncio entry point (`backfill` / `compact` one-shot) 측 `signal.signal()` 등록 + collect loop chunk boundary 측 `_SHUTDOWN_REQUESTED` polling 통합 |
 | cross-repo-lock-check secret 6 repo 측 secret read 검증 | 현 hub 측만 secret 등록 (단방향) | MCT-177 또는 별 Story 에서 6 repo (data/engine/web/market/signal-collector/hub) 측 secret read 의무 검증 후 LAND |
 
+### Amendment box (MCT-177 Phase 1, 2026-05-15)
+
+#### §D2 amendment — paper-engine daemon service (MCT-177 publish)
+
+**MCT-177 D2 LAND (Phase 1 박제)**:
+
+- **paper-engine service block** (`compose.yml` 신규):
+  ```yaml
+  paper-engine:
+    image: ghcr.io/mclayer/mctrader-engine:${IMAGE_TAG:-latest}
+    container_name: mctrader-paper-engine
+    profiles: ["dev", "prod"]
+    command: ["paper", "--daemon"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    stop_grace_period: 60s
+    depends_on:
+      redis:
+        condition: service_healthy
+      collector:
+        condition: service_healthy
+  ```
+- **backtest-runner** = MCT-178 carry over (별도 profile `backtest`, restart: "no", oneshot 완료 후 종료).
+  MCT-177 scope 외 — MCT-178 Phase 1 박제 예정.
+
+#### §D4 amendment — SIGTERM graceful + startup InvariantHarness scan (MCT-177 publish)
+
+**MCT-177 D4 LAND (Phase 1 박제)**:
+
+- **SIGTERM handler** (`mctrader-engine/src/mctrader_engine/cli.py` 신규):
+  ```python
+  import signal
+
+  _SHUTDOWN_REQUESTED = False
+
+  def _sigterm_handler(signum, frame):
+      global _SHUTDOWN_REQUESTED
+      _SHUTDOWN_REQUESTED = True
+      logger.info("[paper-engine] SIGTERM received — graceful shutdown initiated")
+
+  def _register_signal_handlers():
+      signal.signal(signal.SIGTERM, _sigterm_handler)
+      signal.signal(signal.SIGINT, _sigterm_handler)
+  ```
+- **60s grace period**: compose `stop_grace_period: 60s` 정합. paper daemon loop 내 chunk boundary
+  에서 `if _SHUTDOWN_REQUESTED: _commit_open_positions(); break`. 60s 이내 exit 0 의무.
+- **startup InvariantHarness scan**: 컨테이너 시작 시 `InvariantHarness` 8종 scan (MCT-171 SSOT).
+  위반 시 warn + continue (hard abort 아님 — D17 정합). scan 완료 후 trading loop 진입.
+- **owner**: mctrader-engine `src/mctrader_engine/cli.py` + compose `stop_grace_period: 60s`
+
+#### §D10 amendment — universe override env + compose command (MCT-177 publish)
+
+**MCT-177 D10 LAND (Phase 1 박제)**:
+
+- **env default**: `UNIVERSE_TOP_N=50` — `.env.dev` + `.env.prod.example` 에 박제
+- **compose command override**: paper daemon 측 `--universe-id <id>` CLI option 신규.
+  backtest case = `--universe-id subset-30` 형태로 별 universe 지정 가능.
+- **CLI 구현**:
+  ```python
+  @cli.command()
+  @click.option("--universe-id", default=None, help="Universe override (default: env UNIVERSE_TOP_N)")
+  @click.option("--daemon", is_flag=True, default=False)
+  def paper(universe_id, daemon):
+      if universe_id is None:
+          universe_id = f"top-{os.environ.get('UNIVERSE_TOP_N', '50')}"
+      if universe_id not in _UNIVERSE_REGISTRY:
+          logger.error(f"Unknown universe-id: {universe_id}")
+          sys.exit(1)
+  ```
+- **미등록 universe-id**: 즉시 exit 1 (R-MCT-177-3 mitigation).
+
+#### §D15 amendment — Redis key prefix policy (MCT-177 publish, 신규)
+
+**MCT-177 D15 LAND (Phase 1 박제)**:
+
+- **Redis key prefix 3 namespace**:
+  - `signal:*` — signal-collector 5종 (fear_greed / ecos / kimchi / announcement / coinglass)
+  - `market:*` — mctrader-data tick + orderbook cache
+  - `engine:*` — paper-engine position + strategy state
+- **engine prefix env**: `REDIS_KEY_PREFIX_ENGINE=engine` (.env.dev / .env.prod 공통 default)
+  ```python
+  REDIS_KEY_PREFIX = os.environ.get("REDIS_KEY_PREFIX_ENGINE", "engine")
+  def _engine_key(suffix: str) -> str:
+      return f"{REDIS_KEY_PREFIX}:{suffix}"
+  ```
+- **migration (signal-collector 5종)**: 기존 unprefixed key → `signal:*` rename.
+  1주일 dual write (legacy unprefixed + `signal:*` 동시 write) 후 legacy key cleanup (별 PR).
+  Prometheus `redis_key_migration_dual_write_active` Gauge (1=활성) 박제.
+- **cross-ref**: `docs/stories/MCT-177.md` §6 R-MCT-177-1 (dual write silent fail mitigation)
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
 - Plan: `docs/superpowers/plans/2026-05-15-mct-175-docker-stack-base.md`
 - Plan (MCT-176): `docs/superpowers/plans/2026-05-15-mct-176-collector-container.md`
+- Plan (MCT-177): `docs/superpowers/plans/2026-05-15-mct-177-paper-engine.md`
 - scope_manifest: `scope_manifests/EPIC-mctrader-docker-stack.yaml`
 - 의존 ADR: ADR-029 (cold tier governance, §D4/§D11) / ADR-027 §D2 (HTTP Stage 1) / ADR-009 §D12
   (forward-only invariant)

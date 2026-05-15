@@ -83,7 +83,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 |---|-------|------|------|------|
 | 1 | **MCT-175** | **COMPLETED 2026-05-15** | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 (hub#326 + hub#327 + hub#328) |
 | 2 | **MCT-176** | **COMPLETED 2026-05-15** | D7/D9/D14 | collector container + NAS credential rotation + effective config dump (hub#330 + data#64 + hub#331 + Phase 2 PR2) |
-| 3 | MCT-177 | PLANNED | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix |
+| 3 | **MCT-177** | **IN_PROGRESS 2026-05-15** | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix |
 | 4 | MCT-178 | PLANNED | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint |
 | 5 | MCT-179 | PLANNED | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
 | 6 | MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
@@ -170,6 +170,52 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 
 **MCT-177** (paper-engine daemon + SIGTERM graceful + universe override + Redis prefix) — sequential_phase 3.
 진입 prerequisite = MCT-176 Phase 2 PR2 MERGED ✓ + MCT-177 carry over 3 항목 (YAML loader + signal handler wiring + 6 repo secret read 검증) 통합 처리.
+
+## MCT-177 IN_PROGRESS (2026-05-15) — paper-engine daemon + SIGTERM graceful + universe override + Redis prefix
+
+> **sequential_phase 3** — Epic Story-3. MCT-176 LAND 위에 mctrader-engine paper-engine daemon 컨테이너 진입.
+> Phase 1 PR (hub docs) IN_PROGRESS.
+
+### 목적
+
+- compose.yml 에 `paper-engine` service 신규 (D2 daemon, restart unless-stopped, healthcheck :8080, stop_grace_period 60s)
+- mctrader-engine CLI 측 `signal.SIGTERM` / `signal.SIGINT` graceful handler + 60s grace (D4=C)
+- startup 시 InvariantHarness 8종 scan (MCT-171 SSOT, 위반 시 warn + continue)
+- `UNIVERSE_TOP_N=50` env default + compose command `--universe-id <id>` override (D10=D)
+- Redis key prefix 3 namespace 분리 `signal:` / `market:` / `engine:` (D15=C)
+- MCT-176 carry over 3건 통합 (CO-1 YAML loader / CO-2 signal wiring / CO-3 6 repo secret verify)
+
+### 4 결정 (D2 + D4 + D10 + D15)
+
+| D | Option | 내용 |
+|---|--------|------|
+| D2 (paper daemon) | A | compose.yml paper-engine service (restart unless-stopped + healthcheck :8080 + stop_grace 60s). backtest-runner = MCT-178 |
+| D4 (SIGTERM graceful) | C | signal.SIGTERM/SIGINT handler + 60s grace + startup InvariantHarness scan (MCT-171 8종) |
+| D10 (universe override) | D | UNIVERSE_TOP_N=50 env default + compose command --universe-id override |
+| D15 (Redis prefix) | C | signal:/market:/engine: 3 namespace + 1주일 dual write migration |
+
+### MCT-176 carry over 3건
+
+| # | 항목 | 처리 |
+|---|------|------|
+| CO-1 | YAML config loader (option A) | mctrader-data source_order → ["env","yaml_default","built_in"] 복원 |
+| CO-2 | _register_signal_handlers + _SHUTDOWN_REQUESTED wiring | non-asyncio entry 실 등록 + collect loop polling |
+| CO-3 | 6 repo secret read 검증 | scripts/verify_cross_repo_secret.py 신규 |
+
+### ADR-030 amendment (MCT-177, Phase 1 박제)
+
+`docs/adr/ADR-030-docker-stack-governance.md` 본문 박제:
+- **§D2 amendment** — paper-engine service block (image + command + restart + healthcheck + stop_grace 60s) + backtest-runner = MCT-178
+- **§D4 amendment** — SIGTERM handler + 60s grace + startup InvariantHarness scan
+- **§D10 amendment** — UNIVERSE_TOP_N=50 env + compose command override
+- **§D15 amendment** (신규) — Redis key prefix 3 namespace + signal-collector migration 1주일 dual write
+
+### Key References
+
+- Story: `docs/stories/MCT-177.md`
+- plan: `docs/superpowers/plans/2026-05-15-mct-177-paper-engine.md`
+- spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
+- ADR-030 §D2/§D4/§D10/§D15: `docs/adr/ADR-030-docker-stack-governance.md`
 
 ## Pending Stories (Replication Backlog)
 
