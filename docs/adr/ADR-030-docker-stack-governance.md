@@ -224,20 +224,52 @@ Prometheus alert:
 | D4 | container restart policy + healthcheck 표준 | MCT-177 / MCT-178 / MCT-180 |
 | D5 | observability stack (prometheus + grafana + node-exporter) | MCT-179 |
 | D8 | DR mode state machine 통합 (compose alert → dr_mode flip) | MCT-179 |
-| D9 | NAS credential rotation (90d) automation | MCT-176 |
+| D9 | NAS credential rotation (90d) automation | MCT-176 ✓ |
 | D10 | universe override + Redis prefix isolation | MCT-177 / MCT-178 |
 | D11 | compose config CI lint (yaml schema + service dep DAG) | MCT-178 |
-| D14 | effective config stdout dump (collector entrypoint) | MCT-176 |
+| D14 | effective config stdout dump (collector entrypoint) | MCT-176 ✓ |
 | D15 | paper-engine universe override env precedence | MCT-177 |
 | D16 | backtest-runner oneshot artifact archive | MCT-178 / MCT-181 |
 | D19 | backtest artifact NAS sync (별 prefix) | MCT-181 |
 
 각 D 본문 박제 시점 = 해당 owner Story Phase 1 LAND (ADR-030 amendment box append).
 
+### Amendment box (MCT-176 Phase 1, 2026-05-15)
+
+#### §D9 amendment — NAS credential rotation 90d automation
+
+**MCT-176 D9 LAND (Phase 1 박제)**:
+
+- **rotation script path**: `scripts/rotate-nas-credentials.sh`
+- **cycle**: 90d (cron schedule, 분기 1일 03:00 KST 기준)
+- **automation flow**: openssl rand credential 생성 → `.env.prod` sed 갱신 (백업 포함)
+  → compose down/up → Slack webhook 알림 → rotation log git commit
+- **Slack send 실패 시**: `gh issue create` 로 GitHub Issue 자동 발의
+  (repo: `mclayer/mctrader-hub`, label: `ops-alert`)
+- **carrier runbook**: `docs/runbooks/nas-credential-rotation-automation.md`
+- **cross-ref manual**: `docs/runbooks/nas-minio-secret-rotation.md` (emergency / NAS DSM UI 경유 절차 유효)
+- **dry-run 지원**: `bash scripts/rotate-nas-credentials.sh --dry-run` exit 0
+
+#### §D14 amendment — effective config stdout dump
+
+**MCT-176 D14 LAND (Phase 1 박제)**:
+
+- **CLI subcommand**: `mctrader-data effective-config --format {json,yaml}`
+- **source order**: `env` > `YAML default` > `built-in default`
+- **출력 항목**: `nas_endpoint`, `wal_path`, `universe_id`, `log_level`, 기타 설정값
+  + 각 항목별 `_source` 필드 (`env | yaml | builtin`)
+- **operator verify hook**: collector container 진입 후 즉시 실행:
+  ```bash
+  docker exec mctrader-collector mctrader-data effective-config --format json
+  ```
+- **구현 위치**: `mctrader-data/src/mctrader_data/cli.py` (MCT-176 Phase 2 PR1 LAND 시 신규 subcommand)
+- **unit test**: `tests/unit/test_effective_config.py` (5 test, env/yaml/builtin 우선순위 검증)
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
 - Plan: `docs/superpowers/plans/2026-05-15-mct-175-docker-stack-base.md`
+- Plan (MCT-176): `docs/superpowers/plans/2026-05-15-mct-176-collector-container.md`
 - scope_manifest: `scope_manifests/EPIC-mctrader-docker-stack.yaml`
 - 의존 ADR: ADR-029 (cold tier governance, §D4/§D11) / ADR-027 §D2 (HTTP Stage 1) / ADR-009 §D12
   (forward-only invariant)
