@@ -135,6 +135,16 @@ dev   = ghcr.io/mclayer/mctrader-{repo}:latest       (rapid iteration)
 - `.github/workflows/cross-repo-lock-check.yml` — hub PR push 마다 자동 실행
 - drift = FAIL (merge 차단)
 
+**Amendment (MCT-175 FIX iter 1, 2026-05-15)** — coverage gap + semantic precision:
+
+- **allowed_missing repos** = `{mctrader-hub, mctrader-signal-collector}` (현 시점 uv 미도입 SSOT)
+  - 그 외 4 repo (data / engine / web / market) uv.lock 부재 시 **exit 99 strict mode**
+  - 기존 silent WARN+skip 동작은 D13 coverage gap (4/6 만 검사) → FIX iter 1 P0-2 fix
+- **python_version semantic** = **distinct equality only** (절대 minimum 미정의)
+  - docstring 기존 표기 `>=3.12` 약속과 실 검증 (`distinct count <= 1`) mismatch → FIX iter 1 P0-2 fix
+  - drift detection 의미: "모든 required repo 가 동일 requires-python 문자열" (예: `>=3.12` 일관) — 절대 minimum 검증 미수행
+  - 후속 강화 시 (예: `>=3.12` floor enforcement) 별 Story 발의 의무
+
 ### §D17 SIGTERM graceful + startup InvariantHarness scan (외부 backup 없이)
 
 > owner: MCT-179
