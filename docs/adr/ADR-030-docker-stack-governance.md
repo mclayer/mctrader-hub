@@ -2,7 +2,7 @@
 
 ## Status
 
-**Accepted** (MCT-175 LAND 2026-05-15 — hub#326 8c485ef Phase 1 docs + hub#327 daef9b3 Phase 2 PR1 code + hub#TBD Phase 2 PR2 박제)
+**Accepted** (MCT-175 LAND 2026-05-15 — hub#326 8c485ef Phase 1 docs + hub#327 daef9b3 Phase 2 PR1 code + hub#328 dbba327 Phase 2 PR2 박제)
 
 이전 상태: Proposed (MCT-175 Phase 1 진입, 2026-05-15)
 

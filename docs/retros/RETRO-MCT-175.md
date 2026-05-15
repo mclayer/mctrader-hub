@@ -24,7 +24,7 @@ sequential_phase: 1
 |------|------|
 | Phase 1 PR (hub docs + ADR-030 publish + runbook stub + CLAUDE.md) | mctrader-hub#326 MERGED (8c485ef, 2026-05-15T03:48:11Z) |
 | Phase 2 PR1 (compose.yml + .env split + preflight + cross-repo lock CI gate + 14 unit test) | mctrader-hub#327 MERGED (daef9b3, 2026-05-15T04:16:16Z) |
-| Phase 2 PR2 (hub 박제, 본 PR) | mctrader-hub#TBD MERGED (TBD) |
+| Phase 2 PR2 (hub 박제, 본 PR) | mctrader-hub#328 MERGED (dbba327, 2026-05-15T05:47:28Z) |
 | 총 AC | **4/4 PASS + 1 stub** (AC-1/2/3/5 PASS + AC-4 stub MCT-176 carry) |
 | 총 INV | 4/4 의무 박제 (INV-1~4) |
 | 산출물 | hub Phase 1 docs (5 file) + hub Phase 2 PR1 code (12 file, 597 insertions) + hub 박제 (6 file) |
@@ -96,7 +96,7 @@ session prompt "EPIC-mctrader-docker-stack 진입 — compose 기반 정비 + �
 | 2026-05-15T04:00Z | Phase 2 PR1 (hub code) — 12 file (compose.yml + .env split + preflight + cross-repo lock check + 14 test) | mctrader-hub#327 OPEN |
 | 2026-05-15T04:10Z | CodeReviewPL iter 1 FIX (P0×2 + P1×3 + P2×2 = 7) — P0-1 nginx.prod.conf 부재 / P0-2 check_cross_repo_locks.py D13 coverage gap + semantic mismatch / P1-1 §8.5 chmod +x 누락 / P1-2 preflight DNS wildcard FP / P1-3 mc alias trap race / P2-1 shell error handling / P2-2 test main() 미커버 | 4 fix + 3 defer → CodeReviewPL iter 2 PASS |
 | 2026-05-15T04:16Z | Phase 2 PR1 MERGED | mctrader-hub#327 (daef9b3), main fast-forward 8c485ef→daef9b3 |
-| 2026-05-15T13:30Z | Phase 2 PR2 (hub 박제) — 6 file (Story §10/§11/§12 + ADR-030 Accepted + scope_manifest 1/7 + CLAUDE.md + RETRO 신규 + EPIC-RESULTS 신규) | mctrader-hub#TBD OPEN → 본 PR |
+| 2026-05-15T13:30Z | Phase 2 PR2 (hub 박제) — 6 file (Story §10/§11/§12 + ADR-030 Accepted + scope_manifest 1/7 + CLAUDE.md + RETRO 신규 + EPIC-RESULTS 신규) | mctrader-hub#328 OPEN → 본 PR |
 
 ## §4 AC + INV verify
 
@@ -231,7 +231,7 @@ CodeReviewPL verdict=FIX. 7 finding (P0×2 + P1×3 + P2×2). **4 fix + 3 defer**
 **MCT-176** (collector container + NAS credential rotation + effective config dump) — sequential_phase 2.
 
 진입 prerequisite:
-1. MCT-175 hub#TBD (Phase 2 PR2) MERGED
+1. MCT-175 hub#328 (Phase 2 PR2, dbba327) MERGED ✓ (2026-05-15T05:47:28Z)
 2. ADR-027 §D2 Stage 1 HTTP gate amendment 결정 (R1 HIGH, 사용자 explicit)
 3. NAS_MINIO_* secret 등록 (GitHub Actions secrets)
 4. defer 3건 carry over 처리 (P1-2 / P1-3 / P2-1)
@@ -250,4 +250,4 @@ CodeReviewPL verdict=FIX. 7 finding (P0×2 + P1×3 + P2×2). **4 fix + 3 defer**
 - runbook stub: `docs/runbooks/docker-stack-deploy.md`
 - Phase 1 PR: mctrader-hub#326 (8c485ef, 2026-05-15T03:48:11Z)
 - Phase 2 PR1: mctrader-hub#327 (daef9b3, 2026-05-15T04:16:16Z) — 4 commit FIX 루프 (012cef5 → bcddc89 → bb0a7f5 → 7328b16)
-- Phase 2 PR2: mctrader-hub#TBD (TBD) — 본 PR
+- Phase 2 PR2: mctrader-hub#328 (dbba327, 2026-05-15T05:47:28Z) — 본 PR (6 file: Story + ADR-030 + scope_manifest + CLAUDE.md + RETRO 신규 + EPIC-RESULTS 신규)

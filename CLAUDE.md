@@ -58,7 +58,7 @@ mctrader 어플리케이션 (mctrader-data collector + mctrader-engine paper-eng
 compose stack 에 통합. NAS MinIO (prod) vs hub MinIO (dev) profile 전환 + observability +
 WAL 30G production measurement (EPIC-tier-promotion CLOSED prereq).
 
-> **MCT-175 COMPLETED (2026-05-15)** — hub#326 (8c485ef) + hub#327 (daef9b3) + hub#TBD (Phase 2 PR2 박제) LAND.
+> **MCT-175 COMPLETED (2026-05-15)** — hub#326 (8c485ef) + hub#327 (daef9b3) + hub#328 (dbba327) LAND.
 > AC-1/2/3/5 PASS + AC-4 stub 박제 + 14 unit test green. ADR-030 Status: Proposed → **Accepted**.
 > 7 Story sequential chain milestone **1/7**.
 
@@ -81,7 +81,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 
 | sequential_phase | Story | 상태 | 결정 | 내용 |
 |---|-------|------|------|------|
-| 1 | **MCT-175** | **COMPLETED 2026-05-15** | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 (hub#326 + hub#327 + hub#TBD) |
+| 1 | **MCT-175** | **COMPLETED 2026-05-15** | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 (hub#326 + hub#327 + hub#328) |
 | 2 | MCT-176 | PLANNED | D7/D9/D14 | collector container + NAS credential rotation + effective config dump (defer 3건 carry over + secret 등록 + workflow trigger 복원) |
 | 3 | MCT-177 | PLANNED | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix |
 | 4 | MCT-178 | PLANNED | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint |

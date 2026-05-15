@@ -41,7 +41,7 @@ ADR-030 본문 박제 = 8 D (D1/D2/D3/D7/D12/D13/D17/D18). 10 D defer = Out of s
 
 | Story | Title | SP | sequential_phase | 완료일 | PR | Status |
 |-------|-------|-----|---|--------|-----------|--------|
-| **MCT-175** | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 publish | 5 | 1 | **2026-05-15** | mctrader-hub#326 (8c485ef) + mctrader-hub#327 (daef9b3) + mctrader-hub#TBD MERGED | **COMPLETED** |
+| **MCT-175** | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 publish | 5 | 1 | **2026-05-15** | mctrader-hub#326 (8c485ef) + mctrader-hub#327 (daef9b3) + mctrader-hub#328 MERGED | **COMPLETED** |
 | MCT-176 | collector container + NAS credential rotation + effective config dump | - | 2 | - | - | PLANNED |
 | MCT-177 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix | - | 3 | - | - | PLANNED |
 | MCT-178 | backtest-runner profile + oneshot + compose config CI lint + universe override | - | 4 | - | - | PLANNED |
@@ -58,7 +58,7 @@ ADR-030 본문 박제 = 8 D (D1/D2/D3/D7/D12/D13/D17/D18). 10 D defer = Out of s
 |------|-----|-------------|-----------|
 | 2026-05-15T03:48:11Z | mctrader-hub#326 | 8c485ef | Phase 1 docs — Story §1-§12 + ADR-030 publish (8 D 본문 박제 + 10 D defer manifest) + spec + plan + scope_manifest + runbook stub + CLAUDE.md + counters (7 Story + 1 ADR 예약) — 5 file |
 | 2026-05-15T04:16:16Z | mctrader-hub#327 | daef9b3 | Phase 2 PR1 code — compose.yml profile dev/prod + .env.example 확장 + .env.prod.example 신규 + .gitignore + preflight bash + check_cross_repo_locks.py + cross-repo-lock-check.yml + nginx.prod.conf placeholder + 14 unit test (12 file, 597 insertions) |
-| 2026-05-15T(TBD)Z | mctrader-hub#TBD | TBD | Phase 2 PR2 박제 — Story §10/§11/§12 + ADR-030 Accepted + scope_manifest 1/7 + CLAUDE.md + RETRO 신규 + EPIC-RESULTS 신규 (6 file) |
+| 2026-05-15T05:47:28Z | mctrader-hub#328 | dbba327 | Phase 2 PR2 박제 — Story §10/§11/§12 + ADR-030 Accepted + scope_manifest 1/7 + CLAUDE.md + RETRO 신규 + EPIC-RESULTS 신규 (6 file, 479 insertions / 27 deletions) |
 
 ### MCT-175 채택 4 D (Epic entry 범위)
 
@@ -107,7 +107,7 @@ ADR-030 본문 박제 = 8 D (D1/D2/D3/D7/D12/D13/D17/D18). 10 D defer = Out of s
 
 ### 다음 Story chain
 
-**MCT-176** (collector container + NAS credential rotation + effective config dump) — sequential_phase 2. 진입 prerequisite = MCT-175 hub#TBD MERGED + ADR-027 §D2 amendment 결정 (R1 HIGH).
+**MCT-176** (collector container + NAS credential rotation + effective config dump) — sequential_phase 2. 진입 prerequisite = MCT-175 hub#328 MERGED ✓ (dbba327, 2026-05-15) + ADR-027 §D2 amendment 결정 (R1 HIGH).
 
 ## Epic close gate
 
