@@ -48,7 +48,7 @@ carry_over_from_mct179:
 **Files:** Create `docs/stories/MCT-180.md`
 
 - [ ] §1-§6: 동기 / Epic context / Risk acceptance / AC 5 / INV / Risk
-  - AC-1 (D11): `.github/workflows/integration-smoke.yml` PR push 시 compose up full stack → collector ingest → compactor promotion → paper-engine health 200 (10분 budget) PASS
+  - AC-1 (D11, ESCALATE F-301 재정의 2026-05-15): `.github/workflows/integration-smoke.yml` PR push 시 **infra-only CI smoke** (postgres/redis/minio `--wait` + mc-init oneshot exit 0, 8분 budget) PASS. collector/paper-engine compose up = CI 격리 구조적 불가 → 제거. **N-002**: "compactor promotion 1회" 제거 (실 LAND workflow §2.3 verbatim 미존재). full-stack = production deploy carry (D12 MCT-181)
   - AC-2 (D11): testcontainers boundary test (data collector→NAS mock + engine paper→Redis) PASS
   - AC-3 (D18): compose.yml deploy.resources.limits 전 service 명시 + cadvisor container_memory >80% alert rule
   - AC-4 (D4): integration smoke SIGTERM graceful (collector + paper-engine stop → exit 0 within stop_grace) 회귀 0
@@ -67,7 +67,7 @@ carry_over_from_mct179:
 **Files:** Modify `docs/adr/ADR-030-docker-stack-governance.md`
 
 - [ ] §D4 amendment box (MCT-180): SIGTERM graceful integration smoke 회귀 검증 (MCT-176/177 LAND verify)
-- [ ] §D11 amendment box (MCT-180): integration-smoke.yml (compose up full stack + collector ingest + compactor promotion + paper health, 10분 budget) + testcontainers 2-layer
+- [ ] §D11 amendment box (MCT-180, ESCALATE F-301 재정의): integration-smoke.yml **infra-only CI smoke** (postgres/redis/minio `--wait` + mc-init oneshot exit 0, 8분 budget) + testcontainers 2-layer (boundary 실 carrier) + full-stack = production deploy carry (D12 MCT-181). **N-002**: "compactor promotion" 제거 (실 LAND §2.3 verbatim 미존재)
 - [ ] §D18 amendment box (MCT-180): deploy.resources.limits 전 service (collector 512M / paper-engine 512M / backtest 1G / postgres 1G / redis 256M / prom+grafana 512M) + cadvisor container_memory >80% alert
 - [ ] §References Plan(MCT-180)
 
