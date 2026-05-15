@@ -48,7 +48,7 @@ groups:
       # cadvisor container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.8 for 5m
       # compose.yml deploy.resources.limits 설정과 연동 (MCT-180 D18 SSOT)
       - alert: ContainerMemoryHigh
-        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.8
+        expr: container_memory_usage_bytes{name=~"mctrader-.*"} / container_spec_memory_limit_bytes{name=~"mctrader-.*"} > 0.8
         for: 5m
         labels:
           severity: warning

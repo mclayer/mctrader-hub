@@ -110,7 +110,7 @@ services:
       resources:
         limits:
           memory: 256M      # MCT-180 D18 — redis maxmemory 256mb hard cap 정합
-          cpus: "1.0"
+          cpus: "0.5"       # ADR-030 §D18 SSOT 박제 (line 823)
     labels:
       mctrader.role: "redis"
       mctrader.story: "MCT-121"
@@ -137,7 +137,7 @@ services:
       resources:
         limits:
           memory: 512M      # MCT-180 D18 — prometheus TSDB + scrape buffer
-          cpus: "1.0"
+          cpus: "0.5"       # ADR-030 §D18 SSOT 박제 (line 824)
     labels:
       mctrader.role: "prometheus"
       mctrader.story: "MCT-123"
@@ -164,7 +164,7 @@ services:
       resources:
         limits:
           memory: 512M      # MCT-180 D18 — grafana dashboard rendering budget
-          cpus: "1.0"
+          cpus: "0.5"       # ADR-030 §D18 SSOT 박제 (line 825)
     labels:
       mctrader.role: "grafana"
       mctrader.story: "MCT-123"
