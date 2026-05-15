@@ -149,25 +149,29 @@
       "title": "integration smoke + testcontainers + resource limits + capacity alert rule",
       "reserved_at": "2026-05-15",
       "started_at": "2026-05-15",
-      "status": "IN_PROGRESS",
+      "completed_at": "2026-05-15",
+      "status": "COMPLETED",
       "epic": "EPIC-mctrader-docker-stack",
       "repo": "mctrader-hub + mctrader-data + mctrader-engine",
       "phase_pair": "phase1_phase2",
       "decisions": ["D4", "D11", "D18"],
       "sequential_phase": 6,
       "depends_on": ["MCT-179"],
-      "rationale": "stack-level (compose up --wait + smoke) + repo-level (testcontainers) 2 layer gate (D11=C). compose deploy.resources.limits 명시 + container_memory_usage_bytes >80% warn alert (D18=D). SIGTERM graceful 회귀 검증 (D4=C)."
+      "land_prs": ["mctrader-hub#342 (b1be313)", "mctrader-data#67 (f233952)", "mctrader-engine#55 (bc8c627)", "mctrader-hub#343 (af25d66)", "mctrader-hub#344 Phase 2 PR2"],
+      "rationale": "stack-level (compose up --wait + smoke) + repo-level (testcontainers) 2 layer gate (D11=C). compose deploy.resources.limits 명시 + container_memory_usage_bytes >80% warn alert (D18=D). SIGTERM graceful 회귀 검증 (D4=C). ESCALATE F-301 → infra-only 3-layer 재설계 (ArchitectPL chief judge 판정). Phase 0 verify lesson 5회째 (paper daemon ReaderCache 미사용)."
     },
     "MCT-181": {
       "title": "image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제",
       "reserved_at": "2026-05-15",
+      "started_at": "2026-05-15",
+      "status": "IN_PROGRESS",
       "epic": "EPIC-mctrader-docker-stack",
-      "repo": "mctrader-hub + mctrader-data + mctrader-engine",
+      "repo": "mctrader-hub + mctrader-engine",
       "phase_pair": "phase1_phase2",
       "decisions": ["D12", "D19"],
       "sequential_phase": 7,
       "depends_on": ["MCT-180"],
-      "rationale": "Epic 박제 — image registry semver+sha+latest (D12=B, prod=sha-* pin, dev=latest, ghcr.io/mclayer/*) + mctrader_runs named volume + NAS sync on completion (D19=C, completion marker + 3회 retry). EPIC-RESULTS-EPIC-mctrader-docker-stack.md + CLAUDE.md POLICY_FINALIZED."
+      "rationale": "Epic 마지막 Story (7/7) — image registry semver+sha+latest (D12=B, prod=sha-* pin, dev=latest, ${IMAGE_TAG:-latest} 변수화) + mctrader_runs named volume + NAS sync on completion (D19=C, completion marker + 3회 retry + exit 0). EPIC-RESULTS-EPIC-mctrader-docker-stack.md + CLAUDE.md POLICY_FINALIZED. Phase 0 verify: compose.yml 8 ghcr.io 라인 모두 :latest 하드코딩 확인 → AC-1 원래 scope 유지."
     },
     "ADR-030": {
       "title": "Docker stack governance — single-host compose + dev/prod profile + image registry + observability",

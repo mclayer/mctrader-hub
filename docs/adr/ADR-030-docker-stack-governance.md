@@ -1000,6 +1000,64 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시
 ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-181 LAND 시 §D12/§D19 추가 D 본문
 박제 의무.
 
+### Amendment box (MCT-181 Phase 1, 2026-05-15)
+
+#### §D12 amendment — image registry pin: semver + sha + latest 병행 (MCT-181 publish)
+
+**MCT-181 D12 LAND (Phase 1 박제)**:
+
+- **registry pattern**:
+  - `prod` = `ghcr.io/mclayer/mctrader-{repo}:sha-<7char>` (CI release 시 pin) +
+    `ghcr.io/mclayer/mctrader-{repo}:v{semver}` (release tag 시 추가)
+  - `dev`  = `ghcr.io/mclayer/mctrader-{repo}:latest` (rapid iteration, `${IMAGE_TAG:-latest}` fallback)
+
+- **compose.yml 변수화 (Phase 2 PR1 hub PR)**:
+  - 기존 `:latest` 하드코딩 (Phase 0 verify 실증 — 총 8 ghcr.io 라인 모두 `:latest`)
+  - 변경: `image: ghcr.io/mclayer/mctrader-{data,engine,signal-collector}:${IMAGE_TAG:-latest}`
+  - data 1종 (collector) + engine 2종 (paper-engine + backtest-runner) + signal-collector 5종 = 8 라인
+  - `.env.dev`: `IMAGE_TAG=latest` / `.env.prod.example`: `IMAGE_TAG=<release_tag_or_git_sha>` 의무 박제
+
+- **image-publish.yml (Phase 2 PR1 hub PR, 신규)**:
+  - trigger: `push` (branches: [main]) + `workflow_dispatch`
+  - strategy.matrix: `repo: [mctrader-data, mctrader-engine, mctrader-signal-collector]`
+  - checkout: `token: secrets.MCTRADER_CROSS_REPO_TOKEN` (MCT-176 LAND secret 재사용)
+  - build + push: `:latest` + `:sha-$(git rev-parse --short HEAD)` (7char)
+  - ghcr.io login: `GITHUB_TOKEN` (per-repo 자동 발급, packages:write scope)
+
+- **D11 ESCALATE Layer 3 cross-ref**: full-stack production smoke (collector+paper-engine compose up)
+  = D12 image registry pin LAND 후 가능. MCT-181 Phase 2 PR2 또는 별 Story 에서 production evidence.
+  production smoke = `${IMAGE_TAG}=sha-<commit>` prod pin + compose up --wait full-stack CI or 운영 검증.
+
+- **prod pin 의무**: `.env.prod` 에 `IMAGE_TAG=sha-xxxxxxx` 또는 `IMAGE_TAG=v{semver}` 박제.
+  latest pull 금지 (운영 rollback 불능 위험). prod-1 carry over (production deploy 시점).
+
+#### §D19 amendment — backtest artifact NAS sync: mctrader_runs volume + completion marker + retry (MCT-181 publish)
+
+**MCT-181 D19 LAND (Phase 1 박제)**:
+
+- **backtest artifact path**: backtest-runner 컨테이너 내 `MCTRADER_OUTPUT_DIR=/var/lib/mctrader/runs/<run_id>/`
+  (compose.yml `mctrader_engine_runs` named volume mount, MCT-178 LAND)
+
+- **NAS sync path**: `mctrader-backtest-runs/<run_id>/` prefix (신규 bucket prefix, 별 prefix tier)
+  - ADR-029 §D1 market data SoT (`tier=L1/L2/L3/`) 와 완전 분리 — XOR invariant 무충돌
+
+- **sync mechanism (Phase 2 PR1 engine PR, backtest CLI 완료 hook)**:
+  - NAS uploader = `nas_uploader.put_streaming()` (MCT-163 LAND API 재사용, sha256 caller-side)
+  - completion marker: `<run_id>/.done` sentinel (sync 완료 후 생성)
+  - retry: NAS sync 실패 시 3회 retry (지수 백오프). retry 소진 → local 보존 + `log.warning` + exit 0
+    (backtest 결과 자체 성공 = data loss 아님. sync best-effort)
+  - idempotent: `.done` 이미 존재 시 sync skip (재실행 안전)
+  - `run_id` = backtest 실행 시 생성 timestamp-based UUID (신규 실행 = 신규 prefix, partial overwrite 방지)
+
+- **ADR-029 §D1 cross-ref**: backtest artifact NAS sync = `mctrader-backtest-runs/` prefix.
+  market data SoT prefix (`tier=L1/L2/L3/`) 와 namespace 완전 분리. ambiguity invariant 해당 없음
+  (D10 는 market data SoT 대상, backtest artifact 제외).
+
+- **R5 mitigation (NAS sync 실패 시 local↔remote 갈림)**:
+  - local: `mctrader_engine_runs` named volume (compose lifecycle 내 보존)
+  - remote: `.done` marker 미존재 run_id = partial sync 또는 미sync
+  - manual reconcile: `nas_uploader.put_streaming()` 재호출 (run_id 기준)
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
@@ -1009,6 +1067,7 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-181 LAND 시 §D12/§D
 - Plan (MCT-178): `docs/superpowers/plans/2026-05-15-mct-178-backtest-runner.md`
 - Plan (MCT-179): `docs/superpowers/plans/2026-05-15-mct-179-observability-wal30g.md`
 - Plan (MCT-180): `docs/superpowers/plans/2026-05-15-mct-180-integration-smoke.md`
+- Plan (MCT-181): `docs/superpowers/plans/2026-05-15-mct-181-image-registry-epic-close.md`
 - scope_manifest: `scope_manifests/EPIC-mctrader-docker-stack.yaml`
 - 의존 ADR: ADR-029 (cold tier governance, §D4/§D11) / ADR-027 §D2 (HTTP Stage 1) / ADR-009 §D12
   (forward-only invariant)
