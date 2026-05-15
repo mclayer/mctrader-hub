@@ -1,0 +1,54 @@
+# .github/workflows/cross-repo-lock-check.yml
+# ADR-030 §D13 — cross-repo uv.lock drift gate
+name: cross-repo-lock-check
+
+on:
+  # MCT-175 Phase 2 PR1 = workflow_dispatch only (secret MCTRADER_CROSS_REPO_TOKEN 미등록 상태).
+  # MCT-176 carry over: secret 등록 + pull_request trigger 복원 (paths: uv.lock + workflow + scripts).
+  # 근거: ADR-030 §D13 amendment "MCT-176 secret 등록 후 auto trigger 활성화 의무".
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout hub
+        uses: actions/checkout@v4
+        with:
+          path: mctrader-hub
+      - name: checkout data
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-data
+          path: mctrader-data
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout engine
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-engine
+          path: mctrader-engine
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout signal-collector
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-signal-collector
+          path: mctrader-signal-collector
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout web
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-web
+          path: mctrader-web
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout market
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-market
+          path: mctrader-market
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: run check
+        run: python mctrader-hub/scripts/check_cross_repo_locks.py

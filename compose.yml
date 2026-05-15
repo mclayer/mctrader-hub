@@ -1,4 +1,8 @@
-# mctrader-hub/compose.yml — Shared infrastructure
+# mctrader-hub/compose.yml — Shared infrastructure (EPIC-mctrader-docker-stack)
+# Profile usage:
+#   dev:  docker compose --profile dev --env-file .env.dev up
+#   prod: docker compose --profile prod --env-file .env.prod up
+# ADR-030 §D3 박제.
 services:
   postgres:
     image: postgres:16-alpine
@@ -29,6 +33,7 @@ services:
   minio:
     image: quay.io/minio/minio:latest
     container_name: mctrader-minio
+    profiles: ["dev"]
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
@@ -55,6 +60,7 @@ services:
   mc:
     image: quay.io/minio/mc:latest
     container_name: mctrader-mc-init
+    profiles: ["dev"]
     depends_on:
       minio:
         condition: service_healthy
@@ -284,11 +290,28 @@ services:
       mctrader.role: "signal-coinglass"
       mctrader.story: "MCT-124"
 
+  # mctrader-data collector — MCT-176 LAND 시 활성화
+  # collector:
+  #   image: ghcr.io/mclayer/mctrader-data:latest
+  #   container_name: mctrader-collector
+  #   profiles: ["dev", "prod"]
+  #   build:
+  #     context: ../mctrader-data
+  #   env_file:
+  #     - .env.${COMPOSE_PROFILES:-dev}
+  #   volumes:
+  #     - /var/lib/mctrader/wal:/var/lib/mctrader/data  # ADR-030 §D1 host bind mount
+  #     - mctrader_l1:/var/lib/mctrader/data/l1
+  #   ...
+  # volumes:
+  #   mctrader_l1:
+
   nginx:
     image: nginx:alpine
     container_name: mctrader-nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.prod.conf:ro
     ports:
       - "80:80"
     networks:
@@ -296,7 +319,7 @@ services:
     depends_on:
       - grafana
       - prometheus
-      - minio
+      # minio depends_on 제거 (prod profile 에서 부재 — ADR-030 §D3)
     restart: unless-stopped
     labels:
       mctrader.role: "nginx"

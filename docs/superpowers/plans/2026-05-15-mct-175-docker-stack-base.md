@@ -219,7 +219,11 @@ nginx:
     # minio depends_on 제거 (prod profile 에서 부재)
 ```
 
-→ 별 conf 파일 2종 (`nginx.conf` dev = upstream local minio / `nginx.prod.conf` prod = upstream NAS proxy or removed). MCT-175 scope = dev conf only (prod conf 는 MCT-181 LAND 시 finalize).
+→ 별 conf 파일 2종 (`nginx.conf` dev = upstream local minio / `nginx.prod.conf` prod = upstream NAS proxy or removed).
+
+**Amendment (FIX iter 1, 2026-05-15 — P0-1 fix)**: compose.yml 의 `nginx.prod.conf:/etc/nginx/nginx.prod.conf:ro` bind mount 가 코드 블록에 포함되어 prod profile up 시 파일 부재로 실패 — 본문 "prod conf MCT-181 LAND 시 finalize" 표현과 mismatch.
+
+**채택**: **placeholder option A** — MCT-175 Phase 2 PR1 scope 에 `nginx/nginx.prod.conf` placeholder 파일 (dev `nginx.conf` 사본 + 상단 주석 `MCT-181 LAND 시 NAS-aware upstream 갱신 의무`) 생성 의무. compose.yml bind mount 경로 충족 + prod profile config validate PASS 보장. 실 prod-aware upstream 갱신 = MCT-181 carry over.
 
 - [ ] **Step 2.1.3: compose.yml 상단 주석 추가 — Epic + profile 사용법**
 
