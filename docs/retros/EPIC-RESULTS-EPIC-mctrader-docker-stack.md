@@ -2,21 +2,22 @@
 type: epic-results
 epic_key: EPIC-mctrader-docker-stack
 epic_title: "mctrader Docker stack 확장 — collector + paper-engine + backtest profile + observability + WAL measurement"
-status: IN_PROGRESS
+status: POLICY_FINALIZED
 created_at: 2026-05-15
+finalized_at: 2026-05-15
 total_stories: 7
-completed_stories: 6
+completed_stories: 7
 in_progress_stories: 0
-reserved_stories: 1
+reserved_stories: 0
 scope_manifest: scope_manifests/EPIC-mctrader-docker-stack.yaml
 ---
 
-# EPIC-RESULTS — EPIC-mctrader-docker-stack (IN_PROGRESS, milestone 6/7)
+# EPIC-RESULTS — EPIC-mctrader-docker-stack (POLICY_FINALIZED, milestone 7/7)
 
 > **Epic**: mctrader Docker stack 확장 — collector + paper-engine + backtest profile + observability + WAL measurement
-> **Status**: **IN_PROGRESS** (milestone 6/7 박제, 2026-05-15 MCT-175 ~ MCT-180 LAND. MCT-181 = Epic POLICY_FINALIZED 7/7 잔여)
-> **Stories**: MCT-175 ~ MCT-181 (7 sequential)
-> **Parent dependency**: EPIC-tier-promotion-single-source POLICY_FINALIZED (R-CRITICAL WAL 30G measurement → MCT-179 carry over)
+> **Status**: **POLICY_FINALIZED** (milestone 7/7 박제, 2026-05-15 MCT-175 ~ MCT-181 LAND. 19 D 전수 VERIFIED. Epic CLOSED 자체 박제 = production evidence prod-1~4 완성 후 별 PR)
+> **Stories**: MCT-175 ~ MCT-181 (7 sequential, 전수 COMPLETED)
+> **Parent dependency**: EPIC-tier-promotion-single-source POLICY_FINALIZED (R-CRITICAL WAL 30G measurement → MCT-179 carry over, prod-3 cross-Epic 병행)
 
 ## Epic Summary
 
@@ -409,6 +410,97 @@ design lane = MCT-175 (P0×1) → MCT-176 (P0×1) → MCT-177 (P0×0) → MCT-17
 진입 prerequisite = MCT-180 Phase 2 PR2 MERGED ✓ + `${IMAGE_TAG}` D12 image pin + full-stack production smoke carry over + R2 CRITICAL PARTIAL 해소 유지 (production 별 PR) + engine#55 token 이슈 (engine repo 별 처리).
 채택 결정: D12 (image registry pin — prod sha pin / dev latest) + D19 (backtest artifact NAS sync — completion marker + 3회 retry + alert + manual reconcile runbook).
 
+## Story-7 결과 박제 (MCT-181, 2026-05-15) — Epic 마지막 Story
+
+### 4 PR cross-repo sequential LAND timeline
+
+| 시각 | PR | LAND commit | 박제 내용 |
+|------|-----|-------------|-----------|
+| 2026-05-15 | mctrader-hub#345 | cff197d | Phase 1 docs — Story §1-§12 + ADR-030 §D12/§D19 amendment box + plan + CLAUDE.md. DesignReview iter1 **PASS (blocking 0)** — MCT-179 ADR-030 전수 reconcile 누적 효과 (MCT-180 P0×0 → MCT-181 P0×0 연속) |
+| 2026-05-15T14:42:24Z | mctrader-engine#56 | 413711e | Phase 2 PR1 engine — `backtest/nas_sync.py` 신규 + `cli.py` best-effort hook (NAS 실패 시 exit 0 유지) + `BACKTEST_NAS_BUCKET="mctrader-backtest-runs"` (ADR-029 분리) + `test_backtest_nas_sync.py` 9 test ALL PASS + 회귀 969 신규 실패 0 (land_order 1). CodeReview iter1 **PASS (blocking 0)** |
+| 2026-05-15T14:43:16Z | mctrader-hub#346 | a8bcf0c | Phase 2 PR1 hub — compose.yml 8 ghcr.io 라인 `${IMAGE_TAG:-latest}` 변수화 + `.env.example`/`.env.prod.example` IMAGE_TAG + `.github/workflows/image-publish.yml` 신규 (77 lines, matrix 3 repo) (land_order 2). CodeReview iter1 **PASS (blocking 0)** — AC verify 전수 PASS |
+| 2026-05-15 (Phase 2 PR2) | mctrader-hub#TBD | TBD | Phase 2 PR2 박제 — Story §10/§11/§12 + ADR-030 **Status POLICY_FINALIZED** + §D12/§D19 VERIFIED + scope_manifest 7/7 POLICY_FINALIZED + CLAUDE.md 종합 + RETRO 신규 (Epic 회고 동반) + EPIC-RESULTS §Story-7 + Epic 종합 (본 section) + counters.json |
+
+### MCT-181 채택 2 D (Epic Story-7 범위)
+
+| D | 결정 | Option | 결과 |
+|---|------|--------|------|
+| D12 (image registry pin) | B | compose.yml 8 라인 `:latest` → `${IMAGE_TAG:-latest}` (signal-collector 5 + paper-engine + backtest-runner + collector) + `.env.example`=latest / `.env.prod.example`=release/sha pin 의무 + `image-publish.yml` 신규 (main push + workflow_dispatch, matrix 3 repo data/engine/signal-collector, `:latest`+`:sha-<7char>`+release `:v{semver}`, MCTRADER_CROSS_REPO_TOKEN + GITHUB_TOKEN). 비-mctrader image 무변경 |
+| D19 (backtest NAS sync) | C | engine `backtest/nas_sync.py` 신규 — `sync_run_artifacts()`: NAS env guard + idempotent `.done` sentinel + `put_streaming()` (MCT-163 재사용) + 실패 시 local 보존 + retry_queue fallback. `cli.py` backtest hook = NAS 실패 시 **exit 0 유지** (best-effort). `BACKTEST_NAS_BUCKET="mctrader-backtest-runs"` (ADR-029 market-data SoT `mctrader-market` 완전 분리, ambiguity invariant 무충돌) |
+
+### MCT-181 AC + INV
+
+5/5 AC PASS (AC-1 compose 8 라인 ${IMAGE_TAG:-latest} + config exit 0 + AC-2 image-publish.yml matrix 3 repo + AC-3 backtest NAS sync 9 test ALL PASS + AC-4 D11 Layer 3 production carry 명시 + AC-5 Epic 7/7 POLICY_FINALIZED + 19 D verify). 5/5 INV 박제 (forward-only WAL 무수정 + compose ${IMAGE_TAG:-latest} dev fallback + backtest sync 실패 local 보존 exit 0 + image push additive + NAS market data SoT 무충돌 mctrader-backtest-runs 분리).
+
+### FIX 루프 (Epic 최초 FIX 0 Story)
+
+| iter | lane | finding | resolution |
+|------|------|---------|------------|
+| 1 | design (Phase 1 hub#345) | **0 (PASS, blocking 0)** — MCT-179 ADR-030 전수 reconcile 누적 효과 (MCT-180 P0×0 → MCT-181 P0×0 연속) | LAND cff197d |
+| 1 | code (engine#56) | **0 (PASS, blocking 0)** — backtest NAS sync hook + 9 test ALL PASS + 회귀 969 신규 실패 0 | LAND 413711e (land_order 1) |
+| 1 | code (hub#346) | **0 (PASS, blocking 0)** — compose 8 라인 변수화 + image-publish.yml + AC verify 전수 PASS | LAND a8bcf0c (land_order 2) |
+
+**MCT-181 = Epic 7 Story 중 유일한 design+code 양 lane FIX 0 Story**. design lane = MCT-175(P0×1)→176(P0×1)→177(P0×0)→178(CONDITIONAL)→179(P0×1)→180(P0×0)→**181(P0×0)**. MCT-179 ADR-030 Out-of-scope D1-D19 전수 reconcile (c8e4b8e) 1회 투자가 Epic 마지막 2 Story 연속 design P0×0 으로 ROI 회수 (lesson reapply 누적 효과 완결 실증).
+
+### MCT-181 핵심 lesson (RETRO §5)
+
+- **§5.1**: Epic 마지막 Story FIX 0 = design lane shift-left 누적 성공의 완결 실증. design lane (MCT-179 전수 reconcile 1회 투자 → MCT-180/181 연속 P0×0 회수) + code lane Phase 0 verify 충실 (compose 8 ghcr.io :latest 실증) 동시 적용. 단 D12/D19 의 cross-repo runtime 의존도 낮음 (선언형 + 단일 repo) 도 기여 — code lane Phase 0 verify 강제 게이트화는 차기 Epic cross-repo Story 에서 여전히 필요 (MCT-180 §5.3 동형 누적, PMO retro 입력)
+- **§5.2**: best-effort NAS sync (exit 0 유지) = backtest 결과 보존 우선 설계 정합. 부수 작업 (artifact sync) 실패가 본 작업 (backtest 연산) 결과를 무효화하면 안 됨. best-effort + idempotent (.done marker) + retry_queue fallback = 데이터 손실 0 + sync 일시 실패 허용. MCT-163 DualWriter best-effort streaming 과 동형
+
+## Epic POLICY_FINALIZED 종합 (7/7, 2026-05-15)
+
+### 7 Story timeline (sequential)
+
+| phase | Story | 결정 | LAND | design FIX | code FIX |
+|-------|-------|------|------|-----------|----------|
+| 1 | MCT-175 | D1/D3/D7/D13 | hub#326+327+328 | P0×1 | — |
+| 2 | MCT-176 | D7/D9/D14 | hub#330+data#64+hub#331 | P0×1 | — |
+| 3 | MCT-177 | D2/D4/D10/D15 | hub#333+data#65+engine#54+hub#334 | P0×0 | — |
+| 4 | MCT-178 | D2/D4/D10/D16 | hub#336+sigcol#1+hub#337 | CONDITIONAL_PASS | 1 iter |
+| 5 | MCT-179 | D5/D8/D17 | hub#339+data#66+hub#340 | P0×1 (전수 reconcile c8e4b8e) | 1 iter (metric desync) |
+| 6 | MCT-180 | D4/D11/D18 | hub#342+data#67+engine#55+hub#343 | P0×0 | 3 iter + **ESCALATE** |
+| 7 | **MCT-181** | **D12/D19** | hub#345+engine#56+hub#346 | **P0×0** | **0 iter** |
+
+### 19 D 전수 VERIFIED 매트릭스
+
+| D | Owner Story | 상태 | 비고 |
+|---|-------------|------|------|
+| D1 | MCT-175 | ✓ VERIFIED | WAL host mount + L1 named volume |
+| D2 | MCT-177+178 | ✓ VERIFIED | paper daemon + backtest oneshot command override |
+| D3 | MCT-175 | ✓ VERIFIED | compose profiles dev/prod + env_file 분리 |
+| D4 | MCT-177+179 | ✓ VERIFIED | SIGTERM handler + 60s grace + startup invariant scan |
+| D5 | MCT-179 | ✓ VERIFIED | WAL 30G synthetic baseline (production 실측 별 PR prod-3) |
+| D6 | epic-level | ✓ VERIFIED | 7 Story sequential chain COMPLETED |
+| D7 | MCT-175+176 | ✓ VERIFIED | NAS DNS preflight 검증 |
+| D8 | MCT-179 | ✓ VERIFIED | /metrics + Grafana + alert (reader_cache = cold reader 한정 §D8 amendment) |
+| D9 | MCT-176 | ✓ VERIFIED | rotate-nas-credentials.sh + cron + Slack |
+| D10 | MCT-177+178 | ✓ VERIFIED | universe env default + compose command override |
+| D11 | MCT-180 | ✓ VERIFIED | ESCALATE infra-only 3-layer (Layer 3 full-stack = production carry prod-2) |
+| D12 | MCT-181 | ✓ VERIFIED | compose 8 라인 ${IMAGE_TAG:-latest} + image-publish.yml |
+| D13 | MCT-175 | ✓ VERIFIED | 각 repo 독립 uv.lock + cross-repo lock CI gate |
+| D14 | MCT-176 | ✓ VERIFIED | effective config dump (env↔YAML 우선순위) |
+| D15 | MCT-177+178 | ✓ VERIFIED | Redis key prefix (signal-collector 5 worker dual write) |
+| D16 | MCT-178 | ✓ VERIFIED | docker compose config lint + up --wait health gate |
+| D17 | MCT-179 | ✓ VERIFIED | host disk loss risk 사용자 accept (외부 backup 회피) |
+| D18 | MCT-180 | ✓ VERIFIED | 7 service deploy.resources.limits + ContainerMemoryHigh alert |
+| D19 | MCT-181 | ✓ VERIFIED | backtest NAS sync (completion marker + 3회 retry + exit 0 best-effort) |
+
+**19/19 D VERIFIED**. production evidence carry 2건: D5 (WAL 30G synthetic → prod-3 production 실측), D11 Layer 3 (full-stack production smoke → prod-2). 나머지 17 D 완전 VERIFIED.
+
+### Epic 전체 FIX 통계 + 패턴
+
+- **design lane**: P0×1(175)→P0×1(176)→P0×0(177)→CONDITIONAL(178)→P0×1(179)→P0×0(180)→**P0×0(181)**. MCT-179 ADR-030 Out-of-scope D1-D19 전수 reconcile (c8e4b8e) 1회 투자 → MCT-180/181 연속 design P0×0 (lesson reapply 누적 효과 ROI 실증, Epic 마지막 완결)
+- **code lane**: 178(1 iter)→179(1 iter metric desync)→180(**3 iter + ESCALATE 1회**)→181(0 iter). ESCALATE = MCT-180 D11 CI 격리 설계 결함 → ArchitectPL chief judge 설계 원인 판정 + option b (614033a) infra-only 3-layer 재설계 → ESCALATE-fix PASS (**FIX 루프 max ESCALATE 안전판 정상 동작 검증**)
+- **Phase 0 verify lesson 6회 누적**: MCT-170/177/178/179/180 cross-repo Phase 0 verify gap (설계가 sibling repo runtime 실상 미검증) 6회 재현. 동형 = "설계가 실행 환경/runtime 제약 미검증" (MCT-179 §D8 가공 metric + MCT-180 paper daemon ReaderCache 미사용 + MCT-180 D11 CI 격리 full-stack 전제). MCT-181 = Phase 0 verify 충실 (compose 8 ghcr.io :latest 실증)
+- **cross-repo metric desync 누적**: MCT-179 §D8 가공 metric LAND 부재 → MCT-180 engine#55 reader_cache producer path 가정 오류 동형 재현 (carry over chain 무비판 승계 위험)
+
+### Epic 핵심 lesson (PMO retro 누적 입력)
+
+1. **design lane shift-left 누적 성공 완결 실증** — 매 Story 부분 reconcile (stale 누적) vs 1회 전수 reconcile (MCT-179 c8e4b8e) 의 ROI 비대칭. 차기 Epic = ADR/scope_manifest SSOT 정합 Epic 초중반 전수 reconcile 1회 의무화 권고 (Story별 부분 reconcile 금지)
+2. **ESCALATE 안전판 검증** — MCT-180 D11 설계 결함이 FIX 3회 소진 후 ArchitectPL chief judge 설계 원인 판정 → 설계 재정의 (구현 재작업 아님) 정상 해소. FIX 루프 max ESCALATE = 설계 결함 안전판 (구현 무한 FIX loop 방지)
+3. **code lane Phase 0 verify 강제 게이트화 필요 (미해소 carry over)** — design lane shift-left (전수 reconcile → P0×0 누적 성공) vs code lane Phase 0 verify gap (6회 재현) 비대칭. 차기 Epic = code lane Phase 0 verify 강제 게이트화 (TestContractArch deputy §8 검수 범위에 metric/runtime producer path grep 실증 추가) — PMO retro 핵심 입력
+4. **cross-repo Epic 의 CI-friendly 검증 SSOT** — full-stack compose up CI gate = sibling repo image registry pin (D12) 선행 없이 구조적 불가. CI smoke = infra 정합 / boundary = testcontainers / full-stack = production deploy evidence 3-layer 분리 = cross-repo Epic CI 검증 SSOT (MCT-180 ESCALATE resolution → Epic 차원 패턴 박제)
+
 ## Epic close gate
 
 | # | gate | 상태 |
@@ -419,7 +511,9 @@ design lane = MCT-175 (P0×1) → MCT-176 (P0×1) → MCT-177 (P0×0) → MCT-17
 | 4 | MCT-178 PR MERGED + backtest profile + compose config CI gate | ✓ (2026-05-15, hub#336 + signal-collector#1 + hub#337 + hub Phase 2 PR2). signal-collector 5 worker Publisher 계층 Redis prefix dual write LAND (D15 carry 이행). DesignReview iter1 CONDITIONAL_PASS (F-001/F-002 fast-fix ba87b3c) |
 | 5 | MCT-179 PR MERGED + WAL 30G synthetic baseline (R2 CRITICAL PARTIAL 해소, production 별 PR carry over) + observability | ✓ (2026-05-15, hub#339 + data#66 + hub#340 + hub Phase 2 PR2). measure_wal_baseline.py paper-synthetic verdict=PASS exit 0 + EXCEED branch exit 7 D11 trigger. alert rule = MCT-171/170 LAND SSOT 정렬 (CodeReview iter1 P1×2 metric desync → 64647c7, WAL 30G FAIL gate alert 기능 회복). DesignReview iter1 P0 ADR-030 Out-of-scope D1-D19 전수 reconcile (c8e4b8e). production 실 측정 = 별 PR (EPIC-tier-promotion prod-2) |
 | 6 | MCT-180 PR MERGED + integration smoke + resource limits + alert rule | ✓ (2026-05-15, hub#342 + data#67 + engine#55 + hub#343 + hub Phase 2 PR2). integration-smoke.yml infra-only CI green (ESCALATE F-301 재설계 → 3-layer 분리: CI smoke infra-only / testcontainers boundary 실 carrier / full-stack production deploy carry D12 MCT-181). CodeReview 3 PR iter1 FIX → iter3 hub ESCALATE → ArchitectPL chief judge 설계 원인 판정 + option b resolution (614033a) → ESCALATE-fix PASS. compose.yml 7 service deploy.resources.limits + ContainerMemoryHigh alert (cadvisor MCT-123). panel id=3,4,6 해제 / id=7,8 reader_cache downgrade 유지 (CodeReview FIX iter2 설계 원인 — paper daemon ReaderCache 미사용, Phase 0 verify lesson 5회째). N-002 promotion 문구 정정 + N1 scope_files 정정 (MCT-178 F-001 precedent). engine#55 ci/lookahead-lint = mctrader-market-upbit private-dep token 이슈 carry over (본 ESCALATE 범위 외) |
-| 7 | MCT-181 PR MERGED + Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync | PENDING |
+| 7 | MCT-181 PR MERGED + Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync | ✓ (2026-05-15, hub#345 + engine#56 + hub#346 + hub Phase 2 PR2). D12 = compose 8 라인 ${IMAGE_TAG:-latest} + image-publish.yml 3 repo matrix. D19 = engine backtest CLI hook NAS sync (nas_sync.py, mctrader-backtest-runs ADR-029 분리, .done + 3회 retry + exit 0, 9 test ALL PASS 회귀 969 신규 실패 0). DesignReview iter1 PASS + CodeReview engine#56/hub#346 PASS — **FIX 0** (Epic 최초). **19 D 전수 VERIFIED → ADR-030 + scope_manifest + EPIC-RESULTS Status POLICY_FINALIZED, milestone 7/7** |
+
+**EPIC-mctrader-docker-stack = POLICY_FINALIZED 7/7** (2026-05-15). 7 Story 전수 COMPLETED + 19 D 전수 VERIFIED. Epic CLOSED 자체 박제 = production evidence (prod-1~4) 완성 후 별 PR (EPIC-tier-promotion-single-source 패턴 정합).
 
 ## Cross-Epic carry over
 
@@ -436,8 +530,8 @@ design lane = MCT-175 (P0×1) → MCT-176 (P0×1) → MCT-177 (P0×0) → MCT-17
 | R2 WAL 30G 미측정 | CRITICAL | **PARTIAL 해소 (2026-05-15, MCT-179)** — synthetic baseline 측정 완료 (paper-synthetic verdict=PASS). production 실 측정 (peak 09:00 KST 1h burst) = **별 PR carry over** (EPIC-tier-promotion CLOSED prereq prod-2) | MCT-179 + 별 PR |
 | R3 D14 effective config 미출력 | MEDIUM | MCT-176 collector entrypoint stdout dump 의무 | MCT-176 |
 | R4 host disk 손실 → WAL 영구 손실 | MEDIUM | **사용자 explicit accept (2026-05-15)** — forward-only invariant (ADR-029 §D4), 1d max | MCT-179 |
-| R5 D19 NAS sync 실패 시 backtest artifact 갈림 | MEDIUM | completion marker + 3회 retry + alert + manual reconcile runbook | MCT-181 |
-| R6 D12 ghcr.io rate limit / 인증 | LOW | GITHUB_TOKEN + dev local build fallback | MCT-181 |
+| R5 D19 NAS sync 실패 시 backtest artifact 갈림 | MEDIUM | **MITIGATED (2026-05-15, MCT-181)** — engine#56 `.done` completion marker + 3회 retry + retry_queue fallback + exit 0 (local 보존, data loss 0). `test_backtest_sync_nas_failure_local_preserve` PASS | MCT-181 |
+| R6 D12 ghcr.io rate limit / 인증 | LOW | **MITIGATED (2026-05-15, MCT-181)** — image-publish.yml GITHUB_TOKEN (per-repo packages:write) + MCTRADER_CROSS_REPO_TOKEN (cross-repo checkout) + dev local build fallback | MCT-181 |
 
 ## Cross-ref
 
@@ -451,4 +545,15 @@ design lane = MCT-175 (P0×1) → MCT-176 (P0×1) → MCT-177 (P0×0) → MCT-17
 - MCT-178 RETRO: `docs/retros/RETRO-MCT-178.md`
 - MCT-179 RETRO: `docs/retros/RETRO-MCT-179.md`
 - MCT-180 RETRO: `docs/retros/RETRO-MCT-180.md`
-- Parent Epic results (POLICY_FINALIZED): `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
+- MCT-181 RETRO (Epic 회고 동반): `docs/retros/RETRO-MCT-181.md`
+- Parent Epic results (POLICY_FINALIZED, cross-Epic prod-3 병행): `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
+
+## Epic CLOSED prerequisite registry (POLICY_FINALIZED → CLOSED, production evidence 완성 후 별 PR/Story)
+
+| prod-N | carry over | timing | gate | 상태 |
+|--------|-----------|--------|------|------|
+| prod-1 | ${IMAGE_TAG} prod 실 적용 | production deploy 시 release/sha pin | `.env.prod` `IMAGE_TAG=sha-<commit>` or `v<semver>` 박제 | PENDING |
+| prod-2 | full-stack production smoke (D11 ESCALATE Layer 3) | D12 image pin + production deploy 후 | collector+paper-engine `compose up --wait` evidence | PENDING |
+| prod-3 | R2 WAL 30G production 측정 | peak 09:00 KST 1h burst 실 측정 | 30G 이하 verify (초과 시 D11 hard_limit amendment). EPIC-tier-promotion-single-source prod-2 병행 (cross-Epic) | PENDING |
+| prod-4 | Epic CLOSED 박제 PR | prod-1~3 모두 완료 후 | POLICY_FINALIZED → CLOSED transition (scope_manifest + CLAUDE.md amend) | PENDING |
+| 별(engine) | engine#55 ci/lookahead-lint mctrader-market-upbit private-dep token | engine repo 자체 CI infra | engine repo 별 처리 (본 Epic 범위 외) | PENDING |

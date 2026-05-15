@@ -2,7 +2,39 @@
 
 ## Status
 
-**Accepted** (MCT-175 LAND 2026-05-15 — hub#326 8c485ef Phase 1 docs + hub#327 daef9b3 Phase 2 PR1 code + hub#328 dbba327 Phase 2 PR2 박제)
+**POLICY_FINALIZED** (MCT-181 LAND 2026-05-15 — EPIC-mctrader-docker-stack 7/7 COMPLETED, 19 D 전수 VERIFIED)
+
+상태 transition: Proposed (MCT-175 Phase 1 진입) → **Accepted** (MCT-175 LAND, hub#326 8c485ef + hub#327 daef9b3 + hub#328 dbba327) → **POLICY_FINALIZED** (MCT-181 LAND, Epic 7/7, hub#345 cff197d + engine#56 413711e + hub#346 a8bcf0c + hub Phase 2 PR2)
+
+> **POLICY_FINALIZED 정의** (EPIC-tier-promotion-single-source 패턴 정합): 본 ADR 의 19 D
+> 결정이 7 Story 전수 구현 LAND + verify 완료. 후속 production evidence (prod-1~4) =
+> 별 PR carry over. ADR-030 본문 정책은 finalize, Epic CLOSED 자체 박제 = production
+> evidence 완성 후 별 PR (prod-4).
+
+### Status Amendment box (MCT-181 LAND — Epic POLICY_FINALIZED, 2026-05-15)
+
+**19 D 전수 VERIFIED** (7 Story owner 매핑):
+
+| D | owner Story | 상태 |
+|---|-------------|------|
+| D1/D3/D7/D13 | MCT-175 | ✓ VERIFIED |
+| D7/D9/D14 | MCT-176 | ✓ VERIFIED |
+| D2/D4/D10/D15 | MCT-177 | ✓ VERIFIED |
+| D2/D4/D10/D16 | MCT-178 | ✓ VERIFIED |
+| D5/D8/D17 | MCT-179 | ✓ VERIFIED (D5 synthetic baseline, production 실측 별 PR prod-3) |
+| D4/D11/D18 | MCT-180 | ✓ VERIFIED (D11 ESCALATE infra-only 3-layer, Layer 3 production carry prod-2) |
+| **D12/D19** | **MCT-181** | **✓ VERIFIED (본 Story — §D12/§D19 amendment box 하단 confirm)** |
+| D6 | epic-level | ✓ VERIFIED (7 Story sequential chain COMPLETED) |
+
+**Epic CLOSE carry over registry (production evidence 완성 후 별 PR/Story, prod-1~4)**:
+
+| prod-N | carry over | timing | gate |
+|--------|-----------|--------|------|
+| prod-1 | ${IMAGE_TAG} prod 실 적용 | production deploy 시 release/sha pin | `.env.prod` `IMAGE_TAG=sha-<commit>` or `v<semver>` 박제 |
+| prod-2 | full-stack production smoke (D11 ESCALATE Layer 3) | D12 image pin + production deploy 후 | collector+paper-engine `compose up --wait` evidence |
+| prod-3 | R2 WAL 30G production 측정 | peak 09:00 KST 1h burst 실 측정 | EPIC-tier-promotion-single-source prod-2 병행 (synthetic → production 실측) |
+| prod-4 | Epic CLOSED 박제 PR | prod-1~3 모두 완료 후 | POLICY_FINALIZED → CLOSED transition (scope_manifest + CLAUDE.md amend) |
+| (별) | engine#55 ci/lookahead-lint token | engine repo 자체 CI infra | `mctrader-market-upbit` private-dep token (engine repo 별 처리, 본 Epic 범위 외) |
 
 이전 상태: Proposed (MCT-175 Phase 1 진입, 2026-05-15)
 
@@ -997,8 +1029,8 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시
   = engine repo 자체 CI infra private-dep token 이슈. F-301/F-302 외 영역, engine repo
   별 처리 carry over (MCT-181 또는 별 PR).
 
-ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-181 LAND 시 §D12/§D19 추가 D 본문
-박제 의무.
+ADR-030 본문 만 박제 (Status = Accepted 유지, MCT-180 LAND 시점). **MCT-181 LAND 시
+§D12/§D19 추가 D 본문 박제 + Status POLICY_FINALIZED transition 완료 (본 Phase 2 PR2)**.
 
 ### Amendment box (MCT-181 Phase 1, 2026-05-15)
 
@@ -1057,6 +1089,37 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-181 LAND 시 §D12/§D
   - local: `mctrader_engine_runs` named volume (compose lifecycle 내 보존)
   - remote: `.done` marker 미존재 run_id = partial sync 또는 미sync
   - manual reconcile: `nas_uploader.put_streaming()` 재호출 (run_id 기준)
+
+#### §D12/§D19 VERIFIED confirm box (MCT-181 Phase 2 PR1 cross-repo LAND, 2026-05-15)
+
+**§D12 VERIFIED** (hub#346 a8bcf0c, MERGED 2026-05-15T14:43:16Z):
+
+- `compose.yml` 8 ghcr.io 라인 `:latest` 하드코딩 → `${IMAGE_TAG:-latest}` 변수화 LAND
+  (line 224/243/263/282/301/321/358/393 — signal-collector 5 + paper-engine + backtest-runner + collector)
+- `.env.example` `IMAGE_TAG=latest` (dev) / `.env.prod.example` `IMAGE_TAG=<release_tag_or_git_sha>` (prod pin 의무) 박제
+- `.github/workflows/image-publish.yml` 신규 (77 lines) — `push` (main) + `workflow_dispatch`,
+  strategy.matrix 3 repo (data/engine/signal-collector), `:latest` + `:sha-<7char>` + release tag 시 `:v{semver}`,
+  checkout `MCTRADER_CROSS_REPO_TOKEN` (MCT-176 LAND) + ghcr.io login `GITHUB_TOKEN`
+- AC verify: dev/prod `docker compose config` exit 0 + 8 라인 변수화 + workflow YAML valid + matrix 3 repo
+  + trigger 정합 + 비-mctrader image (postgres/minio/redis/prometheus/grafana/cadvisor/nginx) 무변경 — **전수 PASS**
+- **prod pin 의무 재확인**: latest pull 금지 (운영 rollback 불능 위험). prod-1 carry over (production deploy 시점)
+
+**§D19 VERIFIED** (engine#56 413711e, MERGED 2026-05-15T14:42:24Z, land_order 1):
+
+- `src/mctrader_engine/backtest/nas_sync.py` 신규 — `sync_run_artifacts(run_dir, run_id)`:
+  NAS env guard + idempotent `.done` sentinel + `put_streaming()` streaming upload (MCT-163 API 재사용)
+  + 실패 시 local 보존 (run_dir 삭제 금지) + retry → retry_queue fallback
+- `src/mctrader_engine/cli.py` — `backtest()` `EquityCurveWriter.write()` 직후 NAS sync best-effort hook.
+  NAS 실패 시 `click.echo err` + **exit 0 유지** (backtest 결과 자체 성공 = data loss 아님)
+- `BACKTEST_NAS_BUCKET = "mctrader-backtest-runs"` — ADR-029 market-data SoT 버킷 `mctrader-market` 완전 분리
+  (XOR ambiguity invariant 무충돌, D10 = market data SoT 대상 — backtest artifact 제외)
+- `tests/test_backtest_nas_sync.py` 9 test ALL PASS (success/nas_key_format/idempotent_skip/nas_failure/
+  queued_as_failure/already_done/no_env/partial_env/bucket_name) + 회귀 969 passed 신규 실패 0
+- ruff PASS + pyright 0 errors
+
+**§D12/§D19 = D12/D19 owner Story (MCT-181) Phase 2 PR1 cross-repo LAND 완결**. ADR-030 19 D
+전수 VERIFIED → Status POLICY_FINALIZED transition (본 Phase 2 PR2 박제). 후속 production
+evidence (prod-1~4) = 별 PR carry over.
 
 ## References
 
