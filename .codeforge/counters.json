@@ -93,7 +93,8 @@
       "title": "collector container + NAS credential rotation + effective config dump",
       "reserved_at": "2026-05-15",
       "started_at": "2026-05-15",
-      "status": "IN_PROGRESS",
+      "completed_at": "2026-05-15",
+      "status": "COMPLETED",
       "epic": "EPIC-mctrader-docker-stack",
       "repo": "mctrader-hub + mctrader-data",
       "phase_pair": "phase1_phase2",
@@ -105,6 +106,8 @@
     "MCT-177": {
       "title": "paper-engine daemon + SIGTERM graceful + universe override + Redis key prefix",
       "reserved_at": "2026-05-15",
+      "started_at": "2026-05-15",
+      "status": "IN_PROGRESS",
       "epic": "EPIC-mctrader-docker-stack",
       "repo": "mctrader-hub + mctrader-engine",
       "phase_pair": "phase1_phase2",
