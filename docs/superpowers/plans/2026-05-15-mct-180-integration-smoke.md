@@ -24,9 +24,9 @@ carry_over_from_mct179:
 **Goal:** D11 (compose CI smoke + testcontainers 2-layer gate) + D18 (resource limits + container_memory alert) + D4 (SIGTERM graceful 회귀 검증) + MCT-179 carry over (5 [MCT-180 TODO] panel metric emit 신규).
 
 **Architecture:**
-- **D11 integration smoke**: `.github/workflows/integration-smoke.yml` 신규 — compose up full stack (postgres+redis+minio+collector+paper-engine) → collector ingest 1분 → compactor promotion 1회 → paper-engine health 200 → 검증. testcontainers (Python) = repo-level boundary test (collector→NAS + paper-engine→Redis). 2-layer: compose CI smoke (stack 정합) + testcontainers (component boundary).
+- **D11 integration smoke** (ESCALATE F-301 amended, 2026-05-15): `.github/workflows/integration-smoke.yml` 신규 — **CI smoke = infra-only** (postgres+redis+minio compose up `--wait` + mc-init oneshot exit 0 만). collector/paper-engine compose up = CI 격리 구조적 불가 (sibling repo image 미배포 + build.context path 부재) → **제거**. testcontainers (Python) = repo-level boundary test (collector→NAS + paper-engine→Redis) = D11 boundary 실 검증 carrier. **full-stack compose up 검증 = production deploy carry** (D12 MCT-181 image registry pin 의존, EPIC-tier-promotion prod-2 류). 3-layer 분리: CI smoke (infra 정합) + testcontainers (component boundary) + production deploy (full-stack evidence carry). ADR-030 §D11 amendment (integration-smoke CI = infra-only) SSOT.
 - **D18 resource limits**: compose.yml 각 service `deploy.resources.limits` (mem_limit + cpus) 명시. collector 50MB→512MB (INV-4 DualWriter + buffer) / paper-engine 512MB (reader cache 256MB + buffer) / backtest-runner 1G / postgres 1G / redis 256MB (hard cap 기존) / prometheus+grafana 512MB. Prometheus `container_memory_usage_bytes` alert (>80% capacity warn) — cadvisor (compose.yml 기존 MCT-123).
-- **D4 SIGTERM 회귀**: integration smoke 에 SIGTERM graceful 검증 단계 (collector + paper-engine `docker compose stop` → exit 0 within stop_grace_period). MCT-176/177 LAND graceful 회귀 0 verify.
+- **D4 SIGTERM 회귀** (ESCALATE F-301 amended, 2026-05-15): integration smoke infra-only 재설계로 collector/paper-engine compose up 제거 → SIGTERM step 동반 제거 (collector/paper-engine 부재 시 무의미). **D4 회귀 검증 carrier 이관**: testcontainers (data#67 + engine#55) + 각 repo unit test (MCT-176 `_SHUTDOWN_REQUESTED` + MCT-177 `shutdown.py` asyncio SSOT — 코드 변경 0, 회귀 검증 유지). production full-stack SIGTERM = production deploy carry.
 - **MCT-179 carry over metric emit**: 5 [MCT-180 TODO] panel 중 **3 panel 해제** (id=3 collector ticks_total + id=4 active_symbols (data#67) / id=6 engine universe_size (engine#55 paper daemon emit)). **2 panel (id=7 reader_cache hit_ratio + id=8 p99) = downgrade 유지** — CodeReview FIX iter2 설계 원인 판정: paper daemon 은 ReaderCache 미인스턴스화 (MCT-170 cold read 전용 scope), cold reader/backtest 경로만 emit → 지속 panel 부적합. engine#55 stats() Gauge wiring 은 보존 (cold reader 경로 유효).
 
 **Tech Stack:** GitHub Actions (compose integration smoke) / testcontainers-python / Docker Compose deploy.resources / cadvisor (MCT-123 LAND) / Prometheus / Python 3.12
@@ -125,7 +125,17 @@ carry_over_from_mct179:
 - Modify: `monitoring/prometheus-alerts.yml` (ContainerMemoryHigh >80% alert)
 - Modify: `monitoring/grafana/provisioning/dashboards/docker-stack.json` (5 [MCT-180 TODO] panel 해제 — data#PR + engine#PR metric emit 의존)
 
-- [ ] integration-smoke.yml:
+> **AMEND (CodeReview ESCALATE hub#343, iter 3/3 max — F-301 P0 설계 원인, ArchitectPL chief judge 최종 판정 2026-05-15)**:
+> integration-smoke.yml 의 `compose up collector + paper-engine` step = CI 격리 환경
+> **구조적 실행 불가** (sibling repo image `ghcr.io/mclayer/mctrader-{data,engine}:latest`
+> 미배포 pull denied + `build.context: ../mctrader-{data,engine}` path 부재 → exit 1).
+> iter1/2 mc --wait 분리는 표면 증상만 해소. **근본 = D11 설계가 CI 와 양립 불가능한
+> full-stack 전제**. resolution (option b) = **CI smoke = infra-only + mc oneshot 만**,
+> collector/paper-engine boundary = testcontainers 2-layer (data#67 + engine#55 LAND),
+> full-stack compose up = production deploy carry (D12 MCT-181 image registry pin 의존).
+> ADR-030 §D11 amendment (integration-smoke CI = infra-only) 박제 정합.
+
+- [ ] integration-smoke.yml (ESCALATE resolution — infra-only):
 
 ```yaml
 name: integration-smoke
@@ -136,31 +146,21 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      # AMEND (CodeReview FIX iter2 hub#343 P0, 2026-05-15 — 설계 원인):
-      # mc(mctrader-mc-init) = healthcheck 미보유 일회성 init 컨테이너
-      # (entrypoint 후 exit 0). `--wait` 가 비정상 간주 → exit 1 → D11 게이트
-      # 무력화. → infra(postgres/redis/minio)만 --wait, mc 는 별도 oneshot
-      # (`up --no-deps --exit-code-from mc mc`) + exit 0 검증으로 분리.
+      # ESCALATE resolution (F-301 P0 설계 원인, iter 3/3 max):
+      # collector/paper-engine compose up = CI 격리 구조적 불가 (sibling repo
+      # image 미배포 + build.context path 부재). → CI smoke = infra(postgres/
+      # redis/minio) --wait + mc-init oneshot exit 0 만. collector/paper-engine
+      # boundary = testcontainers 2-layer (data#67 + engine#55 LAND).
+      # full-stack compose up = production deploy carry (D12 MCT-181 image pin).
       - name: compose up infra (postgres + redis + minio)
         run: |
           cp .env.example .env.dev
           docker compose --profile dev --env-file .env.dev up -d postgres redis minio --wait --wait-timeout 180
       - name: mc-init bucket bootstrap (oneshot, exit 0 verify)
         run: docker compose --profile dev --env-file .env.dev up --no-deps --exit-code-from mc mc
-      - name: compose up collector + paper-engine (dev)
-        run: |
-          docker compose --profile dev --env-file .env.dev up -d collector paper-engine --wait --wait-timeout 240
-      - name: collector ingest 60s
-        run: sleep 60 && docker compose --profile dev logs collector | grep -q "ingest" || echo "collector ingest log check (advisory)"
-      - name: paper-engine health 200
-        run: docker compose --profile dev exec -T paper-engine python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"
-      - name: SIGTERM graceful (D4 회귀)
-        run: |
-          docker compose --profile dev stop collector paper-engine --timeout 60
-          docker compose --profile dev ps --status exited | grep -E "collector|paper-engine"
       - name: teardown
         if: always()
         run: docker compose --profile dev down -v
@@ -191,8 +191,20 @@ jobs:
 - [ ] docker-stack.json TODO panel 해제 — **id=3,4,6 만 해제** (collector ticks/symbols data#67 LAND + engine universe_size engine#55 paper daemon emit 정합). **id=7,8 (reader_cache hit_ratio/p99) = `[MCT-180 TODO]` downgrade 유지** (CodeReview FIX iter2, 설계 원인 — reader cache = cold reader 전용 scope, paper daemon 미인스턴스화. cold read 경로만 emit, backtest-runner oneshot 지속 panel 부적합. ADR-030 §D8 amendment 정합)
 
 ### 2.4 cross-repo LAND 순서
-1. data PR + engine PR LAND 먼저 (metric emit source)
-2. hub PR LAND (integration-smoke + limits + docker-stack TODO 해제 — metric source 의존)
+
+> **AMEND (ESCALATE F-302, ArchitectPL chief judge 2026-05-15)**: data#67 + engine#55
+> 선행 LAND → hub#343 재검증 (testcontainers 2-layer 가 D11 boundary 실 carrier 이므로
+> data/engine LAND 가 hub#343 ESCALATE resolution 의 prerequisite). engine#55 `ci`/
+> `lookahead-lint` 별개 FAILURE (`mctrader-market-upbit` private-dep git auth —
+> `Invalid username or token`) = F-301/F-302 외 영역 (engine repo 자체 CI infra
+> private-dep token 이슈). CodeReview iter3 PASS = lane scope 정합. engine#55 LAND
+> 전 engine repo 측 private-dep token 이슈 별도 해소 필요 (본 ESCALATE 범위 외 carry).
+
+1. **data#67 LAND** (전 check SUCCESS, LAND ready — testcontainers collector→NAS boundary source)
+2. **engine#55 LAND** (CodeReview iter3 PASS; CI `ci`/`lookahead-lint` private-dep token
+   별도 해소 후 — testcontainers paper→Redis boundary source)
+3. **hub#343 LAND** (integration-smoke infra-only + limits + docker-stack TODO 해제 —
+   data#67/engine#55 testcontainers LAND 의존, F-301 resolution 정합)
 
 ### 2.5 Gate
 - AC-1~5 verify + CodeReviewPL 3-way + admin merge
@@ -217,8 +229,9 @@ MCT-180 COMPLETED → **MCT-181** (image registry pin + backtest artifact NAS sy
 ---
 
 ## §5 Self-Review
-- D11 integration smoke + testcontainers: §2.3 workflow + §2.1/§2.2 testcontainers ✓
+- D11 integration smoke (ESCALATE F-301 amended): §2.3 infra-only workflow (collector/paper-engine compose up 제거) + §2.1/§2.2 testcontainers 2-layer = boundary 실 carrier + full-stack = production deploy carry (D12 MCT-181) ✓
 - D18 resource limits + cadvisor alert: §2.3 deploy.resources + prometheus-alerts ✓
-- D4 SIGTERM 회귀: §2.3 integration-smoke SIGTERM step ✓
-- carry over 5 TODO panel metric emit: §2.1 (collector) + §2.2 (engine) + §2.3 (docker-stack 해제) ✓
+- D4 SIGTERM 회귀 (ESCALATE F-301 amended): testcontainers + MCT-176/177 unit test 회귀 (compose smoke SIGTERM step 제거 — infra-only) ✓
+- carry over 5 TODO panel metric emit: §2.1 (collector) + §2.2 (engine) + §2.3 (docker-stack 해제, id=7/8 downgrade 유지) ✓
 - §6.5 N/A 박제: §1.1 ✓
+- ESCALATE resolution 3-way 정합: ADR-030 §D11 amendment (infra-only) + plan §2.3/§2.4 amend + Story §4 AC-1 재정의 (Phase 2 PR2 carry) ✓

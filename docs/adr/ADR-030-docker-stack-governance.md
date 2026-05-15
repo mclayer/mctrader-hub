@@ -894,6 +894,59 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시
   `--abort-on-container-exit` 함의 → init 정상 완료(exit 0) 검증. `--no-deps` 로
   minio 재기동 회피 (직전 step 의 `--wait` 로 minio 이미 healthy).
 
+#### §D11 amendment — integration-smoke CI = infra-only + testcontainers 2-layer (full-stack = production carry)
+
+**FIX-MCT-180 hub#343 ESCALATE (CodeReview iter 3/3 max, F-301 P0 설계 원인 — ArchitectPL chief judge 최종 판정 2026-05-15)**:
+
+- **근본 원인 (설계 결함, 구현 결함 아님)**: ADR-030 §D11 amendment (MCT-180 publish, line 781-783)
+  + Plan §2.3 + Story §4 AC-1 이 **"compose up full stack (collector+paper-engine) in CI"** 를
+  명시. 그러나 `compose.yml` collector(L358) / paper-engine(L321) / backtest-runner(L393) =
+  `image: ghcr.io/mclayer/mctrader-{data,engine}:latest` (미배포 — D12 MCT-181 carry over) +
+  `build.context: ../mctrader-{data,engine}` (sibling repo 상대 경로). GitHub Actions CI =
+  hub repo **단독 checkout** → sibling repo path 부재 + 미배포 이미지 pull denied →
+  `compose up collector paper-engine --wait` **구조적 exit 1**. CI evidence (hub#343 run
+  25920127360 smoke job):
+  ```
+  collector  Warning Head "https://ghcr.io/v2/mclayer/mctrader-data/manifests/latest": denied
+  paper-engine Warning Head "https://ghcr.io/v2/mctrader-engine/manifests/latest": denied
+  unable to prepare context: path "/home/runner/work/mctrader-hub/mctrader-engine" not found
+  ##[error]Process completed with exit code 1.
+  ```
+  iter1/iter2 의 mc --wait 분리(c1d7938)는 mc-init 표면 증상만 해소. full-stack compose up 의
+  sibling 의존이라는 **근본 설계 전제 (CI 격리 환경에서 production 불가능)** 미해소.
+  FIX 3회 소진 → mechanical/구현 layer 해소 불가 → **설계 재정의가 유일 경로**.
+- **resolution (option b — CI 격리 정합, ArchitectPL chief judge 채택)**:
+  - **Layer 1 재정의 (CI smoke = infra-only)**: `.github/workflows/integration-smoke.yml` =
+    hub infra (postgres+redis+minio) compose up `--wait` + mc-init oneshot `--exit-code-from mc`
+    exit 0 검증 **만**. collector / paper-engine compose up step **제거** (CI 격리 구조적
+    실행 불가 — sibling repo image/build context 의존). SIGTERM D4 회귀 step 도 동반 제거
+    (collector/paper-engine 부재 시 무의미) → D4 회귀는 testcontainers + 각 repo unit test
+    가 담당 (MCT-176/177 LAND graceful 경로 unchanged).
+  - **Layer 2 (testcontainers = component boundary 실 carrier)**: data#67
+    `tests/integration/test_collector_nas_boundary.py` (collector→MinIO mock) + engine#55
+    `tests/test_paper_redis_boundary.py` (paper-engine→Redis) — 이미 LAND. D11 2-layer 의
+    **실 검증 책무 = testcontainers layer** 로 이관 (compose CI smoke layer 는 infra 정합만).
+  - **full-stack compose up 검증 = production deploy carry**: D12 MCT-181 image registry
+    pin (`${IMAGE_TAG}` prod) 후 가능. EPIC-tier-promotion prod-2 류 production evidence
+    carry over (별 PR/Story). full-stack compose up 은 CI 가 아닌 production deploy 시점
+    검증 (image registry pin 의존).
+  - **Story §4 AC-1 재정의** (Phase 1 docs 영역 — ArchitectPL write scope 외):
+    "compose up full stack" → "infra compose up --wait + mc oneshot exit 0 +
+    testcontainers 2-layer boundary (collector→NAS + paper→Redis)". production full-stack
+    compose up = carry over (D12 image registry pin 의존). → Orchestrator forward
+    또는 Phase 2 PR2 박제 carry.
+- **F-302 (cross-repo LAND 순서)**: data#67 (전 check SUCCESS, LAND ready) + engine#55
+  선행 LAND → hub#343 재검증. **추가 발견 (독립 검증 surface)**: engine#55 `ci`/`lookahead-lint`
+  job = 별개 원인 FAILURE (`mctrader-market-upbit` private repo git dependency auth 실패 —
+  `Invalid username or token`). F-301/F-302 외 영역 (engine repo 자체 CI infra private-dep
+  token 이슈). CodeReview iter3 PASS = lane scope 정합이나, engine CI workflow 자체는 별도
+  token 이슈 carry over (engine repo 별 처리, 본 ESCALATE 범위 외 명시).
+- **lesson**: cross-repo full-stack compose up 을 CI 격리 환경 gate 로 설계하는 것은 sibling
+  repo image registry pin (D12) 선행 없이는 구조적 불가능. CI smoke = infra 정합 + boundary
+  = testcontainers + full-stack = production deploy evidence 의 **3-layer 분리**가 cross-repo
+  Epic 의 CI-friendly 검증 SSOT. (MCT-179 §D8 가공 metric 설계 원인 + MCT-170/177/178
+  Phase 0 verify lesson 누적 동형 — 설계가 실행 환경 제약 미검증).
+
 #### N-002 promotion 문구 carry (Phase 2 PR2 유지)
 
 - N-002 (promotion.py 잔여 문구 정합) = Phase 2 PR2 carry over 유지. 본 contract 정정
