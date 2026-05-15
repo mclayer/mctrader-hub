@@ -216,25 +216,40 @@ Prometheus alert:
 
 ## Out of scope (manifest SSOT)
 
-본 ADR 는 EPIC-mctrader-docker-stack 7 Story 범위 내 8 D 만 본문 박제. 아래 10 D 는 manifest 박제 후
-별 Story 차원 결정/구현으로 defer. SSOT = `scope_manifests/EPIC-mctrader-docker-stack.yaml`.
+본 ADR 는 EPIC-mctrader-docker-stack 7 Story 범위 내 8 D (D1/D2/D3/D7/D12/D13/D17/D18) 만 본문 박제.
+아래 11 D 는 manifest 박제 후 별 Story 차원 결정/구현으로 defer (단 amendment box 본문 박제는 owner
+Story LAND 시 append). **SSOT = `scope_manifests/EPIC-mctrader-docker-stack.yaml` §design_decisions.
+본 표는 navigational only — D 정의/owner 의 정합 기준은 항상 scope_manifest.**
 
-| D | 내용 | Owner Story (manifest) |
-|---|------|------------------------|
-| D4 | container restart policy + healthcheck 표준 | MCT-177 / MCT-178 / MCT-180 |
-| D5 | observability stack (prometheus + grafana + node-exporter) | MCT-179 |
-| D8 | DR mode state machine 통합 (compose alert → dr_mode flip) | MCT-179 |
-| D9 | NAS credential rotation (90d) automation | MCT-176 ✓ |
-| D10 | universe override + Redis prefix isolation | MCT-177 / MCT-178 |
+| D | 내용 (scope_manifest SSOT 정합) | Owner Story (manifest) |
+|---|---------------------------------|------------------------|
+| D4 | SIGTERM handler + 60s grace + start-time invariant check | MCT-177 / MCT-179 |
+| D5 | Prometheus metric + measurement script + amendment trigger (WAL 30G hypothesis verify) | MCT-179 |
+| D6 | 7 Story 분해 (MCT-175 ~ MCT-181) — Epic meta 결정 (본문 박제 제외) | epic-level |
+| D8 | 앱 내장 /metrics + Grafana dashboard + alert rule | MCT-179 |
+| D9 | .env 패턴 유지 + rotate-nas-credentials.sh + cron + Slack | MCT-176 ✓ |
+| D10 | env default + compose command override 둘 다 (universe override) | MCT-177 / MCT-178 |
 | D11 | compose CI smoke + testcontainers 병행 (stack-level + repo-level) | MCT-180 |
-| D14 | effective config stdout dump (collector entrypoint) | MCT-176 ✓ |
-| D15 | paper-engine universe override env precedence | MCT-177 |
+| D14 | env override + YAML default (effective config stdout dump 의무) | MCT-176 ✓ |
+| D15 | Redis key prefix (signal:/market:/engine:) | MCT-177 |
 | D16 | docker compose config lint + compose up --wait health gate | MCT-178 |
-| D19 | backtest artifact NAS sync (별 prefix) | MCT-181 |
+| D19 | mctrader_runs named volume + NAS sync on completion (별 prefix) | MCT-181 |
 
 각 D 본문 박제 시점 = 해당 owner Story Phase 1 LAND (ADR-030 amendment box append).
 
-> **reconciliation (MCT-178 DesignReview FIX iter 1, F-001)**: D11/D16 row 는 MCT-175 LAND 시 SSOT 와 정의/owner swap 박제되었음 (D11↔compose config lint, D16↔backtest artifact archive). 본 정정은 `scope_manifests/EPIC-mctrader-docker-stack.yaml` D11 (compose CI smoke + testcontainers, owner MCT-180) / D16 (compose config lint + up --wait, owner MCT-178) SSOT 정합. backtest artifact archive 는 D19 (backtest artifact NAS sync, MCT-181) 영역으로 흡수.
+> **reconciliation (MCT-179 DesignReview FIX iter 1, F-001 — 전수 정합)**: ADR-030 "Out of scope" 표
+> 는 MCT-175 LAND 시점에 scope_manifest SSOT 와 다수 row 가 stale/swap 박제되어 있었음 (누적 발견:
+> MCT-178 F-001 = D11/D16 정의·owner swap, MCT-179 F-001 = D5/D8 정의 swap — D5="observability stack"
+> ↔ D8="DR mode state machine"). 매 Story 자기 D 만 부분 reconcile 하면 MCT-180 (D11/D18) / MCT-181
+> (D12/D19) 에서 재발 예상되어, 본 FIX iter 1 에서 **D1-D19 전체 row 를
+> `scope_manifests/EPIC-mctrader-docker-stack.yaml` §design_decisions SSOT 와 1:1 전수 정합** 정정함.
+> 변경: D4 ("container restart policy + healthcheck 표준" → SSOT "SIGTERM handler + 60s grace +
+> start-time invariant check") / D5 ("observability stack ..." → SSOT "Prometheus metric + measurement
+> script + amendment trigger") / D8 ("DR mode state machine 통합" → SSOT "앱 내장 /metrics + Grafana
+> dashboard + alert rule") / D6 누락 row 추가 (epic-level meta) / D10·D14·D15·D19 SSOT decision
+> 텍스트 verbatim 정합 / 헤더 "10 D" → "11 D" + in-scope 8 D 명시. MCT-178 F-001 (D11/D16) 정정분은
+> 본 전수 정합에 흡수 (D11/D16 row 는 이미 SSOT 정합 — 변경 없음). 이후 **SSOT = scope_manifest
+> §design_decisions, 본 Out-of-scope 표는 navigational only** (D 정의/owner 분쟁 시 scope_manifest 우선).
 
 ### Amendment box (MCT-176 Phase 1, 2026-05-15)
 
