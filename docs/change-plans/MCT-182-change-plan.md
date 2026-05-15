@@ -180,8 +180,16 @@ types} import ...` 는 **동일 repo 내부 참조**가 된다 (market 내부로
 
 - market: `src/mctrader_market/` 에 `aggregation/`(패키지) + `records.py` + `paper_lineage.py` 신규
   (candle.py 무변경)
-- data: `aggregation/__init__.py`/`paper_lineage.py` = shim 전환 (core/scaled_int/contract_metadata
-  하위 모듈 삭제 — `__init__` shim 만 잔류). tick_storage/orderbook_storage = dataclass import 재지정
+- data: `aggregation/__init__.py`/`paper_lineage.py` = shim 전환. **`core`/`scaled_int`/
+  `contract_metadata` 하위모듈은 deprecated 보존 (MCT-188 D7 finalize 까지)** — `__init__` shim 만
+  public API 진입점 (사본 금지, market re-export). 하위모듈 즉시 삭제 금지 (cold path
+  `.core` 직접 import 존재 — Option B ImportError 차단, 물리 삭제 = MCT-188 D7 owner).
+  cold/ production path 의 `.core` 직접 import (`cold/duckdb_resample.py:53` +
+  `cold/polars_fallback.py:36`, shim 우회 → INV-4 is-동일성 위반) 는 **data fix PR 에서
+  `from mctrader_market.aggregation import ...` 직접 재지정** (MCT-182 owner — strangler-fig
+  Layer0 1단계 무중단 명세 정합). 하위모듈 파일 물리 삭제 + grep0 quad gate = MCT-188 D7
+  owner (scope 경계 — §6/§2.2/scope_manifest line 204 정합).
+  tick_storage/orderbook_storage = dataclass import 재지정
 - engine: 4 파일 import 1줄씩 재지정
 
 ## 5. 비기능 (perf / observability)
@@ -290,10 +298,16 @@ PURE-contract 코드 이동 only. attack surface 무변화.
 - **INV-3 [pyarrow 비결합]**: `import mctrader_market.records` 후 `sys.modules` 에 `pyarrow` 부재
   - 테스트: `tests/test_records.py::test_records_import_does_not_load_pyarrow`
     (`import mctrader_market.records; assert "pyarrow" not in sys.modules` — clean subprocess)
-- **INV-4 [shim is-동일성]**: data shim 경유 객체 = market 객체 `is` 동일 (사본 금지, SSOT 단일)
+- **INV-4 [shim is-동일성]**: data shim 경유 객체 = market 객체 `is` 동일 (사본 금지, SSOT 단일).
+  **cold path `.core` 직접 import 우회도 market SSOT 와 `is` 동일 의무** (구현 리뷰 iter1 F-2 —
+  data fix PR 재지정 후 cold path 가 `from mctrader_market.aggregation import ...` 경유)
   - 테스트: `tests/test_shim_backcompat.py::test_shim_object_identity`
     (`from mctrader_data.aggregation import TickBarAggregator as A; from mctrader_market.aggregation
     import TickBarAggregator as B; assert A is B`)
+  - 테스트 (data fix PR 보강): `tests/test_shim_backcompat.py::test_cold_path_uses_market_sot`
+    — `mctrader_data.cold.duckdb_resample.TimeBarAggregator is mctrader_market.aggregation.TimeBarAggregator`
+    + `mctrader_data.cold.polars_fallback.TimeBarAggregator is mctrader_market.aggregation.TimeBarAggregator`
+    (cold path `.core` 직접 import 사각지대 해소 — 잔존 data 원본 클래스 우회 사용 0 검증)
 - **INV-5 [CandleModel 재구현 0]**: engine import 경로만 재지정 (객체·schema 무변경)
   - grep gate: engine `git grep -n "from mctrader_data.cold.duckdb_resample import CandleModel"
     -- 'src/*'` == **0건** AND `mctrader_data.*CandleModel` import == 0
@@ -466,3 +480,44 @@ hub Phase 1 (docs)  →  market#N  →  data#N  →  engine#N  →  hub Phase 2 
 - **잔여 risk**: R1 (cross-repo desync 7회째, HIGH) — §8.0 Phase 0 Gate + ADR-031 D-row
   reconcile 로 완화 (V5 사전 정정으로 desync 1건 선제 차단). R2 (MCT-41 블락, HIGH) = MCT-186
   owner (본 Story 파일 disjoint — 병렬 안전, 본 Story 무관)
+
+### 12.2 ArchitectPL 구현 리뷰 FIX 최종 판정 (2026-05-16, 구현 리뷰 iter 1/3)
+
+DeveloperPL 1차 진단 → Orchestrator 경유 → ArchitectPL 최종 판정 (chief judge). evidence pack
+독립 검증 (review findings + Change Plan/scope_manifest 정합성, DeveloperPL 진단 미수신 독립 판정):
+
+| finding | severity | 최종 판정 | 근거 |
+|---------|----------|-----------|------|
+| F-1 (하위모듈 미삭제 — §4.2↔§6/§2.2 self-contradiction) | P1 boundary | **설계 원인** | Change Plan §4.2 "삭제" 단독 stale ↔ §6/§2.2/scope_manifest line 204/ADR-031 line 230 = "MCT-188 D7까지 deprecated 보존" 4개 산출물 수렴. FIX iter1 F-2 가 scope_manifest 만 정정·§4.2 동반 정정 누락 = 설계 lane cross-document 정합 실패 (MCT-179 lesson 동형) |
+| F-2 (cold path .core 직접 import — INV-4 위반) | P1 boundary | **설계 원인** | §2.2 가 cold path "shim 경유 무중단 의무" 명세했으나 실제 cold path 는 `.core` 직접 import 상태 (실증: duckdb_resample.py:53 + polars_fallback.py:36). 설계가 §6 "사전 마이그레이션 불요" 로 cold path 예외 미검출 일반화 = Phase 0 verify gap 동형 |
+| F-3 (candle_view.py:38 docstring) | P2 비차단 | (downgrade 유지) | docstring noise — fix PR scope 외 |
+
+- **root-cause-decision table 적용**: Code review P1 boundary → 설계 default. DeveloperPL 1차
+  가정(설계) = table 정합. **수용 — 반론 없음. 설계 원인 확정.**
+- **Option A 채택** (Option B 기각): Option B(하위모듈 즉시 삭제) = cold path ImportError
+  (production 파손) + MCT-183/188 owner 경계 침범 (scope creep) 2중 결함 → 사용자 directive
+  2026-05-13 (타협 어려운 부분 보수적 평가) 정합, 보수적 기각. Option A = §6/§2.2/scope_manifest/
+  ADR-031 무중단 명세 정합 + MCT-182 strangler-fig Layer0 1단계 scope 준수.
+- **scope 경계 확정**: MCT-182 owner = cold path 2곳 market 직접 재지정 + test 보강 (INV-4
+  is-동일성 위반 즉시 해소). MCT-188 D7 owner = 하위모듈 파일 물리 삭제 + grep0 quad gate.
+  MCT-183 owner = 여타 cold path cleanup.
+- **Change Plan 정정 (ArchitectAgent 권한)**: §4.2 line 183-184 "하위모듈 삭제" →
+  "하위모듈 deprecated 보존 (MCT-188 D7까지) — __init__ shim 만 public API 진입점, cold/
+  `.core` 직접 import 는 data fix PR 에서 market 직접 재지정" 정정 완료. §8 INV-4 테스트
+  `test_cold_path_uses_market_sot` 보강. §6/§2.2/scope_manifest line 204/ADR-031 line 230
+  정합 확인 (cross-document desync 해소). ADR-031 본문 = D1 결정 무변경 (정합 — line 230 이미
+  "MCT-188 D7 까지 deprecated 경로 유지" 명세, amend 불요). Story §11 = data 측 shim 기술
+  정합 (amend 불요).
+- **post-merge fix PR scope 최종안** (data repo 신규 PR, DeveloperPL 스폰 대상):
+  1. `src/mctrader_data/cold/duckdb_resample.py:53` — `from mctrader_data.aggregation.core
+     import (...)` → `from mctrader_market.aggregation import (...)` 재지정
+  2. `src/mctrader_data/cold/polars_fallback.py:36` — `from mctrader_data.aggregation.core
+     import TimeBarAggregator` → `from mctrader_market.aggregation import TimeBarAggregator`
+  3. `tests/test_shim_backcompat.py` — `test_cold_path_uses_market_sot` 보강 (cold path
+     2곳 `is mctrader_market.aggregation.*` SSOT is-동일성 검증, 사각지대 해소)
+  - **scope 외 (MCT-188 D7)**: 하위모듈 파일 물리 삭제 / grep0 quad gate
+  - **scope 외 (MCT-183)**: paper_storage 등 여타 사용처 (단 — 검증상 paper_storage 는 `__init__`
+    shim 경유, 우회 0 — cold/ 2곳만 `.core` 직접 import 실증)
+- **VERDICT (구현 리뷰 iter1)**: 설계 원인 → Change Plan 정정 완료 → **post-merge fix PR
+  스폰 가능** (Orchestrator → DeveloperPL data fix PR → 구현 리뷰 재검증). 설계 리뷰 레인
+  재실행 불요 (Change Plan §4.2 정정 = §6/§2.2 와의 self-contradiction 해소, 신규 설계 결정 0)
