@@ -298,7 +298,7 @@ services:
     build:
       context: ../mctrader-data
     env_file:
-      - .env.${COMPOSE_PROFILE:-dev}
+      - .env.${COMPOSE_PROFILES:-dev}  # ADR-030 §D3 — Docker Compose 표준 var (단일 profile 운영 의무, runbook §Single Profile)
     volumes:
       - /var/lib/mctrader/wal:/var/lib/mctrader/data  # ADR-030 §D1 WAL host bind mount
       - mctrader_l1:/var/lib/mctrader/data/l1         # ADR-030 §D1 L1 named volume

@@ -17,6 +17,34 @@ mctrader-hub compose stack (EPIC-mctrader-docker-stack, ADR-030) 운영 deploy �
 | `dev`   | `http://minio:9000` (hub MinIO) | 로컬 개발 + 테스트 |
 | `prod`  | `http://mcnas01.internal.mclayer.it:9000` | 운영 (NAS MinIO) |
 
+### Single Profile 운영 의무 (ADR-030 §D3 + FIX-MCT-176-PR1-001 F-001)
+
+`compose.yml` collector service 의 `env_file` 은 Docker Compose 표준 var `${COMPOSE_PROFILES}` 로
+`.env.dev` / `.env.prod` 파일을 선택합니다. **단일 profile 운영 의무** (multi-profile 동시 set 금지).
+
+```bash
+# OK — 단일 profile (dev)
+docker compose --profile dev up      # COMPOSE_PROFILES=dev 자동 set → .env.dev 로드
+
+# OK — 단일 profile (prod)
+docker compose --profile prod up     # COMPOSE_PROFILES=prod 자동 set → .env.prod 로드
+
+# FAIL — multi-profile (env_file resolve 불가)
+docker compose --profile dev --profile prod up
+# → COMPOSE_PROFILES=dev,prod 로 set
+# → env_file 경로 `.env.dev,prod` resolve 실패 (file not found)
+```
+
+#### Edge case: COMPOSE_PROFILES 명시 set
+
+`--profile` flag 미지정 시 `${COMPOSE_PROFILES:-dev}` default 로 `.env.dev` 로드. `.env.*` 파일에
+`COMPOSE_PROFILES=dev/prod` 주석 박제 (operator hint, `.env.example` + `.env.prod.example` 참조).
+
+운영자는 다음 중 1택:
+1. `docker compose --profile {dev|prod} up` (flag 명시) — 권고
+2. `COMPOSE_PROFILES={dev|prod} docker compose up` (env var 명시)
+3. `.env.{dev|prod}` 파일 1열에 `COMPOSE_PROFILES={dev|prod}` 박제 후 `--env-file` 로드
+
 ## Step 1: Prerequisite check
 
 ```bash
@@ -154,6 +182,7 @@ python scripts/check_cross_repo_locks.py
 |------|-------|----------|
 | 2026-05-15 | MCT-175 | 초기 stub 생성 (Phase 1 박제) |
 | 2026-05-15 | MCT-176 | MCTRADER_CROSS_REPO_TOKEN secret 등록 가이드 + collector service 활성화 (Phase 2 PR1) |
+| 2026-05-15 | MCT-176 | FIX-MCT-176-PR1-001 — COMPOSE_PROFILES 표준화 + Single Profile 운영 의무 박제 (Edge case 포함) |
 | TBD | MCT-177 | paper-engine daemon 절차 추가 |
 | TBD | MCT-179 | observability + DR mode 절차 추가 |
 | TBD | MCT-180 | integration smoke verify 절차 추가 |

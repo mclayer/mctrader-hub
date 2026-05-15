@@ -9,7 +9,8 @@
 #   0  PASS
 #   10 .env.prod missing
 #   20 mc command fail
-#   30 Slack send fail
+#   30 Slack send fail (FIX-MCT-176-PR1-001 F-002: Slack send reordered BEFORE old key revoke
+#      → exit 30 시 revoke 미실행, 운영자 수동 rollback 가능)
 #   99 prerequisite error (unknown arg / env file syntax invalid)
 
 set -euo pipefail
@@ -48,8 +49,10 @@ fi
 
 # 2) mc admin (real rotation)
 TMP_ALIAS="rotate-$$"
-# P1-3 pattern: trap BEFORE set to avoid race on EXIT
-trap "mc alias remove $TMP_ALIAS --quiet 2>/dev/null || true" EXIT INT TERM
+# FIX-MCT-176-PR1-001 F-003: .env.prod.bak trap cleanup 추가 (secret 평문 잔류 방지)
+# trap order: (a) .env.prod.bak shred → (b) mc alias remove
+# shellcheck disable=SC2064
+trap "rm -f '$ENV_FILE.bak' 2>/dev/null || true; mc alias remove $TMP_ALIAS --quiet 2>/dev/null || true" EXIT INT TERM
 mc alias set "$TMP_ALIAS" "$NAS_MINIO_ENDPOINT" "$NAS_MINIO_ACCESS_KEY" "$NAS_MINIO_SECRET_KEY" --quiet
 
 mc admin user add "$TMP_ALIAS" "$NEW_ACCESS_KEY" "$NEW_SECRET_KEY" || { echo "[rotate] FAIL: mc admin user add" >&2; exit 20; }
@@ -62,21 +65,23 @@ sed -i.bak \
   -e "s|^NAS_MINIO_SECRET_KEY=.*|NAS_MINIO_SECRET_KEY=$NEW_SECRET_KEY|" \
   "$ENV_FILE"
 
-echo "[rotate] .env.prod updated (backup: $ENV_FILE.bak)"
+echo "[rotate] .env.prod updated (backup: $ENV_FILE.bak — will be removed on script exit)"
 
 # 4) collector restart (compose environment)
 docker compose --profile prod restart collector || { echo "[rotate] WARN: collector restart failed"; }
 
-# 5) old credential 5 min grace then revoke
-echo "[rotate] waiting 300s before revoking old key $OLD_ACCESS_KEY ..."
-sleep 300
-mc admin user remove "$TMP_ALIAS" "$OLD_ACCESS_KEY" --quiet || { echo "[rotate] WARN: old key revoke failed"; }
-
-# 6) Slack notification
+# 5) Slack notification (FIX-MCT-176-PR1-001 F-002: reordered BEFORE old key revoke)
+# 의도: Slack fail 시 exit 30 → revoke 미실행 → 운영자 수동 rollback 가능
+# (이전: revoke 직후 Slack send → fail 시 이미 revoke 발생, rollback 불가)
 if [[ -n "$SLACK_WEBHOOK" ]]; then
   curl -sf -X POST -H "Content-Type: application/json" \
     -d "{\"text\":\"[mctrader] NAS credential rotated: $OLD_ACCESS_KEY -> $NEW_ACCESS_KEY ($(date -u +%Y-%m-%dT%H:%M:%SZ))\"}" \
-    "$SLACK_WEBHOOK" || { echo "[rotate] FAIL: Slack send" >&2; exit 30; }
+    "$SLACK_WEBHOOK" || { echo "[rotate] FAIL: Slack send (old key not yet revoked, manual rollback available)" >&2; exit 30; }
 fi
+
+# 6) old credential 5 min grace then revoke (Slack notify 성공 후 진입)
+echo "[rotate] waiting 300s before revoking old key $OLD_ACCESS_KEY ..."
+sleep 300
+mc admin user remove "$TMP_ALIAS" "$OLD_ACCESS_KEY" --quiet || { echo "[rotate] WARN: old key revoke failed"; }
 
 echo "[rotate] PASS -- new key: $NEW_ACCESS_KEY"
