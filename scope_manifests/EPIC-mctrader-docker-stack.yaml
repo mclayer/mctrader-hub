@@ -316,16 +316,16 @@ story_sequence:
   - { story: MCT-176, phase: 2, mode: sequential, rule: "collector container — MCT-175 LAND 후, compose 측 service 슬롯 의존", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#330 (a92e55a)", "mctrader-data#64 (e3141b6)", "mctrader-hub#331 (3498a8b)", "mctrader-hub#TBD Phase 2 PR2" ] }
   - { story: MCT-177, phase: 3, mode: sequential, rule: "paper-engine daemon — MCT-176 LAND 후, NAS endpoint 정합 의존", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#333 (dd59b65)", "mctrader-data#65 (af6c812)", "mctrader-engine#54 (9cbe3b4)", "mctrader-hub#334 (cc0c368)", "mctrader-hub#TBD Phase 2 PR2" ] }
   - { story: MCT-178, phase: 4, mode: sequential, rule: "backtest profile — MCT-177 LAND 후, paper-engine image 재사용 (D2). carry over = signal-collector 5종 Redis prefix code migration (D15, MCT-177 박제)", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#336 (0d56730)", "mctrader-signal-collector#1 (60787c4)", "mctrader-hub#337 (bd9baf2)", "mctrader-hub#TBD Phase 2 PR2" ] }
-  - { story: MCT-179, phase: 5, mode: sequential, rule: "observability + WAL measurement — MCT-178 LAND 후, 모든 service /metrics expose 의존", status: IN_PROGRESS, started_date: "2026-05-15" }
+  - { story: MCT-179, phase: 5, mode: sequential, rule: "observability + WAL measurement — MCT-178 LAND 후, 모든 service /metrics expose 의존. R2 CRITICAL owner (WAL 30G synthetic baseline 측정 완료, production 별 PR carry over — EPIC-tier-promotion prod-2). DesignReview iter1 P0 (ADR-030 Out-of-scope D5/D8 stale → D1-D19 전수 reconcile c8e4b8e) + CodeReview hub#340 iter1 P1×2 (metric desync → MCT-171/170 LAND SSOT 정렬 64647c7, R2 deliverable 회복)", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#339 (fabba57)", "mctrader-data#66 (e4a2cc2)", "mctrader-hub#340 (64feb73)", "mctrader-hub#TBD Phase 2 PR2" ] }
   - { story: MCT-180, phase: 6, mode: sequential, rule: "integration smoke + resource limits — MCT-179 LAND 후, alert rule + capacity 검증 의존", status: PLANNED }
   - { story: MCT-181, phase: 7, mode: sequential, rule: "Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync", status: PLANNED }
 
 milestone_progress:
   total: 7
-  completed: 4
-  completed_stories: [MCT-175, MCT-176, MCT-177, MCT-178]
-  in_progress: 1
-  in_progress_stories: [MCT-179]
+  completed: 5
+  completed_stories: [MCT-175, MCT-176, MCT-177, MCT-178, MCT-179]
+  in_progress: 0
+  in_progress_stories: []
   reserved: 2
   reserved_stories: [MCT-180, MCT-181]
 
@@ -335,7 +335,7 @@ epic_close_gate:
   - "MCT-176 PR MERGED + collector container + NAS credential rotation ✓ (2026-05-15, hub#330 + data#64 + hub#331 + hub Phase 2 PR2)"
   - "MCT-177 PR MERGED + paper-engine daemon + SIGTERM graceful ✓ (2026-05-15, hub#333 + data#65 + engine#54 + hub#334 + hub Phase 2 PR2). engine asyncio SSOT 재사용 (신규 daemon 코드 0 line, RefactorAgent (A) dead path 제거). carry over = signal-collector Redis prefix code migration → MCT-178"
   - "MCT-178 PR MERGED + backtest profile + compose config CI gate ✓ (2026-05-15, hub#336 + signal-collector#1 + hub#337 + hub Phase 2 PR2). signal-collector 5 worker Publisher 계층 Redis prefix dual write LAND (D15 carry over 이행). DesignReview iter1 CONDITIONAL_PASS (F-001/F-002 ADR-030 reconciliation fast-fix ba87b3c)"
-  - "MCT-179 PR MERGED + WAL 30G production measurement (R2 CRITICAL 해소) + observability"
+  - "MCT-179 PR MERGED + WAL 30G synthetic baseline 측정 (R2 CRITICAL 부분 해소, production 별 PR carry over) + observability ✓ (2026-05-15, hub#339 + data#66 + hub#340 + hub Phase 2 PR2). measure_wal_baseline.py paper-synthetic verdict=PASS exit 0 + EXCEED branch exit 7 D11 trigger 검증. alert rule = MCT-171 SSOT (mctrader_capacity_usage_bytes{layer=WAL_local}) + MCT-170 dr_mode 실 series 정렬 (CodeReview iter1 P1×2 metric desync → 64647c7, WAL 30G Epic-CLOSE-FAIL-gate alert 기능 회복). DesignReview iter1 P0 ADR-030 Out-of-scope D1-D19 전수 reconcile (c8e4b8e). production 실 측정 = 별 PR (peak 09:00 KST 1h burst, EPIC-tier-promotion prod-2)"
   - "MCT-180 PR MERGED + integration smoke + resource limits + alert rule"
   - "MCT-181 PR MERGED + Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync"
 

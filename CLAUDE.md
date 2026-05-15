@@ -85,7 +85,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 | 2 | **MCT-176** | **COMPLETED 2026-05-15** | D7/D9/D14 | collector container + NAS credential rotation + effective config dump (hub#330 + data#64 + hub#331 + Phase 2 PR2) |
 | 3 | **MCT-177** | **COMPLETED 2026-05-15** | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix (hub#333 + data#65 + engine#54 + hub#334 + Phase 2 PR2) |
 | 4 | **MCT-178** | **COMPLETED 2026-05-15** | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis prefix code migration (hub#336 + signal-collector#1 + hub#337 + Phase 2 PR2) |
-| 5 | **MCT-179** | **IN_PROGRESS 2026-05-15** | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
+| 5 | **MCT-179** | **COMPLETED 2026-05-15** | D5/D8/D17 | observability + WAL 30G synthetic baseline 측정 + DR mode + alert (hub#339 + data#66 + hub#340 + Phase 2 PR2) |
 | 6 | MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
 | 7 | MCT-181 | PLANNED | D12/D19 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED |
 
@@ -101,7 +101,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 | Risk | Severity | 상태 |
 |------|----------|------|
 | R1 NAS HTTP-only 평문 | HIGH | **사용자 explicit accept (2026-05-15)** — MCT-155 TLS cutover 별 Story 백로그 |
-| R2 WAL 30G 미측정 | CRITICAL | MCT-179 에서 peak 09:00 KST 1h burst 측정 의무 (EPIC-tier-promotion CLOSED prereq) |
+| R2 WAL 30G 미측정 | CRITICAL | **PARTIAL 해소 (2026-05-15, MCT-179)** — synthetic baseline 측정 완료 (paper-synthetic verdict=PASS). production 실 측정 (peak 09:00 KST 1h burst) = **별 PR carry over** (EPIC-tier-promotion CLOSED prereq prod-2) |
 | R4 host disk 손실 → WAL 영구 손실 | MEDIUM | **사용자 explicit accept (2026-05-15)** — forward-only invariant (ADR-029 §D4), 1d max |
 
 ## MCT-176 COMPLETED (2026-05-15) — Collector container + credential rotation + effective config
@@ -320,33 +320,68 @@ CodeReview hub#337 P2 noise (non-blocking) carry → 본 PR 정정:
 
 채택 결정: D5 (Prometheus metric + WAL measurement script + amendment trigger) + D8 (앱 내장 /metrics + Grafana + alert rule) + D17 (SIGTERM graceful + startup InvariantHarness scan).
 
-## MCT-179 IN_PROGRESS (2026-05-15) — observability + WAL 30G production measurement + DR mode + alert
+## MCT-179 COMPLETED (2026-05-15) — observability + WAL 30G synthetic baseline + DR mode + alert
 
-> **sequential_phase 5** — EPIC-mctrader-docker-stack Story-5. **R2 CRITICAL owner** (WAL 30G production
-> measurement — EPIC-tier-promotion-single-source Epic CLOSED prereq prod-2 흡수). Phase 1 PR docs IN_PROGRESS.
+> **sequential_phase 5** — EPIC-mctrader-docker-stack Story-5. **R2 CRITICAL owner** (WAL 30G
+> measurement — EPIC-tier-promotion-single-source Epic CLOSED prereq prod-2 흡수). cross-repo 3 PR
+> sequential LAND (hub Phase 1 docs + data Phase 2 PR1 code + hub Phase 2 PR1 code + hub Phase 2 PR2 박제).
+> AC-1~5 PASS. **R2 CRITICAL = synthetic baseline 측정 완료 (PARTIAL 해소), production 별 PR carry over.**
 
-### R2 CRITICAL 상태
+### 3 PR cross-repo sequential LAND timeline
+
+| 시각 | PR | LAND commit | 박제 내용 |
+|------|-----|-------------|-----------|
+| 2026-05-15 | mctrader-hub#339 | fabba57 | Phase 1 docs — Story §1-§12 + ADR-030 §D5/§D8/§D17 amendment box + CLAUDE.md. DesignReview iter1 P0 (ADR-030 Out-of-scope D5/D8 stale → D1-D19 전수 reconcile c8e4b8e) → iter2 PASS |
+| 2026-05-15T11:51:56Z | mctrader-data#66 | e4a2cc2 | Phase 2 PR1 data — `measure_wal_baseline.py` 신규 + capacity_probe `measure_wal_bytes()`/`emit_wal_capacity_gauge()` (MCT-171 SSOT 정합, deprecated Gauge 미도입, +547 lines) + cli.py startup InvariantHarness scan + 20 test (land_order 1). CodeReview iter1 PASS |
+| 2026-05-15T11:52:49Z | mctrader-hub#340 | 64feb73 | Phase 2 PR1 hub — prometheus.yml scrape + prometheus-alerts.yml + docker-stack.json + compose.yml (land_order 2). CodeReview iter1 P1×2 metric desync (가공 metric → R2 deliverable 무력화) → 설계 원인 fix (64647c7, MCT-171/170 LAND SSOT 정렬) → iter2 PASS |
+| 2026-05-15 (Phase 2 PR2) | mctrader-hub#TBD | TBD | Phase 2 PR2 박제 — Story §10/§11/§12 (WAL JSON + §12.1 P2 정정) + ADR-030 §D5/§D8/§D17 VERIFIED + scope_manifest 5/7 + CLAUDE.md COMPLETED + RETRO 신규 + EPIC-RESULTS §Story-5 |
+
+### R2 CRITICAL 상태 (PARTIAL 해소)
 
 | 항목 | 상태 |
 |------|------|
-| WAL 30G synthetic baseline | Phase 2 PR2 박제 예정 (paper-synthetic + peak hybrid, MCT-172 D8-2 패턴) |
-| WAL 30G production 실 측정 | 별 PR carry over (production deploy + peak 09:00 KST 1h burst 후) |
-| D11 hard_limit amendment trigger | WAL > 30G 시 GitHub issue 자동 발의 + Epic CLOSE FAIL gate |
+| WAL 30G synthetic baseline | **✓ 측정 완료** — `measure_wal_baseline.py` paper-synthetic `verdict: PASS` (wal_peak_gb=0.0, read-only probe, MCT-172 D8-2 패턴). exit 0 PASS |
+| WAL 30G EXCEED branch | **✓ 검증** — `WAL_HARD_LIMIT_GB=0` mock → `verdict: EXCEED` + exit 7 + stderr D11 amendment 의무 (D8-7=A FAIL gate) |
+| WAL 30G production 실 측정 | **별 PR carry over** — production deploy + peak market open 09:00 KST 1h burst window (EPIC-tier-promotion-single-source prod-2 cross-Epic) |
+| D11 hard_limit amendment trigger | WAL > 30G 시 GitHub issue 자동 발의 + Epic CLOSE FAIL gate (D8-7=A) |
 
-### 채택 3 D
+### 채택 3 D (LAND VERIFIED)
 
-| D | Option | 내용 |
+| D | Option | 결과 |
 |---|--------|------|
-| D5 (WAL 측정 + Gauge) | C | `scripts/measure_wal_baseline.py` + `wal_capacity_bytes` Gauge + 30G 초과 issue trigger |
-| D8 (observability) | C | Prometheus scrape (collector/paper-engine /metrics) + Grafana docker-stack.json 5 panel + alert 4종 |
-| D17 (startup scan) | A | startup InvariantHarness 8종 scan (MCT-171 import) + warn+continue (ambiguity restart race 방지) |
+| D5 (WAL 측정 + Gauge) | C | `scripts/measure_wal_baseline.py` LAND (paper-synthetic/production, exit 0/7/99). Prometheus Gauge SSOT = **`mctrader_capacity_usage_bytes{layer="WAL_local"}`** (MCT-171 LAND, `wal_capacity_bytes` 가공 Gauge 폐기). 30G 초과 issue trigger |
+| D8 (observability) | C | Prometheus scrape (collector/paper-engine **:8080/metrics** — Phase 0 verify `:9090` 가설 기각 + paper-engine container_name fix) + Grafana docker-stack.json 9 panel + alert 4종 (WALCapacityWarn/Critical = MCT-171 SSOT + NASReaderDROpen/Ambiguity = MCT-170 dr_mode 실 series) |
+| D17 (startup scan) | A | collector cli.py startup InvariantHarness 8종 scan hook (NAS_MINIO_ENDPOINT 미설정 graceful skip + ambiguity D10 fail → log.warning 전용, raise 금지). SIGTERM = MCT-176/177 LAND 재사용 (신규 0) |
+
+### FIX 루프 (2 iter — design 1 + code 1)
+
+- **design iter1 (P0, 설계 원인)**: ADR-030 "Out of scope" 표 D5/D8 정의 swap stale (scope_manifest SSOT desync, MCT-178 F-001 동형 누적). ArchitectPL 전수 정정 (c8e4b8e) — D1-D19 전체 row 를 scope_manifest §design_decisions SSOT 와 1:1 전수 정합 (누적 stale 근본 차단, MCT-180/181 재발 사전 방지). DesignReview iter2 PASS
+- **code hub#340 iter1 (P1×2, 설계 원인)**: alert/dashboard 가공 metric (`wal_capacity_bytes`/`nas_reader_5xx_total`/`nas_reader_p99_ms`) LAND registry 부재 → **R2 CRITICAL deliverable (WAL 30G Epic-CLOSE-FAIL-gate alert) 무력화**. ArchitectPL 최종 판정 = 설계 원인 (ADR-030 §D8 + Plan §2.2 가 Phase 0 verify 미수행 가공 metric 박제, MCT-170/177 lesson 4회 재현). fix (64647c7) — MCT-171 SSOT (`mctrader_capacity_usage_bytes{layer="WAL_local"}`) + MCT-170 dr_mode 실 series 정렬 + 미실존 panel `[MCT-180 TODO]` downgrade. **R2 deliverable 기능 회복**. CodeReview iter2 PASS
+- **code data#66 iter1**: PASS (deprecated Gauge 미도입, MCT-171 SSOT 정합, blocking 0)
+
+### MCT-180 follow-up downgrade (carry over)
+
+MCT-180 (sequential_phase 6) 에서 아래 metric emit 신규 후 Grafana panel 활성:
+- `mctrader_collector_ticks_total` + `mctrader_collector_active_symbols` (data collector.py emit 신규)
+- `mctrader_engine_universe_size` (engine metrics.py Gauge 신규)
+- `nas_reader_cache_hit_ratio` + `nas_reader_p99_ms` (engine reader_cache.py Gauge/Histogram expose 신규)
 
 ### Key References
 
 - Story: `docs/stories/MCT-179.md`
 - plan: `docs/superpowers/plans/2026-05-15-mct-179-observability-wal30g.md`
-- ADR-030 §D5/§D8/§D17: `docs/adr/ADR-030-docker-stack-governance.md`
+- ADR-030 §D5/§D8/§D17: `docs/adr/ADR-030-docker-stack-governance.md` (LAND confirm + metric-name SSOT)
 - ADR-029 §D11 cross-ref: WAL 30G hard_limit SSOT
+- RETRO: `docs/retros/RETRO-MCT-179.md`
+- EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-mctrader-docker-stack.md` (§Story-5 박제, milestone 5/7)
+
+### 다음 Story 진입 권고
+
+**MCT-180** (integration smoke + testcontainers + resource limits + alert rule) — sequential_phase 6.
+진입 prerequisite = MCT-179 Phase 2 PR2 MERGED ✓ + MCT-179 carry over (Grafana 5 panel metric emit
+신규 — collector ticks/symbols + engine universe_size + reader_cache hit_ratio/p99) + `${IMAGE_TAG}`
+prod pin (D12, MCT-181 owner). 채택 결정: D4 (SIGTERM graceful 회귀) + D11 (compose smoke +
+testcontainers 2 layer gate) + D18 (resource limits + container_memory alert).
 
 ## Pending Stories (Replication Backlog)
 
