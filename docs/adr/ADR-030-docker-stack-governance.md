@@ -401,6 +401,64 @@ Prometheus alert:
   Prometheus `redis_key_migration_dual_write_active` Gauge (1=활성) 박제.
 - **cross-ref**: `docs/stories/MCT-177.md` §6 R-MCT-177-1 (dual write silent fail mitigation)
 
+### Amendment box (MCT-177 LAND confirm, 2026-05-15 Phase 2 PR2)
+
+**MCT-177 D2/D4/D10/D15 VERIFIED** (Phase 2 PR1 3 repo cross-repo LAND 후 박제):
+
+- **§D2 (paper-engine daemon service) VERIFIED**: `compose.yml` `paper-engine` service 신규 LAND
+  (hub#334 cc0c368). `image: ghcr.io/mclayer/mctrader-engine:${IMAGE_TAG:-latest}` +
+  `command: ["paper","--daemon"]` + `restart: unless-stopped` + healthcheck :8080 +
+  `stop_grace_period: 60s` + `depends_on: {redis: service_healthy, collector: service_healthy}`.
+  CodeReviewPL FIX iter 1 P0 fix — healthcheck.test 가 §D2 amendment box 박제 contract
+  (`http://localhost:8080/health`) verbatim 정합 + collector `service_healthy` condition 추가.
+  AC-1 PASS. backtest-runner = MCT-178 carry over (별도 profile `backtest`).
+- **§D4 (SIGTERM graceful + startup InvariantHarness scan) VERIFIED**: mctrader-engine#54
+  (9cbe3b4). **engine asyncio SSOT 박제** — CodeReviewPL FIX iter 1 P0: 초안이 mctrader-data
+  동기 SIGTERM stub 패턴을 cross-repo carry over (MCT-176 §8 stub) 했으나, mctrader-engine 측
+  **기존 `shutdown.py` asyncio SSOT + HealthServer(:8080)** 가 이미 graceful drain 경로 보유.
+  RefactorAgent 판정 **(A) dead path 제거** + paper start core 위임 → **신규 daemon 코드 0 line**
+  (기존 검증 자산 재사용). plan §2.2 amend (data 패턴 cross-repo 오적용 취소). MCT-170 류
+  Phase 0 verify lesson 재현 (session prompt 표현 ≠ 코드 실상). 60s grace = `stop_grace_period`
+  정합. startup InvariantHarness 8종 scan (MCT-171 SSOT, 위반 warn+continue). AC-2 PASS.
+- **§D10 (universe override) VERIFIED**: mctrader-engine#54 (9cbe3b4). `--universe-id <id>` CLI
+  option + `UNIVERSE_TOP_N` env fallback (`f"top-{UNIVERSE_TOP_N}"`, default 50) + 미등록
+  universe-id 즉시 exit 1 (R-MCT-177-3 mitigation). `.env.dev` + `.env.prod.example`
+  `UNIVERSE_TOP_N=50` 박제 (hub#334). AC-3 PASS.
+- **§D15 (Redis key prefix policy) VERIFIED**: mctrader-engine#54 (9cbe3b4)
+  `REDIS_KEY_PREFIX_ENGINE` env (default `engine`) + `_engine_key()` helper.
+  `signal:*` / `market:*` / `engine:*` 3 namespace 분리. `.env.dev` + `.env.prod.example`
+  `REDIS_KEY_PREFIX_ENGINE=engine` 박제 (hub#334). **signal-collector 5종 코드 측 unprefixed
+  → `signal:*` rename + 1주일 dual write migration = MCT-178 carry over** (본 Story 는 prefix
+  정책 박제 + engine consumer 측 `engine:*` 적용만, signal-collector code migration 별 Story).
+  Prometheus `redis_key_migration_dual_write_active` Gauge = MCT-178 migration PR 시 박제. AC-4 PASS.
+
+**Phase 2 PR1 cross-repo LAND timeline (sequential gate)**:
+
+| land_order | repo | PR | LAND commit | merged_at |
+|------------|------|-----|-------------|-----------|
+| 1 | mctrader-data | #65 | af6c812 | 2026-05-15T09:30:00Z |
+| 2 | mctrader-engine | #54 | 9cbe3b4 | 2026-05-15T09:30:10Z |
+| 3 | mctrader-hub | #334 | cc0c368 | 2026-05-15T09:30:21Z |
+
+LAND order 정당성: data (CO-1 YAML loader + CO-2 signal wiring) → engine (D4/D10/D15 consumer)
+→ hub (compose paper-engine service + env + CO-3 secret verify) 순. hub compose service 가
+engine image command (`paper --daemon`) + Redis prefix env 의존 → data/engine code LAND 가
+hub compose LAND prerequisite (역방향 시 false claim). MCT-176 §5.2 lesson 정합.
+
+**MCT-176 carry over 처리 결과 (CO-1~CO-3)**:
+
+| # | 항목 | MCT-177 처리 결과 |
+|---|------|-------------------|
+| CO-1 | YAML config loader (option A) | ✓ `_load_yaml_config()` 신규 + `source_order` → `["env","yaml_default","built_in"]` 3-tier 복원 (MCT-176 F-005 downgrade 해소). pyright P0 fix (return type + None narrowing). data#65 |
+| CO-2 | `_register_signal_handlers` + `_SHUTDOWN_REQUESTED` collect loop wiring | ✓ non-asyncio entry (`backfill`/`compact`) `signal.signal()` 실 등록 + collect loop chunk boundary `_SHUTDOWN_REQUESTED` polling 통합 (MCT-176 stub 해소). data#65 |
+| CO-3 | 6 repo secret read 검증 | ✓ `scripts/verify_cross_repo_secret.py` 신규 (hub owner, read-only gh secret list, 6 repo 순회 + 미등록 목록 출력 + exit 1). CodeReviewPL FIX iter 1 P1 fix — script owner = hub governance 영역 확정. hub#334 |
+
+**MCT-178 carry over (1 항목)** — D15 migration scope 분리:
+
+| 항목 | 사유 | MCT-178 처리 |
+|------|------|--------------|
+| signal-collector 5종 Redis prefix code migration | MCT-177 = prefix 정책 박제 + engine consumer `engine:*` 적용. signal-collector 5종 (fear_greed/ecos/kimchi/announcement/coinglass) 측 unprefixed → `signal:*` rename + 1주일 dual write 는 signal-collector repo 코드 변경 = 별 Story scope | MCT-178 또는 별 Story 에서 signal-collector code migration + dual write + Prometheus `redis_key_migration_dual_write_active` Gauge + LAND+7d legacy cleanup PR |
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
