@@ -290,21 +290,35 @@ services:
       mctrader.role: "signal-coinglass"
       mctrader.story: "MCT-124"
 
-  # mctrader-data collector — MCT-176 LAND 시 활성화
-  # collector:
-  #   image: ghcr.io/mclayer/mctrader-data:latest
-  #   container_name: mctrader-collector
-  #   profiles: ["dev", "prod"]
-  #   build:
-  #     context: ../mctrader-data
-  #   env_file:
-  #     - .env.${COMPOSE_PROFILES:-dev}
-  #   volumes:
-  #     - /var/lib/mctrader/wal:/var/lib/mctrader/data  # ADR-030 §D1 host bind mount
-  #     - mctrader_l1:/var/lib/mctrader/data/l1
-  #   ...
-  # volumes:
-  #   mctrader_l1:
+  # mctrader-data collector — MCT-176 LAND (activated)
+  collector:
+    image: ghcr.io/mclayer/mctrader-data:latest
+    container_name: mctrader-collector
+    profiles: ["dev", "prod"]
+    build:
+      context: ../mctrader-data
+    env_file:
+      - .env.${COMPOSE_PROFILE:-dev}
+    volumes:
+      - /var/lib/mctrader/wal:/var/lib/mctrader/data  # ADR-030 §D1 WAL host bind mount
+      - mctrader_l1:/var/lib/mctrader/data/l1         # ADR-030 §D1 L1 named volume
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    stop_grace_period: 60s  # ADR-030 §D4 SIGTERM graceful (60s)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mctrader_net
+    labels:
+      mctrader.role: "collector"
+      mctrader.story: "MCT-176"
 
   nginx:
     image: nginx:alpine
@@ -335,3 +349,4 @@ volumes:
   mctrader_redis:
   mctrader_prometheus:
   mctrader_grafana:
+  mctrader_l1:  # ADR-030 §D1 L1 named volume (MCT-176)

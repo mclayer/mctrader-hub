@@ -118,12 +118,42 @@ python scripts/check_cross_repo_locks.py
 # exit 2 = lib major version drift (pyarrow/boto3/pydantic/websockets)
 ```
 
+### Secret 등록 가이드 (MCT-176 AC-5 — MCTRADER_CROSS_REPO_TOKEN)
+
+`.github/workflows/cross-repo-lock-check.yml` 의 pull_request auto trigger 는
+`MCTRADER_CROSS_REPO_TOKEN` GitHub Actions secret 이 등록된 상태에서만 정상 동작합니다.
+
+**등록 절차:**
+
+1. GitHub PAT (Personal Access Token) 생성
+   - scope: `repo` (read 권한으로 6 repo checkout 가능)
+   - Expiration: 90d 권장 (credential rotation 주기와 동일)
+
+2. mctrader-hub repo secret 등록
+   ```
+   GitHub repo → Settings → Secrets and variables → Actions → New repository secret
+   Name:  MCTRADER_CROSS_REPO_TOKEN
+   Value: <PAT 값>
+   ```
+
+3. 등록 후 verify
+   ```bash
+   # hub repo 에서 PR push 시 cross-repo-lock-check workflow 자동 실행 확인
+   # 또는 workflow_dispatch 로 수동 trigger
+   gh workflow run cross-repo-lock-check.yml --repo mclayer/mctrader-hub
+   ```
+
+**미등록 시 동작**: `pull_request` trigger 시 checkout 단계에서 403 → workflow fail.
+`workflow_dispatch` (수동) 는 secret 미등록 상태에서도 실행 가능 (internal token 사용).
+
+> ADR-030 §D13 amendment: "MCT-176 secret 등록 후 auto trigger 활성화 의무"
+
 ## Changelog
 
 | 날짜 | Story | 변경 내용 |
 |------|-------|----------|
 | 2026-05-15 | MCT-175 | 초기 stub 생성 (Phase 1 박제) |
-| TBD | MCT-176 | collector service deploy 절차 추가 |
+| 2026-05-15 | MCT-176 | MCTRADER_CROSS_REPO_TOKEN secret 등록 가이드 + collector service 활성화 (Phase 2 PR1) |
 | TBD | MCT-177 | paper-engine daemon 절차 추가 |
 | TBD | MCT-179 | observability + DR mode 절차 추가 |
 | TBD | MCT-180 | integration smoke verify 절차 추가 |
