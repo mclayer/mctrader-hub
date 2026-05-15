@@ -269,6 +269,7 @@ Prometheus alert:
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
 - Plan: `docs/superpowers/plans/2026-05-15-mct-175-docker-stack-base.md`
+- Plan (MCT-176): `docs/superpowers/plans/2026-05-15-mct-176-collector-container.md`
 - scope_manifest: `scope_manifests/EPIC-mctrader-docker-stack.yaml`
 - 의존 ADR: ADR-029 (cold tier governance, §D4/§D11) / ADR-027 §D2 (HTTP Stage 1) / ADR-009 §D12
   (forward-only invariant)

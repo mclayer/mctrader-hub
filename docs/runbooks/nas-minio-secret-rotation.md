@@ -5,6 +5,8 @@
 
 본 runbook 은 mctrader cold tier MinIO 의 `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` 를 90일 주기로 회전시키는 절차. NAS Container Manager + mctrader-data adapter 양측 동기 갱신.
 
+**Automation layer (MCT-176)**: `docs/runbooks/nas-credential-rotation-automation.md` 가 자동화 절차 (cron + Slack webhook) 박제. 본 runbook 은 emergency / audit / manual override 절차로 유지.
+
 ---
 
 ## Rotation cadence
