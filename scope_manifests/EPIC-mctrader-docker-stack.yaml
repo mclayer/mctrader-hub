@@ -167,7 +167,7 @@ story_decision_matrix:
     phase_pair: phase1_phase2
     decisions: [D2, D4, D10, D16]
     cross_repo:
-      - { repo: mctrader-hub, change: "compose.yml 에 backtest-runner service (profile=backtest, restart=no) + Dockerfile HEALTHCHECK adjust + .github/workflows/docker-compose-validate.yml 신규" }
+      - { repo: mctrader-hub, change: "compose.yml 에 backtest-runner service (profiles: [oneshot], restart: \"no\", no healthcheck) + .github/workflows/compose-validate.yml 신규" }
       - { repo: mctrader-engine, change: "backtest CLI entrypoint + oneshot completion marker" }
     sequential_depends_on: [MCT-177]
     rationale: "paper-engine 와 동일 image, command override 로 backtest 분기 (D2). compose config + up --wait CI gate (D16)"
@@ -241,7 +241,7 @@ planned_files:
     - { path: docs/runbooks/docker-stack-deploy.md, owner: MCT-179, change: "신규 — dev/prod deploy + DR mode 절차" }
     - { path: docs/runbooks/docker-stack-dr.md, owner: MCT-179, change: "신규 — host disk loss + NAS unreachable 절차" }
     - { path: docs/runbooks/nas-minio-secret-rotation.md, owner: MCT-176, change: "amend — 자동화 절차 추가" }
-    - { path: .github/workflows/docker-compose-validate.yml, owner: MCT-178, change: "신규 — compose config + up --wait gate" }
+    - { path: .github/workflows/compose-validate.yml, owner: MCT-178, change: "신규 — compose config lint 3종 (dev/prod/oneshot) + up --wait health gate (infra only, 180s budget)" }
     - { path: .github/workflows/docker-compose-smoke.yml, owner: MCT-180, change: "신규 — stack-level smoke" }
     - { path: docs/stories/MCT-175.md ~ MCT-181.md, owner: each, change: "Story §1-§11" }
     - { path: scope_manifests/EPIC-mctrader-docker-stack.yaml, owner: MCT-175, change: "본 manifest" }
@@ -315,17 +315,17 @@ story_sequence:
   - { story: MCT-175, phase: 1, mode: sequential, rule: "Epic entry — compose base + dev/prod profile + cross-repo lock gate + ADR-030 publish", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#326 (8c485ef)", "mctrader-hub#327 (daef9b3)", "mctrader-hub#328 (dbba327)" ] }
   - { story: MCT-176, phase: 2, mode: sequential, rule: "collector container — MCT-175 LAND 후, compose 측 service 슬롯 의존", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#330 (a92e55a)", "mctrader-data#64 (e3141b6)", "mctrader-hub#331 (3498a8b)", "mctrader-hub#TBD Phase 2 PR2" ] }
   - { story: MCT-177, phase: 3, mode: sequential, rule: "paper-engine daemon — MCT-176 LAND 후, NAS endpoint 정합 의존", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#333 (dd59b65)", "mctrader-data#65 (af6c812)", "mctrader-engine#54 (9cbe3b4)", "mctrader-hub#334 (cc0c368)", "mctrader-hub#TBD Phase 2 PR2" ] }
-  - { story: MCT-178, phase: 4, mode: sequential, rule: "backtest profile — MCT-177 LAND 후, paper-engine image 재사용 (D2). carry over = signal-collector 5종 Redis prefix code migration (D15, MCT-177 박제)", status: IN_PROGRESS, started_date: "2026-05-15" }
+  - { story: MCT-178, phase: 4, mode: sequential, rule: "backtest profile — MCT-177 LAND 후, paper-engine image 재사용 (D2). carry over = signal-collector 5종 Redis prefix code migration (D15, MCT-177 박제)", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#336 (0d56730)", "mctrader-signal-collector#1 (60787c4)", "mctrader-hub#337 (bd9baf2)", "mctrader-hub#TBD Phase 2 PR2" ] }
   - { story: MCT-179, phase: 5, mode: sequential, rule: "observability + WAL measurement — MCT-178 LAND 후, 모든 service /metrics expose 의존", status: PLANNED }
   - { story: MCT-180, phase: 6, mode: sequential, rule: "integration smoke + resource limits — MCT-179 LAND 후, alert rule + capacity 검증 의존", status: PLANNED }
   - { story: MCT-181, phase: 7, mode: sequential, rule: "Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync", status: PLANNED }
 
 milestone_progress:
   total: 7
-  completed: 3
-  completed_stories: [MCT-175, MCT-176, MCT-177]
-  in_progress: 1
-  in_progress_stories: [MCT-178]
+  completed: 4
+  completed_stories: [MCT-175, MCT-176, MCT-177, MCT-178]
+  in_progress: 0
+  in_progress_stories: []
   reserved: 3
   reserved_stories: [MCT-179, MCT-180, MCT-181]
 
@@ -334,7 +334,7 @@ epic_close_gate:
   - "MCT-175 PR MERGED + ADR-030 publish + compose base + dev/prod profile LAND ✓ (2026-05-15, hub#326 + hub#327 + hub#328)"
   - "MCT-176 PR MERGED + collector container + NAS credential rotation ✓ (2026-05-15, hub#330 + data#64 + hub#331 + hub Phase 2 PR2)"
   - "MCT-177 PR MERGED + paper-engine daemon + SIGTERM graceful ✓ (2026-05-15, hub#333 + data#65 + engine#54 + hub#334 + hub Phase 2 PR2). engine asyncio SSOT 재사용 (신규 daemon 코드 0 line, RefactorAgent (A) dead path 제거). carry over = signal-collector Redis prefix code migration → MCT-178"
-  - "MCT-178 PR MERGED + backtest profile + compose config CI gate"
+  - "MCT-178 PR MERGED + backtest profile + compose config CI gate ✓ (2026-05-15, hub#336 + signal-collector#1 + hub#337 + hub Phase 2 PR2). signal-collector 5 worker Publisher 계층 Redis prefix dual write LAND (D15 carry over 이행). DesignReview iter1 CONDITIONAL_PASS (F-001/F-002 ADR-030 reconciliation fast-fix ba87b3c)"
   - "MCT-179 PR MERGED + WAL 30G production measurement (R2 CRITICAL 해소) + observability"
   - "MCT-180 PR MERGED + integration smoke + resource limits + alert rule"
   - "MCT-181 PR MERGED + Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync"

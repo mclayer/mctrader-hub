@@ -521,6 +521,43 @@ hub compose LAND prerequisite (역방향 시 false claim). MCT-176 §5.2 lesson 
   backtest-runner profiles 오설정 → `--profile oneshot config` FAIL 로 조기 감지.
 - **reconciliation (MCT-178 DesignReview FIX iter 1, F-001)**: scope_manifest SSOT 기준 **D16 = docker compose config lint + compose up --wait health gate (option B, owner MCT-178)**, **D11 = compose CI smoke + testcontainers 병행 (option C, owner MCT-180)**. 본 ADR "Out of scope" 표(line 229/232)의 D11/D16 정의는 MCT-175 LAND 시 SSOT 와 swap 박제되었음 — scope_manifest (`scope_manifests/EPIC-mctrader-docker-stack.yaml` D11/D16) 우선. MCT-178 전 산출물 = D16 = compose config CI lint (본 §D16 amendment box 와 SSOT 정합).
 
+### Amendment box (MCT-178 LAND confirm, 2026-05-15 Phase 2 PR2)
+
+**MCT-178 D2/D16 VERIFIED** (Phase 2 PR1 cross-repo LAND 후 박제):
+
+- **§D2 (backtest-runner service) VERIFIED**: `compose.yml` `backtest-runner` service 신규 LAND
+  (mctrader-hub#337 bd9baf2). `image: ghcr.io/mclayer/mctrader-engine:latest` +
+  `profiles: ["oneshot"]` + `command: ["backtest","--help"]` + `restart: "no"` +
+  `volumes: [mctrader_engine_runs, mctrader_l1:ro]` + **no healthcheck** (oneshot 성격 정합).
+  paper-engine 와 동일 image, command 만 분기 (D2=A 정합). AC-1/AC-2/AC-3 PASS.
+- **§D16 (compose config CI lint) VERIFIED**: `.github/workflows/compose-validate.yml` 신규 LAND
+  (mctrader-hub#337 bd9baf2). **실 LAND 파일명 = `compose-validate.yml`** (Phase 1 amendment box
+  표기와 정합 — NOT `docker-compose-validate.yml`). 3 profile lint (dev/prod/oneshot config --quiet)
+  + health gate (`up -d postgres redis minio --wait --wait-timeout 180` infra only + down cleanup).
+  trigger = pull_request (paths) + workflow_dispatch. AC-4 PASS.
+- **§D15 cross-ref (signal-collector Redis migration) VERIFIED → carry over 이행 완료**:
+  mctrader-signal-collector#1 (60787c4, land_order 1) — 5 worker (fear_greed/ecos/kimchi/
+  announcement/coinglass) **Publisher 계층 집중** `signal:*` prefix + legacy unprefixed dual write
+  + Prometheus `redis_key_migration_dual_write_active` Gauge=1. MCT-177 §D15 amendment box carry
+  over → **VERIFIED 전환**. LAND+7d legacy cleanup = 별 PR (`scripts/redis-prefix-cleanup.sh`).
+  AC-5 PASS.
+- **F-001/F-002 reconciliation 최종 정합**: DesignReview iter 1 CONDITIONAL_PASS fast-fix
+  (ba87b3c) 의 §D2/§D16 reconciliation note 가 `scope_manifests/EPIC-mctrader-docker-stack.yaml`
+  D11/D16 SSOT + line 170/244 (Phase 2 PR2 본 PR §F-001 정정: `docker-compose-validate.yml` →
+  `compose-validate.yml` / `profile=backtest` → `profiles: [oneshot]`) 와 최종 일치. ADR
+  자기모순 (MCT-175 LAND 누적 swap) 해소 박제 완료.
+
+- **Phase 2 PR1 cross-repo LAND timeline**:
+  | 시각 | PR | LAND commit | 박제 내용 |
+  |------|-----|-------------|-----------|
+  | 2026-05-15T10:20:05Z | mctrader-hub#336 | 0d56730 | Phase 1 docs — Story §1-§12 + ADR-030 §D2/§D16 amendment box 본문 박제 + CLAUDE.md MCT-178 IN_PROGRESS |
+  | 2026-05-15T10:35:04Z | mctrader-signal-collector#1 | 60787c4 | Phase 2 PR1 signal — 5 worker Publisher 계층 Redis prefix dual write + Gauge (land_order 1) |
+  | 2026-05-15T10:35:55Z | mctrader-hub#337 | bd9baf2 | Phase 2 PR1 hub — backtest-runner service + compose-validate.yml workflow (land_order 2) |
+  | 2026-05-15 (Phase 2 PR2) | mctrader-hub#TBD | TBD | Phase 2 PR2 박제 — Story §8.5/§10/§11/§12 + ADR-030 §D2/§D16 VERIFIED + scope_manifest 4/7 + F-001 정정 + CLAUDE.md COMPLETED + RETRO 신규 + EPIC-RESULTS §Story-4 (본 section) |
+
+ADR-030 본문 만 박제 (Status = Accepted 유지, MCT-175 LAND 시점 박제분). MCT-179 ~ MCT-181 LAND 시
+추가 D 본문 박제 의무.
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
