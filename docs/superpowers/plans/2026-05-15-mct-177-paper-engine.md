@@ -159,25 +159,43 @@ volumes:
 - Create: `tests/test_sigterm_paper_daemon.py`
 - Create: `tests/test_redis_prefix.py`
 
-- [ ] SIGTERM handler 신규 (mctrader-data 패턴 정합):
-
-```python
-import signal
-import sys
-
-_SHUTDOWN_REQUESTED = False
-
-def _sigterm_handler(signum, frame):
-    global _SHUTDOWN_REQUESTED
-    _SHUTDOWN_REQUESTED = True
-    logger.info("[paper-engine] SIGTERM received — graceful shutdown initiated")
-
-def _register_signal_handlers():
-    signal.signal(signal.SIGTERM, _sigterm_handler)
-    signal.signal(signal.SIGINT, _sigterm_handler)
-```
-
-paper daemon loop 내 chunk boundary 에서 `if _SHUTDOWN_REQUESTED: _commit_open_positions(); break`.
+> **AMEND (CodeReviewPL FIX iter 1, 2026-05-15) — engine = asyncio SSOT, mctrader-data 동기 패턴 carry over 취소**
+>
+> 본 §2.2 초안은 mctrader-data 의 **동기 signal 패턴** (`signal.signal()` + global
+> `_SHUTDOWN_REQUESTED` flag + collect loop busy-wait polling) 을 mctrader-engine 으로
+> carry over 했으나, 이는 **설계 결함** 이었다 (FIX-1, root-cause = 구현 원인 +
+> 설계 원인 동반). mctrader-engine 은 asyncio `paper_runner` 아키텍처로,
+> SIGTERM graceful shutdown 의 **production SSOT 가 이미 존재** 한다 (MCT-23/48/53/100 LAND):
+>
+> - `src/mctrader_engine/shutdown.py:66 install_signal_handlers(loop, on_shutdown)` —
+>   asyncio loop 기반, Windows SIGBREAK fallback 포함
+> - `src/mctrader_engine/health_server.py HealthServer` — :8080 PaperRunner state
+>   provider (`/health` + `/metrics`)
+> - `src/mctrader_engine/runtime/paper_runner.py:53 PaperRunner.run()` —
+>   `install_signal_handlers` 를 loop 에 wire + `_on_shutdown` → `executor.cancel()`
+>   cooperative cancel → open position commit → finally `health_server.stop()`
+>
+> 동기 `signal.signal` + global flag 패턴은 engine asyncio event loop 와 **결합
+> 불가** (busy-wait polling loop 가 paper_runner 에 부재). 따라서:
+>
+> 1. **신규 dead `_register_signal_handlers` + `_SHUTDOWN_REQUESTED` +
+>    `_sigterm_handler` 제거** (RefactorAgent 판정: 최소 변경 경로 = dead path 제거 +
+>    `paper start` core 재사용; 신규 통합 코드 작성 = DRY 위반 + 결합도 증가로 기각).
+> 2. **`paper --daemon` group callback 을 `paper start` core 위임으로 재구현** —
+>    `ctx.invoke(paper_start, strategy=, symbol=, timeframe=, universe_id=)`
+>    (env 기본값 `PAPER_STRATEGY`/`PAPER_SYMBOL`/`PAPER_TIMEFRAME` + D10 universe-id).
+>    duration/end = None → run-until-cancel = SIGTERM 까지 blocking daemon.
+>    SystemExit propagate (0 graceful / 1 ws / 2 risk / 3 lock / 5 unexpected).
+> 3. **D4 graceful = `shutdown.install_signal_handlers` (asyncio loop SSOT)**.
+>    SIGTERM → `_on_shutdown(ShutdownReason.SIGTERM)` → `executor.cancel()` →
+>    open position commit → exit 0 (AC-2 정확 충족; dead flag polling 으로는 불가).
+> 4. **HealthServer :8080** = `paper start` core 가 이미 wire (mock_feed=None 시
+>    `HealthServer(runner_provider=lambda: runner_holder.get("runner"))` →
+>    `PaperRunner(... health_server=health_server)`). compose healthcheck 정합.
+>
+> 결과: engine#54 신규 cli.py 코드 = daemon group callback 위임 로직만
+> (신규 daemon loop 코드 0 line, PaperRunner/HealthServer/shutdown.py = 검증된
+> MCT-48~100 LAND 자산 재사용). data 동기 signal 패턴 carry over = **취소**.
 
 - [ ] universe-id override 옵션 추가:
 
@@ -200,9 +218,14 @@ def _engine_key(suffix: str) -> str:
 # Usage: redis.set(_engine_key("position:BTC-USD"), state_json)
 ```
 
-- [ ] 신규 2 test:
-  - `test_sigterm_paper_daemon_sets_shutdown_flag`
-  - `test_engine_key_prefix_applied`
+- [ ] 신규 2 test (FIX iter 1 amend — dead flag test → 실 daemon 위임 검증):
+  - `tests/test_sigterm_paper_daemon.py`:
+    - `test_no_dead_sync_signal_stub_remains` (dead 동기 패턴 제거 guard)
+    - `test_paper_daemon_delegates_to_paper_start_core` (env-default 위임 검증)
+    - `test_paper_daemon_universe_id_explicit_override` (D10 override)
+    - `test_paper_subcommand_not_shadowed_by_daemon_group` (group invoke 안전)
+    - `test_shutdown_ssot_is_asyncio_install_signal_handlers` (asyncio SSOT guard)
+  - `tests/test_redis_prefix.py` (D15 `_engine_key` — review PASS, 보존): 5 test
 
 ### 2.3 mctrader-data PR (carry over)
 
@@ -276,10 +299,20 @@ MCT-177 COMPLETED → **MCT-178** (backtest-runner profile + oneshot + compose c
 
 ## §5 Self-Review
 
-- D2 paper daemon: §2.1.1 + §2.2 ✓
-- D4 SIGTERM graceful: §2.2 ✓
+- D2 paper daemon: §2.1.1 + §2.2 ✓ (FIX iter 1: `paper --daemon` → `paper start` core 위임)
+- D4 SIGTERM graceful: §2.2 ✓ (FIX iter 1 AMEND: asyncio `shutdown.install_signal_handlers` SSOT — data 동기 패턴 carry over 취소)
 - D10 universe override: §2.2 + §2.1 ✓
-- D15 Redis prefix: §2.2 ✓
-- carry over 3건: §2.3 + §2.4 ✓
+- D15 Redis prefix: §2.2 ✓ (`_engine_key` review PASS, 보존)
+- carry over 3건: §2.3 + §2.4 ✓ (CO-3 verify script owner = hub, data#65 중복 삭제)
 - §6.5 N/A 박제: §1.1 ✓
 - §11 Redis migration rollback: §1.1 ✓ (dual write 1주일)
+
+### §5.1 CodeReviewPL FIX iter 1 결과 (2026-05-15)
+
+| Finding | Repo | Severity | Root cause | 처리 |
+|---------|------|----------|------------|------|
+| FIX-1 | engine#54 | P0 | **구현 + 설계 동반** (plan §2.2 data 동기 패턴 오적용) | dead `_register_signal_handlers`/`_SHUTDOWN_REQUESTED` 제거 + `paper --daemon` → `paper start` core 위임 (HealthServer + PaperRunner + shutdown.py asyncio SSOT 재사용) + test 5종 재작성 + §2.2 amend |
+| FIX-2 | data#65 | P0 | 구현 (단순) | `tmp_path: pytest.TempPathFactory` → `Path` 8건 + `from pathlib import Path` 2 file. pyright 8 errors → 0 |
+| FIX-3 | data#65 + hub#334 | P1 | 구현 (위치 오배치, plan §2.4 hub owner 명확) | data#65 verify script 삭제 + hub#334 placeholder → full impl(106 lines) 포팅 |
+| FIX-4 | hub#334 | P0 | engine#54 FIX-1 의존 (hub compose 자체 설계 정합) | hub compose 수정 0. engine#54 FIX-1 LAND 후 cross-repo 재검증 |
+| F-003 | hub | P2 non-blocking | 기존 관행 정합 (advisory) | image `:latest` 하드코딩 — ADR-030 §D2 `${IMAGE_TAG}` 전 service 일괄 도입 = MCT-181 별 Story |
