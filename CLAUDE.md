@@ -84,7 +84,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 | 1 | **MCT-175** | **COMPLETED 2026-05-15** | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 (hub#326 + hub#327 + hub#328) |
 | 2 | **MCT-176** | **COMPLETED 2026-05-15** | D7/D9/D14 | collector container + NAS credential rotation + effective config dump (hub#330 + data#64 + hub#331 + Phase 2 PR2) |
 | 3 | **MCT-177** | **COMPLETED 2026-05-15** | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix (hub#333 + data#65 + engine#54 + hub#334 + Phase 2 PR2) |
-| 4 | MCT-178 | PLANNED | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis prefix code migration (D15 carry) |
+| 4 | MCT-178 | **IN_PROGRESS 2026-05-15** | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis prefix code migration (D15 carry) |
 | 5 | MCT-179 | PLANNED | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
 | 6 | MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
 | 7 | MCT-181 | PLANNED | D12/D19 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED |
@@ -239,12 +239,43 @@ HealthServer(:8080)** 가 이미 graceful drain 경로 보유. session prompt �
 
 ### 다음 Story 진입 권고
 
-**MCT-178** (backtest-runner profile + oneshot + compose config CI lint + universe override) — sequential_phase 4.
-진입 prerequisite = MCT-177 Phase 2 PR2 MERGED ✓ + MCT-178 carry over 통합:
+**MCT-178 IN_PROGRESS** — sequential_phase 4 진입. Phase 1 PR (docs) 작성 중.
+채택 결정: D2 (backtest profile oneshot 동일 image) + D4 (SIGTERM 회귀) + D10 (universe override) + D16 (compose config lint + up --wait CI gate).
+carry over 통합:
 - **signal-collector 5종 Redis prefix code migration** (D15 carry — unprefixed → `signal:*` rename + 1주일 dual write + Prometheus `redis_key_migration_dual_write_active` Gauge + LAND+7d legacy cleanup)
 - `${IMAGE_TAG}` prod pin (D12, MCT-181 owner — dev=latest 현행 유지)
 
-채택 결정: D2 (backtest profile oneshot 동일 image) + D4 (SIGTERM 회귀) + D10 (universe override) + D16 (compose config lint + up --wait CI gate).
+## MCT-178 IN_PROGRESS (2026-05-15) — backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis migration
+
+> **sequential_phase 4** — EPIC-mctrader-docker-stack Story-4. MCT-177 COMPLETED (2026-05-15) 후 진입.
+> Phase 1 PR (hub docs) 작성 중.
+
+### 목적
+
+- `compose.yml` backtest-runner service 신규 (profiles: [oneshot], restart: "no", no healthcheck)
+- paper-engine 동일 image, command override 로 분기 (D2=A)
+- D4 oneshot completion: exit 0 후 컨테이너 종료
+- D10 universe override: `--universe-id` CLI 재사용 (MCT-177 LAND)
+- D16 compose config CI lint: `.github/workflows/compose-validate.yml` 신규
+- MCT-177 carry over: signal-collector 5종 Redis key `signal:*` prefix + dual write + Prometheus Gauge
+
+### ADR-030 amendment (MCT-178 Phase 1 박제)
+
+- **§D2 amendment box (MCT-178 backtest-runner)**: profiles oneshot + restart no + no healthcheck
+- **§D16 amendment box (MCT-178 신규)**: compose config lint 3종 + up --wait health gate (3분 budget)
+- **§D15 cross-ref**: signal-collector Redis migration LAND = MCT-178 carry over 이행
+
+### 진입 prerequisite
+
+- MCT-177 Phase 2 PR2 MERGED ✓ (hub#335 b3f265e, 2026-05-15)
+- MCT-177 carry over 확인: signal-collector 5종 Redis prefix code migration (D15 carry)
+
+### Key References
+
+- Story: `docs/stories/MCT-178.md`
+- plan: `docs/superpowers/plans/2026-05-15-mct-178-backtest-runner.md`
+- spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
+- ADR-030 §D2 backtest + §D16: `docs/adr/ADR-030-docker-stack-governance.md`
 
 ## Pending Stories (Replication Backlog)
 

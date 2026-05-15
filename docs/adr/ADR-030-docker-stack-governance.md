@@ -226,13 +226,15 @@ Prometheus alert:
 | D8 | DR mode state machine 통합 (compose alert → dr_mode flip) | MCT-179 |
 | D9 | NAS credential rotation (90d) automation | MCT-176 ✓ |
 | D10 | universe override + Redis prefix isolation | MCT-177 / MCT-178 |
-| D11 | compose config CI lint (yaml schema + service dep DAG) | MCT-178 |
+| D11 | compose CI smoke + testcontainers 병행 (stack-level + repo-level) | MCT-180 |
 | D14 | effective config stdout dump (collector entrypoint) | MCT-176 ✓ |
 | D15 | paper-engine universe override env precedence | MCT-177 |
-| D16 | backtest-runner oneshot artifact archive | MCT-178 / MCT-181 |
+| D16 | docker compose config lint + compose up --wait health gate | MCT-178 |
 | D19 | backtest artifact NAS sync (별 prefix) | MCT-181 |
 
 각 D 본문 박제 시점 = 해당 owner Story Phase 1 LAND (ADR-030 amendment box append).
+
+> **reconciliation (MCT-178 DesignReview FIX iter 1, F-001)**: D11/D16 row 는 MCT-175 LAND 시 SSOT 와 정의/owner swap 박제되었음 (D11↔compose config lint, D16↔backtest artifact archive). 본 정정은 `scope_manifests/EPIC-mctrader-docker-stack.yaml` D11 (compose CI smoke + testcontainers, owner MCT-180) / D16 (compose config lint + up --wait, owner MCT-178) SSOT 정합. backtest artifact archive 는 D19 (backtest artifact NAS sync, MCT-181) 영역으로 흡수.
 
 ### Amendment box (MCT-176 Phase 1, 2026-05-15)
 
@@ -459,12 +461,73 @@ hub compose LAND prerequisite (역방향 시 false claim). MCT-176 §5.2 lesson 
 |------|------|--------------|
 | signal-collector 5종 Redis prefix code migration | MCT-177 = prefix 정책 박제 + engine consumer `engine:*` 적용. signal-collector 5종 (fear_greed/ecos/kimchi/announcement/coinglass) 측 unprefixed → `signal:*` rename + 1주일 dual write 는 signal-collector repo 코드 변경 = 별 Story scope | MCT-178 또는 별 Story 에서 signal-collector code migration + dual write + Prometheus `redis_key_migration_dual_write_active` Gauge + LAND+7d legacy cleanup PR |
 
+### Amendment box (MCT-178 Phase 1, 2026-05-15)
+
+#### §D2 amendment — backtest-runner service (MCT-178 publish)
+
+**MCT-178 D2 backtest-runner LAND (Phase 1 박제)**:
+
+- **backtest-runner service block** (`compose.yml` 신규):
+  ```yaml
+  backtest-runner:
+    image: ghcr.io/mclayer/mctrader-engine:${IMAGE_TAG:-latest}
+    container_name: mctrader-backtest-runner
+    profiles: ["oneshot"]
+    command: ["backtest", "--help"]
+    env_file:
+      - .env.${COMPOSE_PROFILES:-dev}
+    volumes:
+      - mctrader_engine_runs:/var/lib/mctrader/runs
+      - mctrader_l1:/var/lib/mctrader/data/l1:ro
+    restart: "no"
+    networks:
+      - mctrader_net
+    labels:
+      mctrader.role: "backtest-runner"
+      mctrader.story: "MCT-178"
+  ```
+- **profiles**: `["oneshot"]` — paper-engine `["dev","prod"]` 와 분리. `docker compose --profile oneshot run --rm backtest-runner backtest ...` 로 invoke.
+- **restart: "no"** — oneshot 실행 후 exit 0 → 컨테이너 종료. 자동 재시작 없음 (D4=C 정합).
+- **healthcheck 없음** — oneshot 컨테이너 성격상 health endpoint 불필요. paper-engine `:8080` healthcheck 와 대비.
+- **D10 universe override**: `docker compose --profile oneshot run --rm backtest-runner backtest --universe-id <id>` (MCT-177 LAND CLI option 재사용).
+- **cross-ref**: §D2 본문 박제 (paper-engine) + MCT-178 backtest-runner 확장. MCT-177 §D2 carry over 이행.
+- **reconciliation (MCT-178 DesignReview FIX iter 1, F-002)**: §D2 본문 (line 77/81) `profiles: ["backtest"]` (base body, MCT-175 LAND) → `profiles: ["oneshot"]` 정정 (paper-engine dev/prod profile 과 분리, oneshot = SSOT). 본 amendment box 및 §D16 amendment box `--profile oneshot` 가 최종 결정 — 본문 `["backtest"]` 표기는 stale.
+
+#### §D15 cross-ref — signal-collector Redis migration LAND (MCT-178 이행)
+
+**MCT-177 §D15 amendment box (hub#335 박제)** carry over 이행:
+
+- **signal-collector 5종 Redis prefix code migration = MCT-178 owner**:
+  - fear_greed / ecos / kimchi / announcement / coinglass 5종 worker
+  - 기존 unprefixed key → `signal:*` prefix rename
+  - 1주일 dual write (legacy unprefixed + `signal:*` 동시 write)
+  - Prometheus `redis_key_migration_dual_write_active` Gauge (1=활성)
+  - LAND+7d legacy cleanup = 별 PR (script: `scripts/redis-prefix-cleanup.sh`)
+- **MCT-178 Phase 2 PR1 signal-collector 측 LAND 시 본 cross-ref 갱신 예정** (carry over → VERIFIED 전환).
+
+#### §D16 amendment — compose config CI lint (MCT-178 publish, 신규)
+
+**MCT-178 D16 LAND (Phase 1 박제)**:
+
+- **workflow path**: `.github/workflows/compose-validate.yml`
+- **trigger**: `pull_request` (paths: compose.yml / .env.example / .env.prod.example / compose-validate.yml) + `workflow_dispatch`
+- **lint step 3종** (각 profile 독립 실행):
+  - `docker compose --profile dev --env-file .env.dev config --quiet` — dev profile config 검증
+  - `docker compose --profile prod --env-file .env.prod.example config --quiet` — prod profile config 검증
+  - `docker compose --profile oneshot --env-file .env.dev config --quiet` — oneshot profile config 검증 (backtest-runner service 존재 확인)
+- **health gate**: `docker compose --profile dev up -d postgres redis minio --wait --wait-timeout 180` — infra only (어플리케이션 service 제외), 3분 budget. 완료 후 `docker compose --profile dev down` cleanup.
+- **FAIL 조건**: any profile config exit != 0 / health gate timeout 초과 (3분)
+- **근거**: PR 마다 compose 문법 오류 + service dependency DAG 검증 (D16=B option 정합).
+  backtest-runner profiles 오설정 → `--profile oneshot config` FAIL 로 조기 감지.
+- **reconciliation (MCT-178 DesignReview FIX iter 1, F-001)**: scope_manifest SSOT 기준 **D16 = docker compose config lint + compose up --wait health gate (option B, owner MCT-178)**, **D11 = compose CI smoke + testcontainers 병행 (option C, owner MCT-180)**. 본 ADR "Out of scope" 표(line 229/232)의 D11/D16 정의는 MCT-175 LAND 시 SSOT 와 swap 박제되었음 — scope_manifest (`scope_manifests/EPIC-mctrader-docker-stack.yaml` D11/D16) 우선. MCT-178 전 산출물 = D16 = compose config CI lint (본 §D16 amendment box 와 SSOT 정합).
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
 - Plan: `docs/superpowers/plans/2026-05-15-mct-175-docker-stack-base.md`
 - Plan (MCT-176): `docs/superpowers/plans/2026-05-15-mct-176-collector-container.md`
 - Plan (MCT-177): `docs/superpowers/plans/2026-05-15-mct-177-paper-engine.md`
+- Plan (MCT-178): `docs/superpowers/plans/2026-05-15-mct-178-backtest-runner.md`
 - scope_manifest: `scope_manifests/EPIC-mctrader-docker-stack.yaml`
 - 의존 ADR: ADR-029 (cold tier governance, §D4/§D11) / ADR-027 §D2 (HTTP Stage 1) / ADR-009 §D12
   (forward-only invariant)
