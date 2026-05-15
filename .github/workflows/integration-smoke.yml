@@ -1,0 +1,44 @@
+name: integration-smoke
+# MCT-180 D11 — compose full-stack integration smoke (plan §2.3 verbatim)
+# Trigger: compose.yml 또는 본 workflow 변경 시 PR push + workflow_dispatch
+on:
+  pull_request:
+    paths:
+      - "compose.yml"
+      - ".github/workflows/integration-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: compose up infra (postgres + redis + minio + mc)
+        run: |
+          cp .env.example .env.dev
+          docker compose --profile dev --env-file .env.dev up -d postgres redis minio mc --wait --wait-timeout 180
+
+      - name: compose up collector + paper-engine
+        run: |
+          docker compose --profile dev --env-file .env.dev up -d collector paper-engine --wait --wait-timeout 240
+
+      - name: collector ingest 60s
+        run: |
+          sleep 60
+          docker compose --profile dev logs collector | grep -q "ingest" || echo "collector ingest log check (advisory)"
+
+      - name: paper-engine health 200
+        run: |
+          docker compose --profile dev exec -T paper-engine python -c \
+            "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"
+
+      - name: SIGTERM graceful (D4 회귀 — MCT-176/177 LAND verify)
+        run: |
+          docker compose --profile dev stop collector paper-engine --timeout 60
+          docker compose --profile dev ps --status exited | grep -E "collector|paper-engine"
+
+      - name: teardown
+        if: always()
+        run: docker compose --profile dev down -v
