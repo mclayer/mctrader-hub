@@ -27,6 +27,8 @@ nginx + exporters + signal-collector 5종) 을 정의하나, **mctrader-data (co
 
 ### §D1 WAL host disk 별도 mount + L1 named volume
 
+> owner: MCT-176
+
 collector container 의 WAL 디렉터리는 **host bind mount** 로 박제:
 
 ```yaml
@@ -41,6 +43,8 @@ volumes:
   1d max loss window (host disk replace 후 forward-only). external backup 도입 = op risk 증가 → reject.
 
 ### §D2 paper-engine daemon + backtest-runner [oneshot] 동일 image command override
+
+> owner: MCT-177 (paper daemon) + MCT-178 (backtest profile)
 
 `mctrader-engine` Dockerfile = 단일 image, command override 로 분기:
 
@@ -62,6 +66,8 @@ backtest-runner:
 - **근거**: image build 1회 → command 분기. dev/prod parity. backtest = profile trigger (별 invoke).
 
 ### §D3 compose profiles dev/prod + env_file 분리
+
+> owner: MCT-175
 
 ```
 Profile  │ MinIO endpoint         │ env_file
@@ -86,6 +92,8 @@ docker compose --profile prod --env-file .env.prod up
 
 ### §D7 NAS DNS 직접 해석 + preflight 검증
 
+> owner: MCT-175 (preflight 도구) + MCT-176 (collector endpoint)
+
 container 내부에서 `mcnas01.internal.mclayer.it:9000` DNS 직접 해석.
 
 `scripts/preflight-nas-dns.sh` 가 `compose up` 전 3단계 검증:
@@ -104,6 +112,8 @@ prod profile 진입 시 preflight exit 0 필수 gate.
 
 ### §D12 image registry pin — semver + sha + latest 병행
 
+> owner: MCT-181
+
 ```
 registry: ghcr.io/mclayer/{repo}:{tag}
 
@@ -118,12 +128,16 @@ dev   = ghcr.io/mclayer/mctrader-{repo}:latest       (rapid iteration)
 
 ### §D13 각 repo 독립 uv.lock + cross-repo CI lock gate
 
+> owner: MCT-175
+
 - 6 repo 각자 `uv.lock` 유지 (monorepo lock 회피, 독립 lifecycle)
 - `scripts/check_cross_repo_locks.py` — 핵심 lib (pyarrow / boto3 / pydantic / websockets) major version + python_version drift CI gate
 - `.github/workflows/cross-repo-lock-check.yml` — hub PR push 마다 자동 실행
 - drift = FAIL (merge 차단)
 
 ### §D17 SIGTERM graceful + startup InvariantHarness scan (외부 backup 없이)
+
+> owner: MCT-179
 
 - **SIGTERM handler**: collector/paper-engine/backtest-runner 모두 SIGTERM 수신 시 graceful drain
   (WAL flush + sealed segment 완료 대기, 60s timeout)
@@ -132,6 +146,8 @@ dev   = ghcr.io/mclayer/mctrader-{repo}:latest       (rapid iteration)
   risk 증가 → reject. host disk 손실 risk = R4 MEDIUM 명시 acceptance.
 
 ### §D18 명시 resource limits + Prometheus alert (>80% warn)
+
+> owner: MCT-180
 
 모든 어플리케이션 service 에 `deploy.resources.limits` 명시:
 
@@ -163,9 +179,31 @@ Prometheus alert:
 **부정 / risk**:
 - R1 HIGH: NAS HTTP-only 평문 노출 (ADR-027 D2 Stage 1 한정). 내부망 + NAS firewall + .env 0600 + 90d
   rotation 으로 mitigation. MCT-155 TLS cutover는 별 Story 백로그 (MCT-176 진입 전 사용자 결정 의무).
+  R1 acceptance carrier: user_acknowledged_at=2026-05-15 by mclayer8865@gmail.com (cross-ref: docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md §5 R1)
 - R4 MEDIUM: host disk 손실 → WAL local segment 영구 손실 (1d max). 사용자 explicit accept 완료
   (plan §0, 2026-05-15).
+  R4 acceptance carrier: user_acknowledged_at=2026-05-15 by mclayer8865@gmail.com (cross-ref: docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md §5 R4)
 - D17 startup scan overhead: 8 invariant 스캔 = 시작 시 I/O 증가. 60s graceful timeout 과의 균형 필요.
+
+## Out of scope (manifest SSOT)
+
+본 ADR 는 EPIC-mctrader-docker-stack 7 Story 범위 내 8 D 만 본문 박제. 아래 10 D 는 manifest 박제 후
+별 Story 차원 결정/구현으로 defer. SSOT = `scope_manifests/EPIC-mctrader-docker-stack.yaml`.
+
+| D | 내용 | Owner Story (manifest) |
+|---|------|------------------------|
+| D4 | container restart policy + healthcheck 표준 | MCT-177 / MCT-178 / MCT-180 |
+| D5 | observability stack (prometheus + grafana + node-exporter) | MCT-179 |
+| D8 | DR mode state machine 통합 (compose alert → dr_mode flip) | MCT-179 |
+| D9 | NAS credential rotation (90d) automation | MCT-176 |
+| D10 | universe override + Redis prefix isolation | MCT-177 / MCT-178 |
+| D11 | compose config CI lint (yaml schema + service dep DAG) | MCT-178 |
+| D14 | effective config stdout dump (collector entrypoint) | MCT-176 |
+| D15 | paper-engine universe override env precedence | MCT-177 |
+| D16 | backtest-runner oneshot artifact archive | MCT-178 / MCT-181 |
+| D19 | backtest artifact NAS sync (별 prefix) | MCT-181 |
+
+각 D 본문 박제 시점 = 해당 owner Story Phase 1 LAND (ADR-030 amendment box append).
 
 ## References
 

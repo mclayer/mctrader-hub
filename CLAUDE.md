@@ -75,15 +75,15 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 
 ### 7 Story sequential chain
 
-| Story | 상태 | 결정 | 내용 |
-|-------|------|------|------|
-| **MCT-175** | IN_PROGRESS | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 |
-| MCT-176 | PLANNED | D7/D9/D14 | collector container + NAS credential rotation + effective config dump |
-| MCT-177 | PLANNED | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix |
-| MCT-178 | PLANNED | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint |
-| MCT-179 | PLANNED | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
-| MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
-| MCT-181 | PLANNED | D12/D19 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED |
+| sequential_phase | Story | 상태 | 결정 | 내용 |
+|---|-------|------|------|------|
+| 1 | **MCT-175** | IN_PROGRESS | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 |
+| 2 | MCT-176 | PLANNED | D7/D9/D14 | collector container + NAS credential rotation + effective config dump |
+| 3 | MCT-177 | PLANNED | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix |
+| 4 | MCT-178 | PLANNED | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint |
+| 5 | MCT-179 | PLANNED | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
+| 6 | MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
+| 7 | MCT-181 | PLANNED | D12/D19 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED |
 
 ### Key References
 
