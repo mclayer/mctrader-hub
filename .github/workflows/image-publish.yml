@@ -1,0 +1,77 @@
+# .github/workflows/image-publish.yml — MCT-181 D12 image registry pin
+# main push 시 ghcr.io :latest + :sha-<7char> push. release tag (refs/tags/v*) 시 :vX.Y.Z 추가.
+# matrix: [mctrader-data, mctrader-engine, mctrader-signal-collector]
+# token: MCTRADER_CROSS_REPO_TOKEN (cross-repo checkout) + GITHUB_TOKEN (ghcr push)
+# ADR-030 §D12 VERIFIED (MCT-181)
+
+name: image-publish
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Build and push ${{ matrix.repo }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - mctrader-data
+          - mctrader-engine
+          - mctrader-signal-collector
+
+    steps:
+      - name: Checkout ${{ matrix.repo }}
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/${{ matrix.repo }}
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+          fetch-depth: 1
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          REPO="${{ matrix.repo }}"
+          IMAGE="ghcr.io/mclayer/${REPO}"
+          SHA_TAG="sha-$(git rev-parse --short HEAD)"
+          TAGS="${IMAGE}:latest,${IMAGE}:${SHA_TAG}"
+          # release tag push (refs/tags/v*) 시 :vX.Y.Z 추가
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            TAGS="${TAGS},${IMAGE}:${VERSION}"
+          fi
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha,scope=${{ matrix.repo }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.repo }}
+
+      - name: Summary
+        run: |
+          echo "### Image published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- repo: \`${{ matrix.repo }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- sha tag: \`${{ steps.tags.outputs.sha_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- tags: \`${{ steps.tags.outputs.tags }}\`" >> "$GITHUB_STEP_SUMMARY"

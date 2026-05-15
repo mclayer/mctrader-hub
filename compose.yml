@@ -221,7 +221,7 @@ services:
   signal-fear-greed:
     # container_name: mctrader-web signal_status.py/signal_control.py 가 "signal-fear-greed" 로 조회
     container_name: signal-fear-greed
-    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    image: ghcr.io/mclayer/mctrader-signal-collector:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     build:
       context: ../mctrader-signal-collector
     command: ["python", "-m", "signal_collector.workers.fear_greed"]
@@ -240,7 +240,7 @@ services:
 
   signal-ecos:
     container_name: signal-ecos
-    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    image: ghcr.io/mclayer/mctrader-signal-collector:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     build:
       context: ../mctrader-signal-collector
     command: ["python", "-m", "signal_collector.workers.ecos"]
@@ -260,7 +260,7 @@ services:
 
   signal-kimchi:
     container_name: signal-kimchi
-    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    image: ghcr.io/mclayer/mctrader-signal-collector:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     build:
       context: ../mctrader-signal-collector
     command: ["python", "-m", "signal_collector.workers.kimchi_premium"]
@@ -279,7 +279,7 @@ services:
 
   signal-announcement:
     container_name: signal-announcement
-    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    image: ghcr.io/mclayer/mctrader-signal-collector:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     build:
       context: ../mctrader-signal-collector
     command: ["python", "-m", "signal_collector.workers.announcement"]
@@ -298,7 +298,7 @@ services:
 
   signal-coinglass:
     container_name: signal-coinglass
-    image: ghcr.io/mclayer/mctrader-signal-collector:latest
+    image: ghcr.io/mclayer/mctrader-signal-collector:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     build:
       context: ../mctrader-signal-collector
     command: ["python", "-m", "signal_collector.workers.coinglass"]
@@ -318,7 +318,7 @@ services:
 
   # mctrader-engine paper-engine daemon — MCT-177 (D2 paper daemon)
   paper-engine:
-    image: ghcr.io/mclayer/mctrader-engine:latest
+    image: ghcr.io/mclayer/mctrader-engine:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     container_name: mctrader-paper-engine
     profiles: ["dev", "prod"]
     build:
@@ -355,7 +355,7 @@ services:
 
   # mctrader-data collector — MCT-176 LAND (activated)
   collector:
-    image: ghcr.io/mclayer/mctrader-data:latest
+    image: ghcr.io/mclayer/mctrader-data:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     container_name: mctrader-collector
     profiles: ["dev", "prod"]
     build:
@@ -390,7 +390,7 @@ services:
 
   # mctrader-engine backtest-runner — MCT-178 (D2 oneshot profile)
   backtest-runner:
-    image: ghcr.io/mclayer/mctrader-engine:latest
+    image: ghcr.io/mclayer/mctrader-engine:${IMAGE_TAG:-latest}  # MCT-181 D12 image registry pin
     container_name: mctrader-backtest-runner
     profiles: ["oneshot"]
     build:
