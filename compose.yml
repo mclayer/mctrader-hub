@@ -357,6 +357,26 @@ services:
       mctrader.role: "collector"
       mctrader.story: "MCT-176"
 
+  # mctrader-engine backtest-runner — MCT-178 (D2 oneshot profile)
+  backtest-runner:
+    image: ghcr.io/mclayer/mctrader-engine:latest
+    container_name: mctrader-backtest-runner
+    profiles: ["oneshot"]
+    build:
+      context: ../mctrader-engine
+    command: ["backtest", "--help"]
+    env_file:
+      - .env.${COMPOSE_PROFILES:-dev}
+    volumes:
+      - mctrader_engine_runs:/var/lib/mctrader/runs
+      - mctrader_l1:/var/lib/mctrader/data/l1:ro
+    restart: "no"
+    networks:
+      - mctrader_net
+    labels:
+      mctrader.role: "backtest-runner"
+      mctrader.story: "MCT-178"
+
   nginx:
     image: nginx:alpine
     container_name: mctrader-nginx

@@ -1,0 +1,25 @@
+name: compose-validate
+on:
+  pull_request:
+    paths:
+      - "compose.yml"
+      - ".env.example"
+      - ".env.prod.example"
+      - ".github/workflows/compose-validate.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: compose config lint (dev)
+        run: cp .env.example .env.dev && docker compose --profile dev --env-file .env.dev config --quiet
+      - name: compose config lint (prod)
+        run: cp .env.prod.example .env.prod && docker compose --profile prod --env-file .env.prod config --quiet
+      - name: compose config lint (oneshot)
+        run: docker compose --profile oneshot --env-file .env.dev config --quiet
+      - name: compose up health gate (dev infra only)
+        run: |
+          docker compose --profile dev --env-file .env.dev up -d postgres redis minio --wait --wait-timeout 180
+          docker compose --profile dev down
