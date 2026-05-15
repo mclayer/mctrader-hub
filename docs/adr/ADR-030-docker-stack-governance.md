@@ -2,8 +2,27 @@
 
 ## Status
 
-Proposed (MCT-175 Phase 1 진입, 2026-05-15)
-Accepted 전환 = MCT-175 LAND 시
+**Accepted** (MCT-175 LAND 2026-05-15 — hub#326 8c485ef Phase 1 docs + hub#327 daef9b3 Phase 2 PR1 code + hub#TBD Phase 2 PR2 박제)
+
+이전 상태: Proposed (MCT-175 Phase 1 진입, 2026-05-15)
+
+### Amendment box (MCT-175 LAND, 2026-05-15)
+
+**MCT-175 D1/D3/D7/D13 VERIFIED**:
+- D1 (WAL host bind mount): `compose.yml` collector stub 주석 박제 (실 활성화 = MCT-176 LAND)
+- D3 (compose profiles dev/prod): `--profile dev|prod` + `.env.dev`/`.env.prod.example` env_file 분리 LAND. `docker compose --profile dev/prod config` exit 0 (AC-1 PASS)
+- D7 (NAS DNS preflight): `scripts/preflight-nas-dns.sh` 신규 — exit 0/10/20/30/99 matrix 정합 (AC-3 PASS)
+- D13 (cross-repo lock CI gate): `scripts/check_cross_repo_locks.py` (121 lines) + `.github/workflows/cross-repo-lock-check.yml` 신규. 14 unit test green (AC-5 PASS). **현 trigger = `workflow_dispatch` only** (secret 미등록 carry over → MCT-176 등록 후 PR auto trigger 복원 의무)
+
+**MCT-176 carry over (defer 3건 + secret 등록 + workflow trigger 복원)**:
+
+| 항목 | 사유 | 처리 시점 |
+|------|------|----------|
+| P1-2 (preflight DNS wildcard FP) | 실 위험 낮음 + logging 통합 시 fix | MCT-176 Phase 2 |
+| P1-3 (mc alias trap race) | SIGINT race window security 위협 낮음 | MCT-176 cross-ref |
+| P2-1 (shell error handling) | 실 위험 낮음 | MCT-176 carry over |
+| NAS_MINIO_* secret 등록 | `cross-repo-lock-check.yml` PR auto trigger 복원 의존 | MCT-176 Phase 1 |
+| `workflow_dispatch` only → `on: pull_request` 복원 | secret 등록 후 LAND | MCT-176 Phase 2 |
 
 ## Context
 

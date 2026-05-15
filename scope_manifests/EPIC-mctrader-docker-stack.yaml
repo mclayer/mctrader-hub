@@ -312,7 +312,7 @@ dependency:
     - "EPIC-tier-promotion-single-source D8 sunset 14d window (2026-08-18 ~ 2026-09-01) → MCT-179 telemetry watcher alert 정합"
 
 story_sequence:
-  - { story: MCT-175, phase: 1, mode: sequential, rule: "Epic entry — compose base + dev/prod profile + cross-repo lock gate + ADR-030 publish", status: IN_PROGRESS, started_date: "2026-05-15" }
+  - { story: MCT-175, phase: 1, mode: sequential, rule: "Epic entry — compose base + dev/prod profile + cross-repo lock gate + ADR-030 publish", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#326 (8c485ef)", "mctrader-hub#327 (daef9b3)", "mctrader-hub#TBD (Phase 2 PR2 박제)" ] }
   - { story: MCT-176, phase: 2, mode: sequential, rule: "collector container — MCT-175 LAND 후, compose 측 service 슬롯 의존", status: PLANNED }
   - { story: MCT-177, phase: 3, mode: sequential, rule: "paper-engine daemon — MCT-176 LAND 후, NAS endpoint 정합 의존", status: PLANNED }
   - { story: MCT-178, phase: 4, mode: sequential, rule: "backtest profile — MCT-177 LAND 후, paper-engine image 재사용 (D2)", status: PLANNED }
@@ -322,15 +322,16 @@ story_sequence:
 
 milestone_progress:
   total: 7
-  completed: 0
-  completed_stories: []
-  in_progress: 1
-  in_progress_stories: [MCT-175]
+  completed: 1
+  completed_stories: [MCT-175]
+  in_progress: 0
+  in_progress_stories: []
   reserved: 6
+  reserved_stories: [MCT-176, MCT-177, MCT-178, MCT-179, MCT-180, MCT-181]
 
 epic_status: phase:구현-IN_PROGRESS
 epic_close_gate:
-  - "MCT-175 PR MERGED + ADR-030 publish + compose base + dev/prod profile LAND"
+  - "MCT-175 PR MERGED + ADR-030 publish + compose base + dev/prod profile LAND ✓ (2026-05-15, hub#326 + hub#327)"
   - "MCT-176 PR MERGED + collector container + NAS credential rotation"
   - "MCT-177 PR MERGED + paper-engine daemon + SIGTERM graceful"
   - "MCT-178 PR MERGED + backtest profile + compose config CI gate"
