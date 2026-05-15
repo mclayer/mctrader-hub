@@ -321,18 +321,18 @@ story_sequence:
   - { story: MCT-178, phase: 4, mode: sequential, rule: "backtest profile — MCT-177 LAND 후, paper-engine image 재사용 (D2). carry over = signal-collector 5종 Redis prefix code migration (D15, MCT-177 박제)", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#336 (0d56730)", "mctrader-signal-collector#1 (60787c4)", "mctrader-hub#337 (bd9baf2)", "mctrader-hub#TBD Phase 2 PR2" ] }
   - { story: MCT-179, phase: 5, mode: sequential, rule: "observability + WAL measurement — MCT-178 LAND 후, 모든 service /metrics expose 의존. R2 CRITICAL owner (WAL 30G synthetic baseline 측정 완료, production 별 PR carry over — EPIC-tier-promotion prod-2). DesignReview iter1 P0 (ADR-030 Out-of-scope D5/D8 stale → D1-D19 전수 reconcile c8e4b8e) + CodeReview hub#340 iter1 P1×2 (metric desync → MCT-171/170 LAND SSOT 정렬 64647c7, R2 deliverable 회복)", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#339 (fabba57)", "mctrader-data#66 (e4a2cc2)", "mctrader-hub#340 (64feb73)", "mctrader-hub#TBD Phase 2 PR2" ] }
   - { story: MCT-180, phase: 6, mode: sequential, rule: "integration smoke + resource limits — MCT-179 LAND 후, alert rule + capacity 검증 의존. MCT-179 carry over = Grafana 5 [MCT-180 TODO] panel metric emit 신규 (collector ticks/symbols + engine universe_size + reader_cache hit/p99). CodeReview 3 PR iter1 FIX → iter2 (data PASS, engine FIX, hub FIX) → iter3 (data/engine PASS, hub ESCALATE) → ArchitectPL ESCALATE chief judge 설계 원인 판정 + option b resolution (CI infra-only + testcontainers 2-layer + full-stack production carry) → CodeReview ESCALATE-fix PASS. panel id=7,8 = reader_cache downgrade 유지 (CodeReview FIX iter2 설계 원인 — paper daemon ReaderCache 미인스턴스화, Phase 0 verify lesson 5회째). N-002 + N1 scope_files 정정 (MCT-178 F-001 precedent)", status: COMPLETED, started_date: "2026-05-15", completed_date: "2026-05-15", prs: [ "mctrader-hub#342 (b1be313)", "mctrader-data#67 (f233952)", "mctrader-engine#55 (bc8c627)", "mctrader-hub#343 (af25d66)", "mctrader-hub#TBD Phase 2 PR2" ] }
-  - { story: MCT-181, phase: 7, mode: sequential, rule: "Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync", status: PLANNED }
+  - { story: MCT-181, phase: 7, mode: sequential, rule: "Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync", status: IN_PROGRESS, started_date: "2026-05-15" }
 
 milestone_progress:
   total: 7
   completed: 6
   completed_stories: [MCT-175, MCT-176, MCT-177, MCT-178, MCT-179, MCT-180]
-  in_progress: 0
-  in_progress_stories: []
-  reserved: 1
-  reserved_stories: [MCT-181]
+  in_progress: 1
+  in_progress_stories: [MCT-181]
+  reserved: 0
+  reserved_stories: []
 
-epic_status: phase:구현-IN_PROGRESS  # milestone 6/7 — MCT-181 (Epic POLICY_FINALIZED, 7/7) 만 잔여
+epic_status: phase:구현-IN_PROGRESS  # milestone 6/7 완료, MCT-181 IN_PROGRESS (Epic POLICY_FINALIZED 마지막 Story)
 epic_close_gate:
   - "MCT-175 PR MERGED + ADR-030 publish + compose base + dev/prod profile LAND ✓ (2026-05-15, hub#326 + hub#327 + hub#328)"
   - "MCT-176 PR MERGED + collector container + NAS credential rotation ✓ (2026-05-15, hub#330 + data#64 + hub#331 + hub Phase 2 PR2)"
