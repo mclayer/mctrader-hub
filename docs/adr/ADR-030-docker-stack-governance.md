@@ -757,6 +757,90 @@ cross-repo LAND timeline (sequential gate):
 
 ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시 추가 D 본문 박제 의무.
 
+### Amendment box (MCT-180 Phase 1, 2026-05-15)
+
+#### §D4 amendment — SIGTERM graceful integration smoke 회귀 검증 (MCT-180 publish)
+
+**MCT-180 D4 회귀 검증 (Phase 1 박제)**:
+
+- **SIGTERM graceful 구현 = MCT-176/177 LAND 재사용** (신규 구현 없음):
+  - collector: MCT-176 Phase 2 PR1 (data#64) LAND 의 `_SHUTDOWN_REQUESTED` + collect loop wiring
+  - paper-engine: MCT-177 Phase 2 PR1 (engine#54) LAND 의 기존 `shutdown.py` asyncio SSOT + HealthServer
+- **MCT-180 = 회귀 검증 only**: integration smoke workflow 의 SIGTERM step 에서
+  `docker compose --profile dev stop collector paper-engine --timeout 60` 실행 후
+  두 service exit 0 within 60s stop_grace_period 확인 (AC-4)
+- **regression gate**: MCT-176/177 LAND graceful drain 경로 = 코드 변경 없음.
+  integration smoke 가 유일한 회귀 검증 gate (ADR-030 §D17 정합).
+- **owner**: MCT-177 (구현) + MCT-179 (startup scan) + **MCT-180 (회귀 검증)**
+
+#### §D11 amendment — integration smoke CI gate + testcontainers 2-layer (MCT-180 publish)
+
+**MCT-180 D11 LAND (Phase 1 박제)**:
+
+- **2-layer gate**:
+  - Layer 1 (compose CI smoke): `.github/workflows/integration-smoke.yml` 신규 — compose up full
+    stack (postgres+redis+minio+mc+collector+paper-engine) → collector ingest 60s → compactor
+    promotion 1회 → paper-engine health 200 → SIGTERM graceful (D4 회귀) → teardown. 10분 budget
+    (timeout-minutes: 12)
+  - Layer 2 (testcontainers): data `tests/integration/test_collector_nas_boundary.py` 신규
+    (collector→MinIO mock boundary) + engine `tests/test_paper_redis_boundary.py` 신규
+    (paper-engine→Redis testcontainer, engine: prefix key verify)
+- **integration-smoke.yml trigger**: `pull_request` (paths: compose.yml / .github/workflows/integration-smoke.yml)
+  + `workflow_dispatch`
+- **compose up 단계**:
+  ```yaml
+  - name: compose up infra
+    run: docker compose --profile dev --env-file .env.dev up -d postgres redis minio mc --wait --wait-timeout 180
+  - name: compose up apps
+    run: docker compose --profile dev --env-file .env.dev up -d collector paper-engine --wait --wait-timeout 240
+  - name: collector ingest 60s
+    run: sleep 60 && docker compose --profile dev logs collector | grep -q "ingest" || echo "collector ingest log (advisory)"
+  - name: paper-engine health 200
+    run: docker compose --profile dev exec -T paper-engine python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"
+  - name: SIGTERM graceful (D4 회귀)
+    run: |
+      docker compose --profile dev stop collector paper-engine --timeout 60
+      docker compose --profile dev ps --status exited | grep -E "collector|paper-engine"
+  - name: teardown
+    if: always()
+    run: docker compose --profile dev down -v
+  ```
+- **cross-repo LAND 순서** (§2.4 정합): data PR + engine PR LAND 먼저 (metric emit source) →
+  hub PR LAND (integration-smoke + limits + docker-stack TODO 해제)
+
+#### §D18 amendment — deploy.resources.limits + ContainerMemoryHigh alert (MCT-180 publish)
+
+**MCT-180 D18 LAND (Phase 1 박제)**:
+
+- **compose.yml `deploy.resources.limits` 전 service**:
+
+  | service | memory | cpus | 근거 |
+  |---------|--------|------|------|
+  | collector | 512M | 1.0 | INV-4 DualWriter peak RSS ≤ 50MB (MCT-163 실측) + buffer |
+  | paper-engine | 512M | 1.0 | reader_cache 256MB (MCT-170 max_bytes default) + asyncio + buffer |
+  | backtest-runner | 1G | 1.0 | reader_cache 256MB + backtest dataset + buffer |
+  | postgres | 1G | 1.0 | 표준 OLTP small instance |
+  | redis | 256M | 0.5 | maxmemory hard cap 기존 (MCT-121 LAND) |
+  | prometheus | 512M | 0.5 | TSDB 90d retention + scrape buffer |
+  | grafana | 512M | 0.5 | dashboard rendering + provisioning |
+
+- **ContainerMemoryHigh alert rule** (`monitoring/prometheus-alerts.yml` 추가):
+  ```yaml
+  - alert: ContainerMemoryHigh
+    expr: container_memory_usage_bytes{name=~"mctrader-.*"} / container_spec_memory_limit_bytes{name=~"mctrader-.*"} > 0.8
+    for: 5m
+    labels: { severity: warning }
+    annotations:
+      summary: "Container {{ $labels.name }} memory > 80% limit (D18 OOM 선제 경보)"
+      description: "현재 사용: {{ $value | humanizePercentage }}. compose deploy.resources.limits 조정 또는 D11 amendment 발의 고려."
+  ```
+  - cadvisor (MCT-123 LAND) 가 `container_memory_usage_bytes` + `container_spec_memory_limit_bytes` emit
+  - `name=~"mctrader-.*"` selector = `container_name: mctrader-*` (compose.yml container_name 정합)
+- **4 layer capacity (ADR-029 §D11) 정합**:
+  - WAL host disk: 30G hard_limit → container mem limit 별도 (WAL = host bind mount, container 외부)
+  - L1 named volume: 20G → NAS 의존 (container mem limit 외)
+  - container memory limit: 위 표 (D18 MCT-180 LAND)
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
@@ -765,6 +849,7 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시
 - Plan (MCT-177): `docs/superpowers/plans/2026-05-15-mct-177-paper-engine.md`
 - Plan (MCT-178): `docs/superpowers/plans/2026-05-15-mct-178-backtest-runner.md`
 - Plan (MCT-179): `docs/superpowers/plans/2026-05-15-mct-179-observability-wal30g.md`
+- Plan (MCT-180): `docs/superpowers/plans/2026-05-15-mct-180-integration-smoke.md`
 - scope_manifest: `scope_manifests/EPIC-mctrader-docker-stack.yaml`
 - 의존 ADR: ADR-029 (cold tier governance, §D4/§D11) / ADR-027 §D2 (HTTP Stage 1) / ADR-009 §D12
   (forward-only invariant)

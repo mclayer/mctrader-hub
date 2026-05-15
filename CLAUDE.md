@@ -86,7 +86,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 | 3 | **MCT-177** | **COMPLETED 2026-05-15** | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix (hub#333 + data#65 + engine#54 + hub#334 + Phase 2 PR2) |
 | 4 | **MCT-178** | **COMPLETED 2026-05-15** | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis prefix code migration (hub#336 + signal-collector#1 + hub#337 + Phase 2 PR2) |
 | 5 | **MCT-179** | **COMPLETED 2026-05-15** | D5/D8/D17 | observability + WAL 30G synthetic baseline 측정 + DR mode + alert (hub#339 + data#66 + hub#340 + Phase 2 PR2) |
-| 6 | MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
+| 6 | **MCT-180** | **IN_PROGRESS 2026-05-15** | D4/D11/D18 | integration smoke + testcontainers + resource limits + 5 TODO panel metric emit |
 | 7 | MCT-181 | PLANNED | D12/D19 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED |
 
 ### Key References
@@ -382,6 +382,41 @@ MCT-180 (sequential_phase 6) 에서 아래 metric emit 신규 후 Grafana panel 
 신규 — collector ticks/symbols + engine universe_size + reader_cache hit_ratio/p99) + `${IMAGE_TAG}`
 prod pin (D12, MCT-181 owner). 채택 결정: D4 (SIGTERM graceful 회귀) + D11 (compose smoke +
 testcontainers 2 layer gate) + D18 (resource limits + container_memory alert).
+
+## MCT-180 IN_PROGRESS (2026-05-15) — integration smoke + testcontainers + resource limits + 5 TODO panel metric emit
+
+> **sequential_phase 6** — EPIC-mctrader-docker-stack Story-6. Phase 1 docs 진입 중 (본 PR).
+> D4 (SIGTERM 회귀) + D11 (compose CI smoke + testcontainers 2 layer) + D18 (resource limits + alert).
+> MCT-179 carry over: Grafana 5 [MCT-180 TODO] panel metric emit 신규.
+
+### 채택 3 D + carry over
+
+| D | Option | 내용 |
+|---|--------|------|
+| D4 (SIGTERM 회귀) | C | integration smoke SIGTERM step — collector + paper-engine exit 0 within 60s (MCT-176/177 LAND 재사용, 신규 구현 0) |
+| D11 (compose CI smoke + testcontainers) | C | `.github/workflows/integration-smoke.yml` 신규 (compose up full stack + 60s ingest + health 200 + SIGTERM, 10분 budget) + testcontainers 2 repo (collector→NAS + paper-engine→Redis) |
+| D18 (resource limits + alert) | D | compose.yml 전 service `deploy.resources.limits` + cadvisor ContainerMemoryHigh >80% alert (MCT-123 LAND 기반) |
+| carry over (MCT-179) | — | 5 [MCT-180 TODO] panel metric emit 신규: collector ticks_total + active_symbols + engine universe_size + reader_cache hit_ratio + p99 → docker-stack.json TODO 해제 |
+
+### Phase 2 PR1 cross-repo LAND 계획 순서
+
+| land_order | repo | 내용 |
+|------------|------|------|
+| 1 | mctrader-data | collector metric emit (ticks_total + active_symbols) + testcontainers collector→NAS boundary |
+| 2 | mctrader-engine | universe_size Gauge + reader_cache hit_ratio/p99 Gauge expose + testcontainers paper→Redis boundary |
+| 3 | mctrader-hub | integration-smoke.yml + compose.yml limits + prometheus-alerts ContainerMemoryHigh + docker-stack.json 5 panel TODO 해제 |
+
+### Key References
+
+- Story: `docs/stories/MCT-180.md`
+- plan: `docs/superpowers/plans/2026-05-15-mct-180-integration-smoke.md`
+- spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
+- ADR-030 §D4/§D11/§D18 amendment box: `docs/adr/ADR-030-docker-stack-governance.md`
+
+### 다음 Story (MCT-180 COMPLETED 후)
+
+**MCT-181** (image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제, D12/D19).
+EPIC-mctrader-docker-stack 7/7 + Epic POLICY_FINALIZED.
 
 ## Pending Stories (Replication Backlog)
 
