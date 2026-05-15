@@ -54,7 +54,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "wal_capacity_bytes",
+          "expr": "mctrader_capacity_usage_bytes{layer=\"WAL_local\"}",
           "legendFormat": "WAL bytes",
           "refId": "A"
         }
@@ -87,7 +87,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "wal_capacity_bytes",
+          "expr": "mctrader_capacity_usage_bytes{layer=\"WAL_local\"}",
           "legendFormat": "WAL bytes",
           "refId": "A"
         }
@@ -121,14 +121,15 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
       "id": 3,
+      "description": "[MCT-180 TODO] metric mctrader_collector_ticks_total = LAND registry 부재 (collector.py Prometheus emit 0건, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 collector ingest counter 신규 emit 후 expr 활성. 현재 = no-data placeholder.",
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
-      "title": "Collector Ingest Rate (ticks/s)",
+      "title": "Collector Ingest Rate (ticks/s) [MCT-180 TODO]",
       "type": "timeseries",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "rate(mctrader_collector_ticks_total[1m])",
-          "legendFormat": "ingest rate",
+          "legendFormat": "ingest rate (MCT-180 pending)",
           "refId": "A"
         }
       ]
@@ -152,6 +153,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
       "id": 4,
+      "description": "[MCT-180 TODO] metric mctrader_collector_active_symbols = LAND registry 부재 (collector.py Prometheus emit 0건, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 active symbol Gauge 신규 emit 후 활성. 현재 = no-data placeholder.",
       "options": {
         "colorMode": "background",
         "graphMode": "none",
@@ -160,13 +162,13 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "text": {}
       },
-      "title": "Collector Active Symbols",
+      "title": "Collector Active Symbols [MCT-180 TODO]",
       "type": "stat",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "mctrader_collector_active_symbols",
-          "legendFormat": "active symbols",
+          "legendFormat": "active symbols (MCT-180 pending)",
           "refId": "A"
         }
       ]
@@ -199,14 +201,15 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
       "id": 5,
+      "description": "metric SSOT = mctrader-engine metrics.py:6 mctrader_engine_open_positions{strategy,symbol} (MCT-170 LAND 실존). sum() aggregation 으로 전체 open position 합산.",
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "title": "Paper Engine Open Positions",
       "type": "timeseries",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "mctrader_engine_open_positions",
-          "legendFormat": "open positions",
+          "expr": "sum(mctrader_engine_open_positions)",
+          "legendFormat": "open positions (all strategies)",
           "refId": "A"
         }
       ]
@@ -233,6 +236,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
       "id": 6,
+      "description": "[MCT-180 TODO] metric mctrader_engine_universe_size = LAND registry 부재 (engine metrics.py 실존 = open_positions/open_orders/cycle_delay/db_write_latency/cycles_total only, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 universe size Gauge 신규 emit 후 활성. 현재 = no-data placeholder.",
       "options": {
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
@@ -240,13 +244,13 @@
         "showThresholdMarkers": true,
         "text": {}
       },
-      "title": "Paper Engine Universe Size",
+      "title": "Paper Engine Universe Size [MCT-180 TODO]",
       "type": "gauge",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "mctrader_engine_universe_size",
-          "legendFormat": "universe size",
+          "legendFormat": "universe size (MCT-180 pending)",
           "refId": "A"
         }
       ]
@@ -280,6 +284,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "id": 7,
+      "description": "[MCT-180 TODO] metric nas_reader_cache_hit_ratio = LAND registry 부재. engine reader_cache.py hit_ratio() = method/stats dict only (Prometheus Gauge 미노출, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 hit_ratio Gauge expose 후 활성. 현재 = no-data placeholder.",
       "options": {
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
@@ -287,13 +292,13 @@
         "showThresholdMarkers": true,
         "text": {}
       },
-      "title": "NAS Reader Cache Hit Ratio (SLO: ≥ 0.95)",
+      "title": "NAS Reader Cache Hit Ratio (SLO: ≥ 0.95) [MCT-180 TODO]",
       "type": "gauge",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "nas_reader_cache_hit_ratio",
-          "legendFormat": "hit_ratio",
+          "legendFormat": "hit_ratio (MCT-180 pending)",
           "refId": "A"
         }
       ]
@@ -318,6 +323,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
       "id": 8,
+      "description": "[MCT-180 TODO] metric nas_reader_p99_ms = LAND registry 부재 (engine reader_cache.py latency Histogram 미노출, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 reader latency Histogram emit 후 histogram_quantile(0.99, ...) 활성. 현재 = no-data placeholder. 운영 gate proxy = prometheus-alerts.yml NASReaderDROpen (dr_mode OPEN 전이 = p99 >500ms 3회 trigger 흡수).",
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -326,13 +332,13 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "text": {}
       },
-      "title": "Reader Cache p99 Latency (SLO: < 100ms)",
+      "title": "Reader Cache p99 Latency (SLO: < 100ms) [MCT-180 TODO]",
       "type": "stat",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "nas_reader_p99_ms",
-          "legendFormat": "p99 ms",
+          "legendFormat": "p99 ms (MCT-180 pending)",
           "refId": "A"
         }
       ]
