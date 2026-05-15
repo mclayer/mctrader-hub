@@ -164,25 +164,30 @@
       "title": "image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제",
       "reserved_at": "2026-05-15",
       "started_at": "2026-05-15",
-      "status": "IN_PROGRESS",
+      "completed_at": "2026-05-15",
+      "status": "COMPLETED",
       "epic": "EPIC-mctrader-docker-stack",
+      "epic_milestone": "7/7 POLICY_FINALIZED",
       "repo": "mctrader-hub + mctrader-engine",
       "phase_pair": "phase1_phase2",
       "decisions": ["D12", "D19"],
       "sequential_phase": 7,
       "depends_on": ["MCT-180"],
-      "rationale": "Epic 마지막 Story (7/7) — image registry semver+sha+latest (D12=B, prod=sha-* pin, dev=latest, ${IMAGE_TAG:-latest} 변수화) + mctrader_runs named volume + NAS sync on completion (D19=C, completion marker + 3회 retry + exit 0). EPIC-RESULTS-EPIC-mctrader-docker-stack.md + CLAUDE.md POLICY_FINALIZED. Phase 0 verify: compose.yml 8 ghcr.io 라인 모두 :latest 하드코딩 확인 → AC-1 원래 scope 유지."
+      "land_prs": ["mctrader-hub#345 (cff197d)", "mctrader-engine#56 (413711e)", "mctrader-hub#346 (a8bcf0c)", "mctrader-hub#TBD Phase 2 PR2"],
+      "rationale": "Epic 마지막 Story (7/7) — image registry semver+sha+latest (D12=B, prod=sha-* pin, dev=latest, ${IMAGE_TAG:-latest} 변수화 8 라인 + image-publish.yml 3 repo matrix) + backtest artifact NAS sync (D19=C, nas_sync.py 신규, mctrader-backtest-runs bucket ADR-029 분리, .done sentinel + 3회 retry + exit 0 best-effort, 9 test ALL PASS 회귀 969 신규 실패 0). DesignReview iter1 PASS + CodeReview engine#56/hub#346 PASS — FIX 0 (Epic 최초). 19 D 전수 VERIFIED → Epic POLICY_FINALIZED 7/7. Epic CLOSED 자체 = production evidence prod-1~4 완성 후 별 PR (EPIC-tier-promotion-single-source 패턴 정합)."
     },
     "ADR-030": {
       "title": "Docker stack governance — single-host compose + dev/prod profile + image registry + observability",
       "reserved_at": "2026-05-15",
       "drafted_at": "2026-05-15",
-      "status": "Proposed",
+      "status": "POLICY_FINALIZED",
       "epic": "EPIC-mctrader-docker-stack",
       "repo": "mctrader-hub",
       "owner_story": "MCT-175",
+      "finalized_at": "2026-05-15",
+      "finalized_by_story": "MCT-181",
       "expected_sections": "D1 (WAL host mount + L1 volume) / D2 (paper daemon + backtest profile) / D3 (dev/prod profile) / D7 (NAS DNS preflight) / D12 (image registry pin) / D13 (cross-repo lock gate) / D17 (host disk loss risk acceptance) / D18 (resource limits) — 8 D 박제 대상",
-      "rationale": "본 Epic 의 governance singleton. D4/D5/D8/D9/D10/D11/D14/D15/D16/D19 = Story 구현 detail (ADR 본문 박제 제외, manifest 박제로 충분). MCT-175 Phase 1 PR 박제 (Status: Proposed). MCT-175 LAND 시 Accepted 전환."
+      "rationale": "본 Epic 의 governance singleton. D4/D5/D8/D9/D10/D11/D14/D15/D16/D19 = Story 구현 detail (ADR 본문 박제 제외, manifest 박제로 충분). status transition: Proposed (MCT-175 Phase 1) → Accepted (MCT-175 LAND) → POLICY_FINALIZED (MCT-181 LAND, Epic 7/7, 19 D 전수 VERIFIED). Epic CLOSED 자체 = production evidence prod-1~4 완성 후 별 PR."
     }
   }
 }
