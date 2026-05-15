@@ -5,16 +5,16 @@ epic_title: "mctrader Docker stack 확장 — collector + paper-engine + backtes
 status: IN_PROGRESS
 created_at: 2026-05-15
 total_stories: 7
-completed_stories: 3
+completed_stories: 6
 in_progress_stories: 0
-reserved_stories: 4
+reserved_stories: 1
 scope_manifest: scope_manifests/EPIC-mctrader-docker-stack.yaml
 ---
 
-# EPIC-RESULTS — EPIC-mctrader-docker-stack (IN_PROGRESS, milestone 5/7)
+# EPIC-RESULTS — EPIC-mctrader-docker-stack (IN_PROGRESS, milestone 6/7)
 
 > **Epic**: mctrader Docker stack 확장 — collector + paper-engine + backtest profile + observability + WAL measurement
-> **Status**: **IN_PROGRESS** (milestone 5/7 박제, 2026-05-15 MCT-175 + MCT-176 + MCT-177 + MCT-178 + MCT-179 LAND)
+> **Status**: **IN_PROGRESS** (milestone 6/7 박제, 2026-05-15 MCT-175 ~ MCT-180 LAND. MCT-181 = Epic POLICY_FINALIZED 7/7 잔여)
 > **Stories**: MCT-175 ~ MCT-181 (7 sequential)
 > **Parent dependency**: EPIC-tier-promotion-single-source POLICY_FINALIZED (R-CRITICAL WAL 30G measurement → MCT-179 carry over)
 
@@ -46,9 +46,9 @@ ADR-030 본문 박제 = 8 D (D1/D2/D3/D7/D12/D13/D17/D18). 10 D defer = Out of s
 | **MCT-177** | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix | 5 | 3 | **2026-05-15** | mctrader-hub#333 (dd59b65) + mctrader-data#65 (af6c812) + mctrader-engine#54 (9cbe3b4) + mctrader-hub#334 (cc0c368) + mctrader-hub#TBD Phase 2 PR2 | **COMPLETED** |
 | **MCT-178** | backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis migration | 5 | 4 | **2026-05-15** | mctrader-hub#336 (0d56730) + mctrader-signal-collector#1 (60787c4) + mctrader-hub#337 (bd9baf2) + mctrader-hub#TBD Phase 2 PR2 | **COMPLETED** |
 | **MCT-179** | observability + WAL 30G synthetic baseline + DR mode integration + alert rule | 5 | 5 | **2026-05-15** | mctrader-hub#339 (fabba57) + mctrader-data#66 (e4a2cc2) + mctrader-hub#340 (64feb73) + mctrader-hub#TBD Phase 2 PR2 | **COMPLETED** |
-| MCT-180 | integration smoke + testcontainers + resource limits + capacity alert rule | - | 6 | - | - | PLANNED |
+| **MCT-180** | integration smoke (ESCALATE F-301 → infra-only 3-layer) + testcontainers + resource limits + 5 TODO panel metric emit | 5 | 6 | **2026-05-15** | mctrader-hub#342 (b1be313) + mctrader-data#67 (f233952) + mctrader-engine#55 (bc8c627) + mctrader-hub#343 (af25d66) + mctrader-hub#TBD Phase 2 PR2 | **COMPLETED** |
 | MCT-181 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제 | - | 7 | - | - | PLANNED |
-| **합계** | | **25 (5/7)** | | | | |
+| **합계** | | **30 (6/7)** | | | | |
 
 ## Story-1 결과 박제 (MCT-175, 2026-05-15)
 
@@ -349,6 +349,66 @@ WAL synthetic baseline JSON 박제: `verdict: PASS`, `wal_peak_gb: 0.0` (paper-s
 진입 prerequisite = MCT-179 Phase 2 PR2 MERGED ✓ + Grafana 5 panel metric emit 신규 carry over (collector ticks/symbols + engine universe_size + reader_cache hit_ratio/p99) + `${IMAGE_TAG}` prod pin (D12, MCT-181 owner) + R2 CRITICAL PARTIAL 해소 유지 (production 별 PR).
 채택 결정: D4 (SIGTERM graceful 회귀) + D11 (compose CI smoke + testcontainers 2 layer gate) + D18 (resource limits + container_memory alert).
 
+## Story-6 결과 박제 (MCT-180, 2026-05-15)
+
+### 4 PR cross-repo sequential LAND timeline
+
+| 시각 | PR | LAND commit | 박제 내용 |
+|------|-----|-------------|-----------|
+| 2026-05-15 | mctrader-hub#342 | b1be313 | Phase 1 docs — Story §1-§12 + ADR-030 §D4/§D11/§D18 amendment box + plan + CLAUDE.md. DesignReview iter1 **PASS (no FIX)** — MCT-179 ADR-030 Out-of-scope D1-D19 전수 reconcile 효과 실증 (P0×0, 누적 audit 투자 회수) |
+| 2026-05-15T13:39:21Z | mctrader-data#67 | f233952 | Phase 2 PR1 data — collector `mctrader_collector_ticks_total`/`_active_symbols` Prometheus emit + `test_collector_nas_boundary.py` testcontainers (land_order 1). CodeReview iter1 FIX → iter2 PASS |
+| 2026-05-15T13:39:26Z | mctrader-engine#55 | bc8c627 | Phase 2 PR1 engine — `mctrader_engine_universe_size` + reader_cache hit_ratio/p99 Gauge expose + `test_paper_redis_boundary.py` testcontainers (land_order 2). CodeReview iter1 FIX → iter2 FIX (설계 원인 — paper daemon ReaderCache 미사용, Phase 0 verify 5회째) → iter3 PASS |
+| 2026-05-15T13:40:19Z | mctrader-hub#343 | af25d66 | Phase 2 PR1 hub — integration-smoke.yml **infra-only** (ESCALATE F-301 resolution 614033a) + compose.yml 7 service deploy.resources.limits + ContainerMemoryHigh alert + docker-stack.json panel id=3,4,6 해제 / id=7,8 downgrade 유지 (land_order 3). CodeReview iter1 FIX → iter2 FIX → iter3 **ESCALATE** → ArchitectPL chief judge 설계 원인 판정 → ESCALATE-fix PASS |
+| 2026-05-15 (Phase 2 PR2) | mctrader-hub#TBD | TBD | Phase 2 PR2 박제 — Story §10/§11/§12 + ADR-030 §D4/§D11/§D18 VERIFIED + §D11 N-002 정정 + scope_manifest 6/7 + N1 scope_files 정정 + CLAUDE.md COMPLETED + RETRO 신규 + EPIC-RESULTS §Story-6 (본 section) |
+
+### MCT-180 채택 3 D (Epic Story-6 범위)
+
+| D | 결정 | Option | 결과 |
+|---|------|--------|------|
+| D4 (SIGTERM 회귀) | C → ESCALATE carrier 이관 | integration smoke infra-only 재설계로 SIGTERM step 제거 → D4 회귀 carrier = testcontainers (data#67 + engine#55) + 각 repo unit test (MCT-176 `_SHUTDOWN_REQUESTED` + MCT-177 `shutdown.py` asyncio SSOT, 코드 변경 0). production full-stack SIGTERM = production deploy carry |
+| D11 (integration smoke CI) | C → ESCALATE 3-layer 재설계 | `.github/workflows/integration-smoke.yml` 신규 — **3-layer 분리**: Layer 1 (CI smoke = infra-only: postgres/redis/minio `--wait` + mc-init oneshot exit 0) / Layer 2 (testcontainers = boundary 실 carrier) / Layer 3 (full-stack compose up = production deploy carry, D12 MCT-181 image pin 의존). full-stack compose up = CI 격리 구조적 불가 (sibling repo image 미배포 + build.context path 부재) |
+| D18 (resource limits + alert) | D | compose.yml 7 service `deploy.resources.limits` (collector/paper-engine 512M / backtest 1G / postgres 1G / redis 256M / prometheus/grafana 512M) + `prometheus-alerts.yml` ContainerMemoryHigh `container_memory_usage_bytes{name=~"mctrader-.*"} / container_spec_memory_limit_bytes > 0.8` (cadvisor MCT-123 LAND) |
+
+### MCT-180 AC + INV
+
+5/5 AC PASS (AC-1 infra-only CI smoke exit 0 + AC-2 testcontainers 2-layer boundary + AC-3 7 service limits + ContainerMemoryHigh alert + AC-4 SIGTERM carrier 이관 회귀 0 + AC-5 5 metric emit + panel id=3,4,6 해제 / id=7,8 downgrade 유지). 5/5 INV 박제 (forward-only ephemeral compose + startup scan warn+continue + Prometheus metric additive + SIGTERM graceful unchanged + resource limits OOM 방지).
+
+### D11 ESCALATE 재설계 (CI 격리 설계 결함 — FIX 3회 ESCALATE → infra-only 3-layer)
+
+ADR-030 §D11 (MCT-180 publish) + Plan §2.3 + Story §4 AC-1 이 "compose up full stack (collector+paper-engine) in CI" 명시. 그러나 collector/paper-engine = 미배포 sibling repo image (D12 MCT-181 carry) + `build.context: ../mctrader-{data,engine}` (CI 단독 checkout = path 부재) → 구조적 exit 1. iter1/2 mc --wait 분리 = 표면 증상만 해소. FIX 3회 소진 → ArchitectPL ESCALATE chief judge 최종 판정 = **설계 원인** (구현 충실, 설계가 CI 실행 환경 제약 미검증). option b resolution (614033a) = 3-layer 분리 (CI smoke infra-only / testcontainers boundary 실 carrier / full-stack production deploy carry, D12 MCT-181 의존). MCT-179 §D8 가공 metric 설계 원인 + MCT-170/177/178 Phase 0 verify lesson 누적 동형 (설계가 실행 환경 제약 미검증) — 6회째 재현 패턴.
+
+### FIX 루프 (design 0 no FIX + code 3 iter + ESCALATE + ESCALATE-fix)
+
+| iter | lane | finding | resolution |
+|------|------|---------|------------|
+| 1 | design (Phase 1 hub#342) | **0 (PASS, no FIX)** — MCT-179 전수 reconcile (c8e4b8e) 효과 실증 (P0×0) | LAND b1be313 (누적 audit 투자 회수) |
+| 1~3 | code (engine#55) | iter1 FIX + iter2 FIX **설계 원인** (paper daemon ReaderCache 미사용, Phase 0 verify 5회째) | iter3 PASS. contract 정정 (cold reader 한정 metric, ADR-030 §D8) + panel id=7,8 downgrade 유지 |
+| 1~3+ESCALATE | code (hub#343) | iter1 FIX (compose cpus + alert selector) + iter2 FIX (mc --wait 분리) + iter3 **ESCALATE** F-301 P0 설계 원인 (full-stack compose up CI 격리 구조적 불가, iter 3/3 max) | **ArchitectPL ESCALATE chief judge 설계 원인 판정** → option b resolution (614033a) infra-only 3-layer 재설계 → CodeReview ESCALATE-fix PASS |
+| 1~2 | code (data#67) | iter1 FIX (impl) | iter2 PASS, LAND f233952 (land_order 1) |
+
+design lane = MCT-175 (P0×1) → MCT-176 (P0×1) → MCT-177 (P0×0) → MCT-178 (CONDITIONAL_PASS) → MCT-179 (P0×1) → **MCT-180 (P0×0, no FIX)**. MCT-179 전수 reconcile 의 MCT-180/181 재발 사전 차단 투자가 MCT-180 design lane P0×0 으로 회수 (lesson reapply 누적 효과 실증).
+
+### MCT-180 핵심 lesson (RETRO §5)
+
+- **§5.1**: D11 integration-smoke CI 격리 설계 결함 — FIX 3회 ESCALATE → infra-only 3-layer 재설계. cross-repo full-stack compose up 을 CI 격리 환경 gate 로 설계 = sibling repo image registry pin (D12) 선행 없이 구조적 불가. 설계 단계 CI 실행 환경 제약 검증 의무 (Phase 0 verify 인프라 차원 확장). 6회째 재현 패턴
+- **§5.2**: Phase 0 verify lesson 5회째 — paper-engine daemon `ReaderCache`/`ColdReader`/`TierReader` 미인스턴스화. metric producer path 는 daemon runtime 실 instantiation 경로 grep 실증 의무. observability/metric 박제 시 producer path = grep 실증 (선언만으로 panel 활성 금지)
+- **§5.3**: cross-repo metric desync 누적 (MCT-179 hub#340 → MCT-180 engine#55 동형). carry over chain 에서 선행 Story metric 정의 무비판 승계 금지. design lane shift-left 누적 성공 (P0×0) vs code lane Phase 0 verify gap 비대칭 = code lane Phase 0 verify 강제 게이트화 필요
+- **§5.4**: FIX cost — design 0 (no FIX) + code 3 iter + ESCALATE iter 3/3 max. ESCALATE = FIX 3회 소진 후 ArchitectPL chief judge 설계 원인 판정 → 설계 재정의 정상 동작 (FIX 루프 max ESCALATE 안전판 검증). code lane Phase 0 verify 강제 게이트화 (PMO retro 핵심 입력)
+
+### MCT-181 carry over
+
+| 항목 | 사유 |
+|------|------|
+| `${IMAGE_TAG}` D12 image registry pin | MCT-181 owner. D11 full-stack compose up CI 검증 = D12 image pin 선행 의존 (ESCALATE F-301 resolution Layer 3) |
+| full-stack production smoke (MCT-181 또는 별 PR) | collector+paper-engine compose up evidence = production deploy 시점 검증 (image registry pin 의존, EPIC-tier-promotion prod-2 류) |
+| engine#55 `ci`/`lookahead-lint` token 이슈 | `mctrader-market-upbit` private repo git dependency auth (engine repo 자체 CI infra, 본 ESCALATE 범위 외 — engine repo 별 처리) |
+
+### 다음 Story chain
+
+**MCT-181** (image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제) — sequential_phase 7. EPIC-mctrader-docker-stack 7/7 + Epic POLICY_FINALIZED.
+진입 prerequisite = MCT-180 Phase 2 PR2 MERGED ✓ + `${IMAGE_TAG}` D12 image pin + full-stack production smoke carry over + R2 CRITICAL PARTIAL 해소 유지 (production 별 PR) + engine#55 token 이슈 (engine repo 별 처리).
+채택 결정: D12 (image registry pin — prod sha pin / dev latest) + D19 (backtest artifact NAS sync — completion marker + 3회 retry + alert + manual reconcile runbook).
+
 ## Epic close gate
 
 | # | gate | 상태 |
@@ -358,13 +418,15 @@ WAL synthetic baseline JSON 박제: `verdict: PASS`, `wal_peak_gb: 0.0` (paper-s
 | 3 | MCT-177 PR MERGED + paper-engine daemon + SIGTERM graceful | ✓ (2026-05-15, hub#333 + data#65 + engine#54 + hub#334 + hub Phase 2 PR2) |
 | 4 | MCT-178 PR MERGED + backtest profile + compose config CI gate | ✓ (2026-05-15, hub#336 + signal-collector#1 + hub#337 + hub Phase 2 PR2). signal-collector 5 worker Publisher 계층 Redis prefix dual write LAND (D15 carry 이행). DesignReview iter1 CONDITIONAL_PASS (F-001/F-002 fast-fix ba87b3c) |
 | 5 | MCT-179 PR MERGED + WAL 30G synthetic baseline (R2 CRITICAL PARTIAL 해소, production 별 PR carry over) + observability | ✓ (2026-05-15, hub#339 + data#66 + hub#340 + hub Phase 2 PR2). measure_wal_baseline.py paper-synthetic verdict=PASS exit 0 + EXCEED branch exit 7 D11 trigger. alert rule = MCT-171/170 LAND SSOT 정렬 (CodeReview iter1 P1×2 metric desync → 64647c7, WAL 30G FAIL gate alert 기능 회복). DesignReview iter1 P0 ADR-030 Out-of-scope D1-D19 전수 reconcile (c8e4b8e). production 실 측정 = 별 PR (EPIC-tier-promotion prod-2) |
-| 6 | MCT-180 PR MERGED + integration smoke + resource limits + alert rule | PENDING |
+| 6 | MCT-180 PR MERGED + integration smoke + resource limits + alert rule | ✓ (2026-05-15, hub#342 + data#67 + engine#55 + hub#343 + hub Phase 2 PR2). integration-smoke.yml infra-only CI green (ESCALATE F-301 재설계 → 3-layer 분리: CI smoke infra-only / testcontainers boundary 실 carrier / full-stack production deploy carry D12 MCT-181). CodeReview 3 PR iter1 FIX → iter3 hub ESCALATE → ArchitectPL chief judge 설계 원인 판정 + option b resolution (614033a) → ESCALATE-fix PASS. compose.yml 7 service deploy.resources.limits + ContainerMemoryHigh alert (cadvisor MCT-123). panel id=3,4,6 해제 / id=7,8 reader_cache downgrade 유지 (CodeReview FIX iter2 설계 원인 — paper daemon ReaderCache 미사용, Phase 0 verify lesson 5회째). N-002 promotion 문구 정정 + N1 scope_files 정정 (MCT-178 F-001 precedent). engine#55 ci/lookahead-lint = mctrader-market-upbit private-dep token 이슈 carry over (본 ESCALATE 범위 외) |
 | 7 | MCT-181 PR MERGED + Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync | PENDING |
 
 ## Cross-Epic carry over
 
 - **EPIC-tier-promotion-single-source Epic CLOSED 박제 prereq prod-2**: WAL 30G production measurement = 본 Epic 의 MCT-179 책임. peak market open 09:00 KST burst window 측정 + 30G 초과 시 D11 hard_limit amendment 발의 (D8-7=A FAIL gate)
 - **EPIC-tier-promotion-single-source D8 sunset 14d window (2026-08-18 ~ 2026-09-01)**: MCT-179 telemetry watcher alert rule 정합
+- **MCT-180 ESCALATE F-301 full-stack production smoke carry over**: collector+paper-engine compose up evidence = CI 격리 환경 구조적 불가 (sibling repo image 미배포 + build.context path 부재) → production deploy 시점 검증 (D12 MCT-181 image registry pin 선행 의존). EPIC-tier-promotion prod-2 류 production evidence carry over (MCT-181 또는 별 PR)
+- **engine#55 `ci`/`lookahead-lint` token 이슈 carry over**: `mctrader-market-upbit` private repo git dependency auth (`Invalid username or token`) = mctrader-engine repo 자체 CI infra private-dep token 이슈. MCT-180 F-301/F-302 외 영역 (engine repo 별 처리)
 
 ## Risk 현황 (Epic 전체)
 
@@ -388,4 +450,5 @@ WAL synthetic baseline JSON 박제: `verdict: PASS`, `wal_peak_gb: 0.0` (paper-s
 - MCT-177 RETRO: `docs/retros/RETRO-MCT-177.md`
 - MCT-178 RETRO: `docs/retros/RETRO-MCT-178.md`
 - MCT-179 RETRO: `docs/retros/RETRO-MCT-179.md`
+- MCT-180 RETRO: `docs/retros/RETRO-MCT-180.md`
 - Parent Epic results (POLICY_FINALIZED): `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`

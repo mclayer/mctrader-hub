@@ -777,11 +777,21 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시
 
 **MCT-180 D11 LAND (Phase 1 박제)**:
 
-- **2-layer gate**:
-  - Layer 1 (compose CI smoke): `.github/workflows/integration-smoke.yml` 신규 — compose up full
+> **⚠ SUPERSEDED by §D11 amendment (integration-smoke CI = infra-only, ESCALATE F-301, line 897+)**.
+> 아래 Phase 1 박제 본문 (2-layer / compose up full stack / compactor promotion) 은 ESCALATE
+> chief judge 판정으로 **3-layer 재설계** (CI smoke = infra-only / testcontainers = boundary
+> 실 carrier / full-stack = production deploy carry). **N-002 (Phase 2 PR2 정정)**: "compactor
+> promotion 1회" = 실 LAND workflow (Plan §2.3 verbatim) 에 미존재 — 원 설계 표현 stale.
+> SSOT = §D11 amendment (infra-only resolution, line 897+) + Plan §2.3/§2.4.
+
+- **2-layer gate (Phase 1 박제 — SUPERSEDED, navigational only)**:
+  - Layer 1 (compose CI smoke): `.github/workflows/integration-smoke.yml` 신규 — ~~compose up full
     stack (postgres+redis+minio+mc+collector+paper-engine) → collector ingest 60s → compactor
     promotion 1회 → paper-engine health 200 → SIGTERM graceful (D4 회귀) → teardown. 10분 budget
-    (timeout-minutes: 12)
+    (timeout-minutes: 12)~~ → **infra-only 재정의 (ESCALATE F-301)**: postgres/redis/minio
+    `--wait` + mc-init oneshot exit 0 만 (8분 budget). collector/paper-engine compose up +
+    compactor promotion + SIGTERM step **제거** (N-002: compactor promotion 표현 = 실 LAND
+    미존재)
   - Layer 2 (testcontainers): data `tests/integration/test_collector_nas_boundary.py` 신규
     (collector→MinIO mock boundary) + engine `tests/test_paper_redis_boundary.py` 신규
     (paper-engine→Redis testcontainer, engine: prefix key verify)
@@ -947,11 +957,48 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시
   Epic 의 CI-friendly 검증 SSOT. (MCT-179 §D8 가공 metric 설계 원인 + MCT-170/177/178
   Phase 0 verify lesson 누적 동형 — 설계가 실행 환경 제약 미검증).
 
-#### N-002 promotion 문구 carry (Phase 2 PR2 유지)
+#### N-002 promotion 문구 정정 (Phase 2 PR2 박제 완료, 2026-05-15)
 
-- N-002 (promotion.py 잔여 문구 정합) = Phase 2 PR2 carry over 유지. 본 contract 정정
-  (reader cache scope = cold reader 한정) 과 Story/ADR 정합성 동반 박제 의무
-  (Phase 2 PR2 §10/§11 amend 시).
+- **N-002 RESOLVED (Phase 2 PR2, 본 PR)**: 원 설계 ("compactor promotion 1회") 표현이
+  실 LAND workflow (Plan §2.3 `integration-smoke.yml` verbatim) 에 미존재 — ESCALATE
+  resolution (infra-only) 와도 무관. 3-way 정합 정정 완료:
+  - **ADR-030 §D11 amendment (line 781-783)**: Phase 1 박제 본문 SUPERSEDED note +
+    "compactor promotion 1회" strikethrough + infra-only 재정의 박제 (본 PR)
+  - **Story §4 AC-1 / §1 동기**: "compactor promotion 1회" 제거 + infra-only 재정의 (본 PR)
+  - **plan §1.1 line 51 / §1.2 line 70**: Phase 1 체크리스트 잔존 old 표현 정정 (본 PR)
+- contract 정정 (reader cache scope = cold reader 한정, §D8 amendment) 과 Story/ADR
+  정합성 동반 박제 완료 (Phase 2 PR2 §10/§11/§12.2 amend).
+
+### Amendment box (MCT-180 Phase 2 PR1 cross-repo LAND VERIFIED, 2026-05-15)
+
+**MCT-180 D4/D11/D18 VERIFIED** (Phase 2 PR1 3 repo cross-repo LAND 후 박제):
+
+- **§D4 (SIGTERM graceful 회귀) VERIFIED — carrier 이관**: ESCALATE F-301 infra-only
+  재설계로 integration smoke SIGTERM step 제거 → D4 회귀 carrier = testcontainers
+  (data#67 `test_collector_nas_boundary.py` + engine#55 `test_paper_redis_boundary.py`)
+  + 각 repo unit test (MCT-176 `_SHUTDOWN_REQUESTED` + MCT-177 `shutdown.py` asyncio SSOT,
+  코드 변경 0). graceful drain 경로 unchanged 회귀 0.
+- **§D11 (integration smoke CI gate) VERIFIED — 3-layer 분리 (ESCALATE F-301 resolution)**:
+  hub#343 (af25d66) integration-smoke.yml infra-only CI green 실증 (Layer 1 = infra
+  `--wait` + mc-init oneshot exit 0 / Layer 2 = testcontainers boundary 실 carrier /
+  Layer 3 = full-stack production deploy carry, D12 MCT-181 의존). CodeReview FIX 3회
+  → ESCALATE iter 3/3 max → ArchitectPL chief judge 설계 원인 판정 → option b
+  resolution (614033a) → CodeReview ESCALATE-fix PASS.
+- **§D18 (deploy.resources.limits + alert) VERIFIED**: hub#343 compose.yml 7 service
+  `deploy.resources.limits` (collector/paper-engine 512M / backtest 1G / postgres 1G /
+  redis 256M / prometheus/grafana 512M) + `prometheus-alerts.yml` ContainerMemoryHigh
+  `container_memory_usage_bytes{name=~"mctrader-.*"} / container_spec_memory_limit_bytes
+  > 0.8` (cadvisor MCT-123 LAND selector 정합).
+- **cross-repo LAND timeline**: data#67 (f233952, 13:39:21Z, land_order 1) → engine#55
+  (bc8c627, 13:39:26Z, land_order 2) → hub#343 (af25d66, 13:40:19Z, land_order 3)
+  sequential gate.
+- **engine#55 `ci`/`lookahead-lint` carry over (본 ESCALATE 범위 외)**:
+  `mctrader-market-upbit` private repo git dependency auth (`Invalid username or token`)
+  = engine repo 자체 CI infra private-dep token 이슈. F-301/F-302 외 영역, engine repo
+  별 처리 carry over (MCT-181 또는 별 PR).
+
+ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-181 LAND 시 §D12/§D19 추가 D 본문
+박제 의무.
 
 ## References
 
