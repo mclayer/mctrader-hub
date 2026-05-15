@@ -206,6 +206,7 @@ services:
     command: ["python", "-m", "signal_collector.workers.fear_greed"]
     environment:
       - REDIS_URL=redis://redis:6379
+      - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX_SIGNAL:-signal}  # D15 dual write 준비 (MCT-177)
     networks:
       - mctrader_net
     depends_on:
@@ -225,6 +226,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - ECOS_API_KEY=${ECOS_API_KEY}
+      - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX_SIGNAL:-signal}  # D15 dual write 준비 (MCT-177)
     networks:
       - mctrader_net
     depends_on:
@@ -243,6 +245,7 @@ services:
     command: ["python", "-m", "signal_collector.workers.kimchi_premium"]
     environment:
       - REDIS_URL=redis://redis:6379
+      - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX_SIGNAL:-signal}  # D15 dual write 준비 (MCT-177)
     networks:
       - mctrader_net
     depends_on:
@@ -261,6 +264,7 @@ services:
     command: ["python", "-m", "signal_collector.workers.announcement"]
     environment:
       - REDIS_URL=redis://redis:6379
+      - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX_SIGNAL:-signal}  # D15 dual write 준비 (MCT-177)
     networks:
       - mctrader_net
     depends_on:
@@ -280,6 +284,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - COINGLASS_API_KEY=${COINGLASS_API_KEY}
+      - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX_SIGNAL:-signal}  # D15 dual write 준비 (MCT-177)
     networks:
       - mctrader_net
     depends_on:
@@ -289,6 +294,38 @@ services:
     labels:
       mctrader.role: "signal-coinglass"
       mctrader.story: "MCT-124"
+
+  # mctrader-engine paper-engine daemon — MCT-177 (D2 paper daemon)
+  paper-engine:
+    image: ghcr.io/mclayer/mctrader-engine:latest
+    container_name: mctrader-paper-engine
+    profiles: ["dev", "prod"]
+    build:
+      context: ../mctrader-engine
+    command: ["paper", "--daemon"]
+    env_file:
+      - .env.${COMPOSE_PROFILES:-dev}  # ADR-030 §D3 — Docker Compose 표준 var (단일 profile 운영 의무)
+    volumes:
+      - mctrader_engine_runs:/var/lib/mctrader/runs
+      - mctrader_l1:/var/lib/mctrader/data/l1:ro  # L1 cache read-only (ADR-030 §D1)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    stop_grace_period: 60s  # ADR-030 §D4 SIGTERM graceful (60s)
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      collector:
+        condition: service_healthy
+    networks:
+      - mctrader_net
+    labels:
+      mctrader.role: "paper-engine"
+      mctrader.story: "MCT-177"
 
   # mctrader-data collector — MCT-176 LAND (activated)
   collector:
@@ -349,4 +386,5 @@ volumes:
   mctrader_redis:
   mctrader_prometheus:
   mctrader_grafana:
-  mctrader_l1:  # ADR-030 §D1 L1 named volume (MCT-176)
+  mctrader_l1:          # ADR-030 §D1 L1 named volume (MCT-176)
+  mctrader_engine_runs: # ADR-030 §D2 paper-engine runs volume (MCT-177)
