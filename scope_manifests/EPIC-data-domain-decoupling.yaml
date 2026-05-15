@@ -1,0 +1,287 @@
+epic_key: EPIC-data-domain-decoupling
+epic_title: "Data Domain Decoupling — 4-Layer 다중거래소 확장 아키텍처 (engine = data-free + exchange-agnostic pure consumer)"
+parent_dependency: []
+status: phase:요구사항-PLANNED
+created: 2026-05-16
+brainstorm_session: "2026-05-16 (Phase 0 deep-verify + codeforge-brainstorm + Codex review)"
+brainstorm_phase0_agents: [DomainAgent, ResearcherAgent, RequirementsAnalystAgent, PMOAgent]
+sequential: true
+codex_review:
+  total_decisions: 7
+  story_count: 7
+
+motivation: |
+  mctrader-engine 을 (1) data-free (mctrader_data python 의존 0) + (2) exchange-agnostic
+  pure consumer (mctrader_market_bithumb/upbit/* 어댑터 직접 의존 0) 로 전환한다.
+  사용자 확정 = "전체 종착점 1 Epic, 단계적 sequential Story". 첫 요구 "신규 거래소 data
+  단독 반영" 의 다중거래소 일반화.
+
+  배경 (Phase 0 deep-verify 실증):
+  - engine 이 mctrader_data python 직접 의존 (storage.scan_candles/orderbook_replay/
+    path.resolve_data_root cold-read + io/ dead-in-prod reader 6 module) + mctrader_market_bithumb
+    어댑터 직접 import ~5곳 (realtime WS 경로) → 거래소 추가 시 engine 변경 전파
+  - aggregation(PURE market+stdlib) / TickRecord·OrderbookEventRecord(pyarrow 모듈 내
+    순수 dataclass) / paper_lineage(PURE) / CandleModel(이미 mctrader_market.candle 존재)
+    / engine io/ (src caller 0, tests/io/ 만, 미배선 dead-in-prod) 실증
+  - market 은 mctrader_data 를 어디서도 import 안 함 (순환 0, DAG 최하위 FOUNDATION)
+  - market 에 이미 exchange-neutral Protocol(CandleProvider/OrderBookProvider) 존재 +
+    mctrader-market-upbit(v0.1.0) 존재 + data adapters.py 다중거래소 팩토리 존재
+  - 4-Layer 목표: Layer0 market-core contract / Layer1 거래소 어댑터 repo / Layer2 data
+    (storage+REST+stream) / Layer2' engine pure consumer
+
+design_decisions:
+  D1:
+    decision: "Contract relocation → mctrader-market (Layer 0)"
+    option_chosen: "relocate-to-market-core"
+    rationale: "mctrader_data.aggregation(PURE, verified market+stdlib만) + TickRecord/OrderbookEventRecord 순수 dataclass 추출 + paper_lineage(PaperLineage/canonical_jsonl_hash PURE) → market-core 이전. CandleModel 은 이미 mctrader_market.candle 존재 → engine 4곳 import 경로 재지정만 (verified 2026-05-16 MCT-182 요구사항 lane, brainstorm 가설 5곳 정정 — docstring 오집계). data/engine 호출부 = deprecation re-export shim"
+    owner_story: MCT-182
+  D2:
+    decision: "Read 도메인 relocation → mctrader-data (Layer 2)"
+    option_chosen: "io-relocate + cold-read-behind-REST"
+    rationale: "engine io/ (tier_reader/reader_cache/endpoint_router/dr_mode/cold_reader/l1_reader — verified engine src/ caller 0, tests/io/ 만, dead-in-prod) → mctrader-data 물리 이전. engine 실제 cold-read (mctrader_data.storage.scan_candles/orderbook_replay/path.resolve_data_root) → data REST 뒤로 cutover"
+    owner_story: "MCT-183 (io relocate) + MCT-185 (cold-read cutover)"
+  D3:
+    decision: "data REST API 신규 (Layer 2) — historical + reverse-write + realtime stream"
+    option_chosen: "fastapi-v1 + redis-stream"
+    rationale: "data 에 api/ FastAPI 신규 (현 web framework 0, stdlib health_server 만). /v1 = historical (Arrow IPC streaming, presigned-NAS-handoff 기각 — engine 이 NAS 알면 안 됨) + 역방향 write POST (paper-candles/backtest-artifact) + 실시간 정규화 stream (Redis Stream — data 이미 redis[hiredis], ADR-030 single-host loopback, Milestone-2 tick.v1.1 패턴). OpenAPI SSOT = data repo 소유, engine = thin/generated client (mctrader_engine/data_client/). hub governance = schema snapshot (.codeforge/contracts) + cross-repo lock gate (ADR-030 D13 패턴 재사용)"
+    owner_story: "MCT-184 (historical+reverse-write) + MCT-185 (realtime stream)"
+  D4:
+    decision: "engine exchange-adapter 제거"
+    option_chosen: "subscribe-normalized-stream"
+    rationale: "engine mctrader_market_bithumb 직접 import ~5곳 (paper_runner/ws_wrapper/stream_consumer/fill/mock_stream, realtime WS) 제거 → data 정규화 실시간 stream 구독 전환. engine 은 정규화 TickRowV1_1 (market-core contract) 소비 (bithumb-specific ws_events 아님)"
+    owner_story: MCT-186
+  D5:
+    decision: "다중거래소 확장 불변식"
+    option_chosen: "data-only-extension-invariant"
+    rationale: "신규 거래소 = Layer1 어댑터 repo + data adapters.py 등록 (BithumbCandleProvider/UpbitCandleProvider 팩토리 이미 존재) + data 수집/정규화 설정. engine 변경 0, market-core 변경 0, ADR 0. 사용자 첫 요구 'data 단독 반영' 의 다중거래소 일반화"
+    owner_story: MCT-187
+  D6:
+    decision: "ADR — ADR-031 신규 + ADR-029/027/030 amendment"
+    option_chosen: "new-adr-031 + 3-amend"
+    rationale: "ADR-031 신규 (Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant). amendment: ADR-029 (engine NAS 직독 폐기, io reader relocated, NAS SoT 경로에 data REST indirection) / ADR-027 (endpoint_router/dr_mode relocated) / ADR-030 (compose topology — engine NAS cred drop, data api service 추가). MCT-179 lesson 정합 = ADR-031 Out-of-scope/D-row 전수 reconcile (cross-repo desync 누적 사전 차단)"
+    owner_story: "MCT-182 (ADR-031 publish) + MCT-188 (POLICY_FINALIZED + amend confirm)"
+  D7:
+    decision: "data-free done-criterion (grep0 gate)"
+    option_chosen: "ci-grep0-quad-gate"
+    rationale: "engine src/ `from/import mctrader_data` == 0 AND engine pyproject mctrader-data 제거 AND engine src/ `mctrader_market_bithumb|upbit` == 0 AND engine pyproject 어댑터 의존 제거. CI gate 박제 (MCT-172 grep0 strict 패턴 재사용)"
+    owner_story: MCT-188
+
+# ─── 7 D ↔ 7 Story 통합 매트릭스 (PMO finalize, MCT-179 lesson — D-row ↔ Story owner 전수 1:1) ───
+story_decision_matrix:
+  MCT-182:
+    title: "Layer 0 contract relocation → mctrader-market"
+    repo: "mctrader-hub + mctrader-market + mctrader-data + mctrader-engine"
+    phase_pair: phase1_phase2
+    decisions: [D1, D6]
+    cross_repo:
+      - { repo: mctrader-hub, change: "Story §1-§11 + docs/adr/ADR-031 publish (Proposed) + scope_manifest + .codeforge/counters.json reserve" }
+      - { repo: mctrader-market, change: "aggregation/ (PURE) + TickRecord/OrderbookEventRecord 순수 dataclass + paper_lineage 모듈 신규 (Layer0 contract). CandleModel = 기존 mctrader_market.candle 재확인" }
+      - { repo: mctrader-data, change: "mctrader_data.aggregation/paper_lineage = market-core re-export shim + DeprecationWarning. TickRecord/OrderbookEventRecord pyarrow 모듈 import 경로 재지정" }
+      - { repo: mctrader-engine, change: "CandleModel import 4곳 (verified 2026-05-16) mctrader_market.candle 경로 재지정 (재구현 0)" }
+    sequential_depends_on: []
+    land_order: "hub Phase1 → market#N → data#N → engine#N → hub Phase2 PR2"
+    rationale: "Epic entry — strangler-fig 1단계 (contract relocate 선행). ADR-031 publish. Phase 0 verify 의무 = aggregation PURE / dataclass 추출 가능 / paper_lineage PURE / engine CandleModel 4곳 재확인 (verified 2026-05-16, 가설 5곳 정정)"
+  MCT-183:
+    title: "Layer 2 read 도메인 relocation → mctrader-data"
+    repo: "mctrader-hub + mctrader-data + mctrader-engine"
+    phase_pair: phase1_phase2
+    decisions: [D2, D6]
+    cross_repo:
+      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-029/027 amendment box (io reader relocated, endpoint_router/dr_mode relocated)" }
+      - { repo: mctrader-data, change: "io/ 6 module (tier_reader/reader_cache/endpoint_router/dr_mode/cold_reader/l1_reader) 수령 + tests/io/ 이전. data 측 namespace 배치" }
+      - { repo: mctrader-engine, change: "io/ 6 module 삭제 + tests/io/ 삭제 (src caller 0 verified — dead-in-prod 안전 제거). __init__ export 정리" }
+    sequential_depends_on: [MCT-182]
+    land_order: "hub Phase1 → data#N → engine#N → hub Phase2 PR2"
+    rationale: "strangler-fig 2단계. dead-in-prod 자산 물리 이전 (engine src caller 0 = MCT-170 io/ 3 module 존재 lesson 재확인 의무 Phase 0). cold-read 실경로 cutover 는 MCT-185 (REST 신설 후)"
+  MCT-184:
+    title: "Layer 2 data REST API 신규 (historical + reverse-write)"
+    repo: "mctrader-hub + mctrader-data"
+    phase_pair: phase1_phase2
+    decisions: [D3, D6]
+    cross_repo:
+      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-030 amendment box (data api service 추가 topology) + .codeforge/contracts/data-api-v1.openapi.json schema snapshot + scripts/cross-repo-contract-lock-check.sh (ADR-030 D13 패턴 재사용)" }
+      - { repo: mctrader-data, change: "api/ FastAPI 신규 (현 web framework 0). /v1 historical (Arrow IPC streaming) + 역방향 write POST (paper-candles/backtest-artifact). OpenAPI emit (SSOT = data 소유). pyproject fastapi 의존 추가" }
+    sequential_depends_on: [MCT-183]
+    land_order: "hub Phase1 → data#N → hub Phase2 PR2"
+    rationale: "strangler-fig 3단계 일부 (REST 신설 — cutover 전제). presigned-NAS-handoff 기각 박제 (engine 이 NAS 알면 안 됨 = D2/ADR-029 정합). OpenAPI SSOT = data 소유, hub = contract snapshot governance"
+  MCT-185:
+    title: "data realtime stream + engine thin client + cold-read cutover"
+    repo: "mctrader-hub + mctrader-data + mctrader-engine"
+    phase_pair: phase1_phase2
+    decisions: [D2, D3]
+    cross_repo:
+      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-029 amendment confirm (NAS SoT 경로에 data REST indirection LAND)" }
+      - { repo: mctrader-data, change: "/v1 realtime 정규화 stream publisher (Redis Stream — redis[hiredis] 기존 의존, ADR-030 single-host loopback, tick.v1.1 패턴)" }
+      - { repo: mctrader-engine, change: "mctrader_engine/data_client/ thin/generated client 신규 (OpenAPI SSOT 기반). engine cold-read (mctrader_data.storage.scan_candles/orderbook_replay/path.resolve_data_root 직독) → data_client REST 경유 cutover. mctrader_data storage import 제거" }
+    sequential_depends_on: [MCT-184]
+    land_order: "hub Phase1 → data#N → engine#N → hub Phase2 PR2"
+    rationale: "strangler-fig 3단계 (engine cold-read cutover). engine 실제 mctrader_data 직독 경로 제거 — D7 grep0 의 cold-read 절반. Phase 0 verify 의무 = engine cold-read 실 호출부 정확 식별 (가설 금지, MCT-180 reader_cache producer path 오류 동형 방지)"
+  MCT-186:
+    title: "engine realtime cutover + exchange-adapter 제거"
+    repo: "mctrader-hub + mctrader-engine + (mctrader-market-bithumb + mctrader-market-upbit opt)"
+    phase_pair: phase1_phase2
+    decisions: [D4]
+    cross_repo:
+      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-031 amendment box (engine realtime adapter-free LAND)" }
+      - { repo: mctrader-engine, change: "mctrader_market_bithumb 직접 import ~5곳 (paper_runner/ws_wrapper/stream_consumer/fill/mock_stream realtime WS) 제거 → data 정규화 realtime stream 구독 전환. 정규화 TickRowV1_1 소비" }
+      - { repo: mctrader-market-bithumb, change: "(가능 시) RealtimeStream Protocol conformance" }
+      - { repo: mctrader-market-upbit, change: "(가능 시) RealtimeStream Protocol conformance" }
+    sequential_depends_on: [MCT-185]
+    land_order: "hub Phase1 → engine#N → (bithumb#N/upbit#N opt) → hub Phase2 PR2"
+    rationale: "strangler-fig 4단계 (engine realtime cutover + adapter 제거 — D7 grep0 의 adapter 절반). R2 = MCT-41 충돌 위험점 — Phase 0 verify 에서 MCT-43~47 IN_PROGRESS 파일 교차 검증 의무"
+  MCT-187:
+    title: "다중거래소 확장 불변식 + 신규 거래소 추가 절차 박제"
+    repo: "mctrader-hub + mctrader-data"
+    phase_pair: phase1_phase2
+    decisions: [D5, D6]
+    cross_repo:
+      - { repo: mctrader-hub, change: "Story §1-§11 + docs/runbooks/add-new-exchange.md 신규 + ADR-031 amendment box (extensibility invariant 박제 — engine 변경 0 / market-core 변경 0 / ADR 0)" }
+      - { repo: mctrader-data, change: "adapters.py 확장 contract test (BithumbCandleProvider/UpbitCandleProvider 팩토리 이미 존재 — 신규 거래소 등록 절차 invariant test 박제)" }
+    sequential_depends_on: [MCT-186]
+    land_order: "hub Phase1 → data#N → hub Phase2 PR2"
+    rationale: "strangler-fig 5단계 일부 (D5 일반화 박제). 사용자 첫 요구 'data 단독 반영' 의 다중거래소 invariant 화. engine/market-core/ADR 변경 0 = 회귀 테스트로 박제"
+  MCT-188:
+    title: "data-free done-criterion verify + Epic POLICY_FINALIZED 박제"
+    repo: "mctrader-hub + mctrader-engine"
+    phase_pair: phase1_phase2
+    decisions: [D7, D6]
+    cross_repo:
+      - { repo: mctrader-hub, change: "Story §1-§11 + .github/workflows/data-free-grep0.yml 신규 (quad gate CI) + ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm + docs/retros/EPIC-RESULTS-EPIC-data-domain-decoupling.md + CLAUDE.md POLICY_FINALIZED 박제" }
+      - { repo: mctrader-engine, change: "pyproject.toml mctrader-data 의존 제거 + mctrader_market_bithumb/upbit 어댑터 의존 제거 (finalize). src/ grep0 strict 충족" }
+    sequential_depends_on: [MCT-187]
+    land_order: "hub Phase1 → engine#N → hub Phase2 PR2"
+    rationale: "strangler-fig 5단계 (finalize+ADR amend+grep0). D7 quad gate = engine src/ from/import mctrader_data==0 AND pyproject mctrader-data 제거 AND src/ mctrader_market_bithumb|upbit==0 AND pyproject 어댑터 제거. MCT-172 grep0 strict 패턴 재사용. Epic POLICY_FINALIZED 박제"
+
+planned_adrs:
+  amendments:
+    - adr: ADR-029-tier-promotion-single-source
+      section: "engine NAS 직독 폐기 + io reader relocated + NAS SoT 경로 data REST indirection"
+      change: "engine 이 mctrader_data.storage 직독하던 NAS SoT 경로를 data REST API indirection 으로 전환. io/ reader 6 module = mctrader-data 로 relocated"
+      owner_story: "MCT-183 (relocate) + MCT-185 (cutover confirm)"
+      optional: false
+    - adr: ADR-027-cold-tier-object-storage-nas-minio
+      section: "endpoint_router / dr_mode relocated to mctrader-data"
+      change: "engine io/ 측 endpoint_router + dr_mode = mctrader-data 로 relocated (Layer2 소유)"
+      owner_story: "MCT-183 (endpoint_router/dr_mode relocate)"
+      optional: false
+    - adr: ADR-030-docker-stack-governance
+      section: "compose topology — engine NAS cred drop + data api service 추가"
+      change: "engine 컨테이너 NAS credential env drop (engine 이 NAS 직접 접근 안 함) + data api service (FastAPI) compose topology 추가"
+      owner_story: "MCT-184 (data api service) + MCT-186 (engine NAS cred drop)"
+      optional: false
+  new_proposals:
+    - adr: ADR-031-data-domain-decoupling
+      title: "Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant"
+      owner_story: MCT-182
+      expected_sections: |
+        D1 (contract relocation → market-core Layer0) / D2 (read 도메인 relocation → data Layer2)
+        / D3 (data REST API boundary — historical + reverse-write + realtime stream) / D4 (engine
+        exchange-adapter 제거) / D5 (다중거래소 확장 불변식 — engine/market-core/ADR 변경 0)
+        / D7 (data-free done-criterion grep0 quad gate) — 6 D 박제 대상.
+        D6 = ADR meta-decision (본 ADR 자체 + amendment 3건, 본문 박제 제외 manifest 박제로 충분)
+      status: Proposed
+      drafted_at: "2026-05-16"
+      land_target: MCT-182
+
+planned_files:
+  mctrader-hub:
+    - { path: docs/adr/ADR-031-data-domain-decoupling.md, owner: MCT-182, change: "신규 ADR (Proposed → POLICY_FINALIZED MCT-188)" }
+    - { path: "docs/stories/MCT-182.md ~ MCT-188.md", owner: each, change: "Story §1-§11" }
+    - { path: scope_manifests/EPIC-data-domain-decoupling.yaml, owner: MCT-182, change: "본 manifest" }
+    - { path: .codeforge/counters.json, owner: MCT-182, change: "MCT-182~188 reserve (LAND 시점 status 갱신)" }
+    - { path: .codeforge/contracts/data-api-v1.openapi.json, owner: MCT-184, change: "신규 — OpenAPI schema snapshot (SSOT = data repo, hub = governance copy)" }
+    - { path: scripts/cross-repo-contract-lock-check.sh, owner: MCT-184, change: "신규 — contract drift CI gate (ADR-030 D13 패턴 재사용)" }
+    - { path: .github/workflows/data-free-grep0.yml, owner: MCT-188, change: "신규 — D7 quad gate CI (engine src/ grep0 strict)" }
+    - { path: docs/runbooks/add-new-exchange.md, owner: MCT-187, change: "신규 — 신규 거래소 추가 절차 (data 단독 반영 invariant)" }
+    - { path: docs/retros/EPIC-RESULTS-EPIC-data-domain-decoupling.md, owner: MCT-188, change: "신규 EPIC-RESULTS 박제" }
+    - { path: CLAUDE.md, owner: "MCT-182 + MCT-185 + MCT-188", change: "## EPIC-data-domain-decoupling (4-layer) + ## data REST boundary (engine pure consumer) + ## 신규 거래소 추가 = data 단독 (D5 invariant) + POLICY_FINALIZED 박제" }
+  mctrader-market:
+    - { path: "src/mctrader_market/aggregation/ (신규)", owner: MCT-182, change: "mctrader_data.aggregation PURE 모듈 이전 (Layer0 contract)" }
+    - { path: "src/mctrader_market/records.py (신규 or candle 인접)", owner: MCT-182, change: "TickRecord/OrderbookEventRecord 순수 dataclass 추출 (pyarrow 모듈 분리)" }
+    - { path: "src/mctrader_market/paper_lineage.py (신규)", owner: MCT-182, change: "PaperLineage/canonical_jsonl_hash 이전 (PURE)" }
+    - { path: "src/mctrader_market/candle.py (기존 확인)", owner: MCT-182, change: "CandleModel 기존 존재 재확인 (재구현 0)" }
+  mctrader-data:
+    - { path: "src/mctrader_data/aggregation/__init__.py (패키지 shim — core/scaled_int/contract_metadata 하위모듈 보존, __init__ 만 market-core re-export + DeprecationWarning)", owner: MCT-182, change: "패키지 __init__ 만 mctrader_market.aggregation re-export (import * + __all__ 동일 전파) + DeprecationWarning. 하위모듈 flat 단일 파일 대체 금지 (실 모듈=패키지, flat aggregation.py 부재 — 하위모듈 import 깨짐 차단)" }
+    - { path: "src/mctrader_data/paper_lineage.py (shim — market-core re-export + DeprecationWarning)", owner: MCT-182, change: "from mctrader_market.paper_lineage import * (PaperLineage/canonical_jsonl_hash is-동일성 보존) + DeprecationWarning" }
+    - { path: "src/mctrader_data/tick_storage.py (TickRecord import → mctrader_market.records, writer 무변경)", owner: MCT-182, change: "TickRecord 정의 삭제 → from mctrader_market.records import TickRecord 재지정. pyarrow writer(TickWriter/_records_to_arrow/schema) 로직 무변경 (INV-6)" }
+    - { path: "src/mctrader_data/orderbook_storage.py (OrderbookEventRecord import → mctrader_market.records, writer 무변경)", owner: MCT-182, change: "OrderbookEventRecord 정의 삭제 → from mctrader_market.records import OrderbookEventRecord 재지정. pyarrow writer 로직 무변경 (INV-6)" }
+    - { path: "src/mctrader_data/io/ (신규 — 6 module 수령)", owner: MCT-183, change: "tier_reader/reader_cache/endpoint_router/dr_mode/cold_reader/l1_reader 수령 + tests/io/ 이전" }
+    - { path: "src/mctrader_data/api/ (신규 FastAPI)", owner: MCT-184, change: "/v1 historical (Arrow IPC) + 역방향 write POST + OpenAPI emit" }
+    - { path: "src/mctrader_data/api/realtime_stream.py (신규)", owner: MCT-185, change: "Redis Stream 정규화 stream publisher (tick.v1.1 패턴)" }
+    - { path: "src/mctrader_data/adapters.py (확장)", owner: MCT-187, change: "신규 거래소 등록 invariant contract test" }
+    - { path: pyproject.toml, owner: MCT-184, change: "fastapi 의존 추가" }
+  mctrader-engine:
+    - { path: "src/mctrader_engine/{backtest/data_source.py:17, consumers/candle_view.py:33, consumers/signal_provenance_log.py:31, paper/data_source.py:22} (CandleModel import 4곳, verified 2026-05-16)", owner: MCT-182, change: "mctrader_market.candle 경로 재지정 (재구현 0)" }
+    - { path: "src/mctrader_engine/io/ (삭제 — 6 module)", owner: MCT-183, change: "dead-in-prod 자산 삭제 (src caller 0 verified) + tests/io/ 삭제" }
+    - { path: "src/mctrader_engine/data_client/ (신규)", owner: MCT-185, change: "thin/generated REST client (OpenAPI SSOT 기반)" }
+    - { path: "src/mctrader_engine cold-read 호출부 (mctrader_data.storage.*)", owner: MCT-185, change: "data_client REST 경유 cutover + mctrader_data storage import 제거" }
+    - { path: "src/mctrader_engine mctrader_market_bithumb import ~5곳", owner: MCT-186, change: "paper_runner/ws_wrapper/stream_consumer/fill/mock_stream realtime WS adapter 제거 → 정규화 stream 구독" }
+    - { path: pyproject.toml, owner: MCT-188, change: "mctrader-data 의존 제거 + mctrader_market_bithumb/upbit 어댑터 의존 제거 (finalize)" }
+  mctrader-market-bithumb:
+    - { path: "RealtimeStream Protocol conformance (opt)", owner: MCT-186, change: "(가능 시) Protocol 준수 확인" }
+  mctrader-market-upbit:
+    - { path: "RealtimeStream Protocol conformance (opt)", owner: MCT-186, change: "(가능 시) Protocol 준수 확인" }
+
+planned_claude_md_sections:
+  - "## EPIC-data-domain-decoupling (4-layer) — Layer0 market-core contract / Layer1 어댑터 / Layer2 data REST+stream / Layer2' engine pure consumer"
+  - "## data REST boundary (D3, MCT-184/185) — /v1 historical Arrow IPC + reverse-write + Redis Stream realtime + OpenAPI SSOT=data"
+  - "## 신규 거래소 추가 = data 단독 (D5 invariant, MCT-187) — engine 변경 0 / market-core 변경 0 / ADR 0"
+  - "## data-free done-criterion (D7, MCT-188) — engine src/ grep0 quad gate"
+
+risks:
+  R1:
+    severity: HIGH
+    desc: "cross-repo contract/Phase0 desync 7회째 (docker-stack Epic 6회 누적 — MCT-170/177/178/179/180 cross-repo Phase 0 verify gap + MCT-179→180 metric/producer-path desync 동형). 본 Epic 은 cross-repo 결합 분리가 본질 (subtractive/relocate) → contract relocation(MCT-182) + REST boundary(MCT-184) + cold-read 실호출부 식별(MCT-185)에서 가설↔실상 괴리 시 재작업 폭증 (docker-stack additive 대비 위험 ↑)"
+    mitigation: "각 Story Phase 0 deep-verify 독립 게이트 강제 (session prompt 표현 = 가설). MCT-182 = aggregation PURE/dataclass 추출 가능/paper_lineage PURE/engine CandleModel 4곳 grep 실증 (verified 2026-05-16, 가설 5곳=docstring 오집계 정정). MCT-184 = OpenAPI SSOT=data 소유 단방향 강제 (engine generated client only). MCT-185 = engine cold-read 실 호출부 grep 정확 식별 (MCT-180 reader_cache producer-path 오류 동형 방지). MCT-179 lesson 정합 = ADR-031 D-row ↔ scope_manifest §design_decisions 전수 1:1 reconcile (Out-of-scope stale 사전 차단 — docker-stack 1회 투자가 MCT-180/181 연속 design P0×0 회수 실증)"
+    owner_story: "전 Story (Phase 0 게이트) + MCT-182/184/185 집중"
+  R2:
+    severity: HIGH
+    desc: "MCT-41 Live Mode Debut (#56, MCT-43~47 IN_PROGRESS) 블락 risk — MCT-186 (engine realtime cutover, paper_runner/stream_consumer adapter 제거)가 live mode WS/주문 실행 경로와 동일 모듈 공유 가능. 동시 진행 시 merge 충돌 + live mode 회귀"
+    mitigation: "MCT-182~185 = engine io/(dead-in-prod, src caller 0 verified) + contract relocate + REST 신설 = MCT-41 파일 disjoint → 병렬 안전. MCT-186 진입 전 Phase 0 verify 의무 = MCT-43~47 IN_PROGRESS 변경 파일 ↔ engine paper_runner/ws_wrapper/stream_consumer/fill/mock_stream 교차 검증. 공유 모듈 발견 시 (a) MCT-186 land_order 를 MCT-41 완료 후 재조정 or (b) 공유 모듈 부분만 별 sub-Story 분리 — Orchestrator ordering 결정"
+    owner_story: "MCT-186 (Phase 0 게이트) — Orchestrator ordering 결정"
+
+dependency:
+  blocked_by: []
+  blocks: []
+  parallel_safe_with:
+    - "EPIC-MCT-41 Live Mode Debut (#56, MCT-43~47) — MCT-182~185 파일 disjoint 병렬 안전. MCT-186 = Phase 0 교차 검증 후 ordering 결정 (R2)"
+  reuses_primitives:
+    - "ADR-030 D13 cross-repo lock gate 패턴 (MCT-184 contract lock 재사용)"
+    - "MCT-172 grep0 strict CI 패턴 (MCT-188 D7 quad gate 재사용)"
+    - "Milestone-2 tick.v1.1 정규화 패턴 (MCT-185 realtime stream)"
+    - "redis[hiredis] 기존 data 의존 (MCT-185 Redis Stream — 신규 의존 0)"
+    - "mctrader_market.candle CandleModel 기존 존재 (MCT-182 재구현 0)"
+    - "mctrader_market protocols CandleProvider/OrderBookProvider 기존 존재 (Layer0 Protocol SSOT)"
+    - "BithumbCandleProvider/UpbitCandleProvider 팩토리 + mctrader-market-upbit(v0.1.0) 기존 존재 (MCT-187 D5 invariant)"
+  carry_over: []
+
+story_sequence:
+  - { story: MCT-182, phase: 1, mode: sequential, rule: "Epic entry — Layer0 contract relocation + ADR-031 publish. Phase 0 verify: aggregation PURE / dataclass 추출 / paper_lineage PURE / engine CandleModel 4곳 (verified 2026-05-16)", status: RESERVED }
+  - { story: MCT-183, phase: 2, mode: sequential, rule: "Layer2 io/ relocation — MCT-182 LAND 후 (market-core contract 선행 의존). engine io/ dead-in-prod 삭제 (src caller 0 verified)", status: RESERVED }
+  - { story: MCT-184, phase: 3, mode: sequential, rule: "data REST API 신설 — MCT-183 LAND 후 (io relocate 완료 후 REST wrap). OpenAPI SSOT=data + hub contract snapshot", status: RESERVED }
+  - { story: MCT-185, phase: 4, mode: sequential, rule: "realtime stream + engine thin client + cold-read cutover — MCT-184 LAND 후 (REST 신설 전제). engine mctrader_data storage 직독 제거", status: RESERVED }
+  - { story: MCT-186, phase: 5, mode: sequential, rule: "engine realtime cutover + adapter 제거 — MCT-185 LAND 후. R2 = MCT-41 Phase 0 교차 검증 의무 (Orchestrator ordering 결정)", status: RESERVED }
+  - { story: MCT-187, phase: 6, mode: sequential, rule: "다중거래소 확장 불변식 박제 — MCT-186 LAND 후 (adapter-free 완료 후 invariant 화)", status: RESERVED }
+  - { story: MCT-188, phase: 7, mode: sequential, rule: "data-free grep0 quad gate + Epic POLICY_FINALIZED — MCT-187 LAND 후 (finalize)", status: RESERVED }
+
+milestone_progress:
+  total: 7
+  completed: 0
+  completed_stories: []
+  in_progress: 0
+  in_progress_stories: []
+  reserved: 7
+  reserved_stories: [MCT-182, MCT-183, MCT-184, MCT-185, MCT-186, MCT-187, MCT-188]
+
+epic_status: phase:요구사항-PLANNED
+epic_close_gate:
+  - "MCT-182 PR MERGED + ADR-031 publish + Layer0 contract (aggregation/records/paper_lineage) market-core 이전 + data/engine shim/경로 재지정"
+  - "MCT-183 PR MERGED + io/ 6 module mctrader-data relocated + engine io/ 삭제 (src caller 0) + ADR-029/027 amend"
+  - "MCT-184 PR MERGED + data api/ FastAPI /v1 historical+reverse-write + OpenAPI SSOT + hub contract snapshot + ADR-030 amend"
+  - "MCT-185 PR MERGED + data realtime stream + engine data_client + cold-read cutover (mctrader_data storage import 제거)"
+  - "MCT-186 PR MERGED + engine adapter import ~5곳 제거 → 정규화 stream 구독 (R2 MCT-41 교차 검증 완료)"
+  - "MCT-187 PR MERGED + 다중거래소 확장 invariant 박제 (engine/market-core/ADR 변경 0 회귀 test) + add-new-exchange.md runbook"
+  - "MCT-188 PR MERGED + D7 quad grep0 gate CI green + ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm + EPIC-RESULTS 박제"
+
+epic_status_history:
+  - { status: "phase:요구사항-PLANNED", date: "2026-05-16", note: "Epic 창설 (Phase 0 deep-verify + codeforge-brainstorm + Codex review 7 D). 7 Story sequential strangler-fig" }

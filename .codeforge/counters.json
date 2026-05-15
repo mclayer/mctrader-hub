@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 182
+      "next": 189
     },
     "mctrader-data": {
       "next": 1
@@ -188,6 +188,98 @@
       "finalized_by_story": "MCT-181",
       "expected_sections": "D1 (WAL host mount + L1 volume) / D2 (paper daemon + backtest profile) / D3 (dev/prod profile) / D7 (NAS DNS preflight) / D12 (image registry pin) / D13 (cross-repo lock gate) / D17 (host disk loss risk acceptance) / D18 (resource limits) — 8 D 박제 대상",
       "rationale": "본 Epic 의 governance singleton. D4/D5/D8/D9/D10/D11/D14/D15/D16/D19 = Story 구현 detail (ADR 본문 박제 제외, manifest 박제로 충분). status transition: Proposed (MCT-175 Phase 1) → Accepted (MCT-175 LAND) → POLICY_FINALIZED (MCT-181 LAND, Epic 7/7, 19 D 전수 VERIFIED). Epic CLOSED 자체 = production evidence prod-1~4 완성 후 별 PR."
+    },
+    "MCT-182": {
+      "title": "Layer 0 contract relocation → mctrader-market (aggregation + records + paper_lineage)",
+      "reserved_at": "2026-05-16",
+      "started_at": "2026-05-16",
+      "status": "IN_PROGRESS",
+      "epic": "EPIC-data-domain-decoupling",
+      "repo": "mctrader-hub + mctrader-market + mctrader-data + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D1", "D6"],
+      "sequential_phase": 1,
+      "depends_on": [],
+      "rationale": "Epic entry — strangler-fig 1단계. mctrader_data.aggregation(PURE, verified market+stdlib만) + TickRecord/OrderbookEventRecord 순수 dataclass 추출 + paper_lineage(PaperLineage/canonical_jsonl_hash PURE) → market-core 이전. CandleModel = 이미 mctrader_market.candle 존재 → engine 4곳 import 경로 재지정만 (verified 2026-05-16 MCT-182 요구사항 lane, brainstorm 가설 5곳은 docstring 오집계 정정). data/engine 호출부 = deprecation re-export shim. ADR-031 publish (Proposed). Phase 0 verify = aggregation PURE / dataclass 추출 가능 / paper_lineage PURE / engine CandleModel 4곳 grep 실증 완료."
+    },
+    "MCT-183": {
+      "title": "Layer 2 read 도메인 relocation → mctrader-data (engine io/ 6 module)",
+      "reserved_at": "2026-05-16",
+      "epic": "EPIC-data-domain-decoupling",
+      "repo": "mctrader-hub + mctrader-data + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D2", "D6"],
+      "sequential_phase": 2,
+      "depends_on": ["MCT-182"],
+      "rationale": "strangler-fig 2단계. engine io/ 6 module(tier_reader/reader_cache/endpoint_router/dr_mode/cold_reader/l1_reader — verified engine src/ caller 0, tests/io/ 만, dead-in-prod) → mctrader-data 물리 이전 + tests/io/ 이전. engine io/ 삭제(src caller 0 = MCT-170 io/ 3 module 존재 lesson 재확인 의무 Phase 0). ADR-029/027 amendment box (io reader / endpoint_router / dr_mode relocated)."
+    },
+    "MCT-184": {
+      "title": "Layer 2 data REST API 신규 (FastAPI /v1 historical Arrow IPC + reverse-write POST)",
+      "reserved_at": "2026-05-16",
+      "epic": "EPIC-data-domain-decoupling",
+      "repo": "mctrader-hub + mctrader-data",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D3", "D6"],
+      "sequential_phase": 3,
+      "depends_on": ["MCT-183"],
+      "rationale": "strangler-fig 3단계 일부 (REST 신설). data api/ FastAPI 신규(현 web framework 0, stdlib health_server 만). /v1 historical(Arrow IPC streaming, presigned-NAS-handoff 기각 — engine 이 NAS 알면 안 됨 = D2/ADR-029 정합) + 역방향 write POST(paper-candles/backtest-artifact). OpenAPI SSOT = data repo 소유, engine = generated client only. hub governance = .codeforge/contracts/data-api-v1.openapi.json schema snapshot + cross-repo-contract-lock-check.sh(ADR-030 D13 패턴 재사용). ADR-030 amendment box (data api service topology)."
+    },
+    "MCT-185": {
+      "title": "data realtime stream + engine thin client + cold-read cutover",
+      "reserved_at": "2026-05-16",
+      "epic": "EPIC-data-domain-decoupling",
+      "repo": "mctrader-hub + mctrader-data + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D2", "D3"],
+      "sequential_phase": 4,
+      "depends_on": ["MCT-184"],
+      "rationale": "strangler-fig 3단계 (engine cold-read cutover). data /v1 realtime 정규화 stream publisher(Redis Stream — redis[hiredis] 기존 의존, ADR-030 single-host loopback, Milestone-2 tick.v1.1 패턴) + engine mctrader_engine/data_client/ thin/generated client 신규(OpenAPI SSOT 기반). engine 실제 cold-read(mctrader_data.storage.scan_candles/orderbook_replay/path.resolve_data_root 직독) → data_client REST 경유 cutover + mctrader_data storage import 제거. Phase 0 verify 의무 = engine cold-read 실 호출부 정확 grep 식별 (MCT-180 reader_cache producer path 오류 동형 방지). ADR-029 amendment confirm."
+    },
+    "MCT-186": {
+      "title": "engine realtime cutover + exchange-adapter 제거 (mctrader_market_bithumb ~5곳)",
+      "reserved_at": "2026-05-16",
+      "epic": "EPIC-data-domain-decoupling",
+      "repo": "mctrader-hub + mctrader-engine + mctrader-market-bithumb + mctrader-market-upbit",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D4"],
+      "sequential_phase": 5,
+      "depends_on": ["MCT-185"],
+      "rationale": "strangler-fig 4단계 (engine realtime cutover + adapter 제거 — D7 grep0 의 adapter 절반). engine mctrader_market_bithumb 직접 import ~5곳(paper_runner/ws_wrapper/stream_consumer/fill/mock_stream realtime WS) 제거 → data 정규화 realtime stream 구독 전환. 정규화 TickRowV1_1(market-core contract) 소비. **R2 MCT-41 충돌 위험점** — Phase 0 verify 에서 MCT-43~47 IN_PROGRESS 변경 파일 ↔ engine realtime 5곳 교차 검증 의무. 공유 모듈 발견 시 land_order 재조정 or sub-Story 분리 (Orchestrator ordering 결정). (bithumb/upbit) RealtimeStream Protocol conformance opt."
+    },
+    "MCT-187": {
+      "title": "다중거래소 확장 불변식 + 신규 거래소 추가 절차 박제",
+      "reserved_at": "2026-05-16",
+      "epic": "EPIC-data-domain-decoupling",
+      "repo": "mctrader-hub + mctrader-data",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D5", "D6"],
+      "sequential_phase": 6,
+      "depends_on": ["MCT-186"],
+      "rationale": "strangler-fig 5단계 일부 (D5 일반화 박제). 신규 거래소 = Layer1 어댑터 repo + data adapters.py 등록(BithumbCandleProvider/UpbitCandleProvider 팩토리 이미 존재) + data 수집/정규화 설정. engine 변경 0 / market-core 변경 0 / ADR 0 invariant 회귀 test 박제 + docs/runbooks/add-new-exchange.md. ADR-031 amendment box (extensibility invariant)."
+    },
+    "MCT-188": {
+      "title": "data-free done-criterion verify (grep0 quad gate) + Epic POLICY_FINALIZED 박제",
+      "reserved_at": "2026-05-16",
+      "epic": "EPIC-data-domain-decoupling",
+      "epic_milestone": "7/7 POLICY_FINALIZED (target)",
+      "repo": "mctrader-hub + mctrader-engine",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["D7", "D6"],
+      "sequential_phase": 7,
+      "depends_on": ["MCT-187"],
+      "rationale": "strangler-fig 5단계 (finalize+ADR amend+grep0). D7 quad gate = engine src/ from/import mctrader_data==0 AND engine pyproject mctrader-data 제거 AND engine src/ mctrader_market_bithumb|upbit==0 AND engine pyproject 어댑터 의존 제거. MCT-172 grep0 strict CI 패턴 재사용 (.github/workflows/data-free-grep0.yml). ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm + EPIC-RESULTS + CLAUDE.md POLICY_FINALIZED 박제. Epic CLOSED 자체 = 별 PR (docker-stack/tier-promotion 패턴 정합)."
+    },
+    "ADR-031": {
+      "title": "Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant",
+      "reserved_at": "2026-05-16",
+      "drafted_at": "2026-05-16",
+      "status": "Proposed",
+      "epic": "EPIC-data-domain-decoupling",
+      "repo": "mctrader-hub",
+      "owner_story": "MCT-182",
+      "finalized_by_story": "MCT-188",
+      "expected_sections": "D1 (contract relocation → market-core Layer0) / D2 (read 도메인 relocation → data Layer2) / D3 (data REST API boundary — historical Arrow IPC + reverse-write + Redis Stream realtime) / D4 (engine exchange-adapter 제거) / D5 (다중거래소 확장 불변식 — engine/market-core/ADR 변경 0) / D7 (data-free done-criterion grep0 quad gate) — 6 D 박제 대상",
+      "rationale": "본 Epic 의 governance singleton. D6 = ADR meta-decision (본 ADR 자체 + amendment 3건 ADR-029/027/030, 본문 박제 제외 manifest 박제로 충분). status transition: Proposed (MCT-182 Phase 1) → POLICY_FINALIZED (MCT-188 LAND, Epic 7/7). MCT-179 lesson 정합 = ADR-031 D-row ↔ scope_manifest §design_decisions 1:1 전수 reconcile (cross-repo Out-of-scope stale 사전 차단)."
     }
   }
 }
