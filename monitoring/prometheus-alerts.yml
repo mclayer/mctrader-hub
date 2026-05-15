@@ -1,0 +1,40 @@
+# MCT-179 D8 - Prometheus alert rules (WAL capacity + NAS reader + reader cache)
+# ADR-030 D8 + ADR-029 D11 cross-ref
+groups:
+  - name: mctrader-docker-stack
+    rules:
+      - alert: WALCapacityWarn
+        expr: wal_capacity_bytes > 25 * 1024 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WAL capacity > 25G (D11 warn)"
+          description: "WAL bytes {{ $value | humanize1024 }}B exceeds 25G warn threshold (ADR-029 D11 hard_limit=30G)"
+
+      - alert: WALCapacityCritical
+        expr: wal_capacity_bytes > 30 * 1024 * 1024 * 1024
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "WAL > 30G - ADR-029 D11 hard_limit amendment required (Epic CLOSE FAIL gate)"
+          description: "WAL bytes {{ $value | humanize1024 }}B exceeds 30G hard_limit. ADR-029 D11 amendment required (D8-7=A FAIL gate, MCT-179/MCT-172)."
+
+      - alert: NASReader5xx
+        expr: rate(nas_reader_5xx_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NAS reader 5xx errors detected"
+          description: "NAS reader 5xx rate {{ $value | humanize }}/s (DR mode trigger candidate, ADR-029 D8 hybrid threshold)"
+
+      - alert: ReaderCacheP99High
+        expr: nas_reader_p99_ms > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Reader cache p99 latency > 100ms"
+          description: "Reader cache p99 {{ $value }}ms exceeds 100ms SLO (ADR-029 D7=A, MCT-170 LAND threshold)"
