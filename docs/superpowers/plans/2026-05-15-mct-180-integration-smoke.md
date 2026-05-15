@@ -27,7 +27,7 @@ carry_over_from_mct179:
 - **D11 integration smoke**: `.github/workflows/integration-smoke.yml` 신규 — compose up full stack (postgres+redis+minio+collector+paper-engine) → collector ingest 1분 → compactor promotion 1회 → paper-engine health 200 → 검증. testcontainers (Python) = repo-level boundary test (collector→NAS + paper-engine→Redis). 2-layer: compose CI smoke (stack 정합) + testcontainers (component boundary).
 - **D18 resource limits**: compose.yml 각 service `deploy.resources.limits` (mem_limit + cpus) 명시. collector 50MB→512MB (INV-4 DualWriter + buffer) / paper-engine 512MB (reader cache 256MB + buffer) / backtest-runner 1G / postgres 1G / redis 256MB (hard cap 기존) / prometheus+grafana 512MB. Prometheus `container_memory_usage_bytes` alert (>80% capacity warn) — cadvisor (compose.yml 기존 MCT-123).
 - **D4 SIGTERM 회귀**: integration smoke 에 SIGTERM graceful 검증 단계 (collector + paper-engine `docker compose stop` → exit 0 within stop_grace_period). MCT-176/177 LAND graceful 회귀 0 verify.
-- **MCT-179 carry over metric emit**: 5 [MCT-180 TODO] panel = collector ticks_total + active_symbols (data) / engine universe_size (engine) / reader_cache hit_ratio + p99 (engine reader_cache MCT-170). 신규 Prometheus metric emit → docker-stack.json panel TODO 해제.
+- **MCT-179 carry over metric emit**: 5 [MCT-180 TODO] panel 중 **3 panel 해제** (id=3 collector ticks_total + id=4 active_symbols (data#67) / id=6 engine universe_size (engine#55 paper daemon emit)). **2 panel (id=7 reader_cache hit_ratio + id=8 p99) = downgrade 유지** — CodeReview FIX iter2 설계 원인 판정: paper daemon 은 ReaderCache 미인스턴스화 (MCT-170 cold read 전용 scope), cold reader/backtest 경로만 emit → 지속 panel 부적합. engine#55 stats() Gauge wiring 은 보존 (cold reader 경로 유효).
 
 **Tech Stack:** GitHub Actions (compose integration smoke) / testcontainers-python / Docker Compose deploy.resources / cadvisor (MCT-123 LAND) / Prometheus / Python 3.12
 
@@ -104,6 +104,20 @@ carry_over_from_mct179:
 - [ ] reader_cache hit_ratio Gauge (기존 hit_ratio() 메서드 → Prometheus expose) + p99 Histogram → p99 Gauge
 - [ ] testcontainers test: paper-engine + Redis testcontainer → engine: prefix key verify
 
+> **AMEND (CodeReview FIX iter2, 2026-05-15 — 설계 원인, Phase 0 verify lesson 5회째)**:
+> `nas_reader_cache_hit_ratio` / `nas_reader_p99_ms` = **cold reader 사용 컴포넌트
+> 한정** metric (backtest-runner / `ColdReader.run_smoke_test()` cutover 경로).
+> **paper-engine daemon 미적용** — paper daemon = `PaperRunner` WS tick 경로,
+> `ReaderCache`/`ColdReader`/`TierReader` 미인스턴스화 (Phase 0 verify 실증, runtime/
+> grep 0 match). `ReaderCache.stats()` production caller = `ColdReader.run_smoke_test()`
+> 1곳 (production caller 0 = cutover/backtest 경로 only). MCT-170 reader_cache =
+> NAS cold read 전용 scope. → paper daemon 기동 시 영구 0.0.
+> **engine#55 `stats()` Gauge producer wiring = 보존** (cold reader/backtest 경로 유효,
+> docstring scope 명시만 추가, logic 변경 0). docker-stack.json panel id=7,8 =
+> `[MCT-180 TODO]` downgrade **유지** (해제 취소). panel id=6 (universe_size) =
+> `set_universe_size` cli.py daemon startup emit 배선 정합 → 정상 해제 유지.
+> ADR-030 §D8 amendment (MCT-180 CodeReview FIX iter2) 박제 정합.
+
 ### 2.3 mctrader-hub PR
 **Files:**
 - Create: `.github/workflows/integration-smoke.yml`
@@ -125,10 +139,19 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: compose up infra + collector + paper-engine (dev)
+      # AMEND (CodeReview FIX iter2 hub#343 P0, 2026-05-15 — 설계 원인):
+      # mc(mctrader-mc-init) = healthcheck 미보유 일회성 init 컨테이너
+      # (entrypoint 후 exit 0). `--wait` 가 비정상 간주 → exit 1 → D11 게이트
+      # 무력화. → infra(postgres/redis/minio)만 --wait, mc 는 별도 oneshot
+      # (`up --no-deps --exit-code-from mc mc`) + exit 0 검증으로 분리.
+      - name: compose up infra (postgres + redis + minio)
         run: |
           cp .env.example .env.dev
-          docker compose --profile dev --env-file .env.dev up -d postgres redis minio mc --wait --wait-timeout 180
+          docker compose --profile dev --env-file .env.dev up -d postgres redis minio --wait --wait-timeout 180
+      - name: mc-init bucket bootstrap (oneshot, exit 0 verify)
+        run: docker compose --profile dev --env-file .env.dev up --no-deps --exit-code-from mc mc
+      - name: compose up collector + paper-engine (dev)
+        run: |
           docker compose --profile dev --env-file .env.dev up -d collector paper-engine --wait --wait-timeout 240
       - name: collector ingest 60s
         run: sleep 60 && docker compose --profile dev logs collector | grep -q "ingest" || echo "collector ingest log check (advisory)"
@@ -165,7 +188,7 @@ jobs:
         annotations: { summary: "Container memory > 80% limit (D18 OOM 선제 경보)" }
 ```
 
-- [ ] docker-stack.json 5 TODO panel 해제 (id=3,4,6,7,8 — collector ticks/symbols + engine universe + reader_cache hit/p99, data#PR + engine#PR metric emit 의존)
+- [ ] docker-stack.json TODO panel 해제 — **id=3,4,6 만 해제** (collector ticks/symbols data#67 LAND + engine universe_size engine#55 paper daemon emit 정합). **id=7,8 (reader_cache hit_ratio/p99) = `[MCT-180 TODO]` downgrade 유지** (CodeReview FIX iter2, 설계 원인 — reader cache = cold reader 전용 scope, paper daemon 미인스턴스화. cold read 경로만 emit, backtest-runner oneshot 지속 panel 부적합. ADR-030 §D8 amendment 정합)
 
 ### 2.4 cross-repo LAND 순서
 1. data PR + engine PR LAND 먼저 (metric emit source)

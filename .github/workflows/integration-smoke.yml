@@ -15,10 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: compose up infra (postgres + redis + minio + mc)
+      - name: compose up infra (postgres + redis + minio)
         run: |
           cp .env.example .env.dev
-          docker compose --profile dev --env-file .env.dev up -d postgres redis minio mc --wait --wait-timeout 180
+          # mc(mctrader-mc-init) = healthcheck 없는 일회성 init 컨테이너 (entrypoint 후 exit 0).
+          # `--wait` 는 healthcheck 미보유 즉시 종료 컨테이너를 비정상 간주 → exit 1
+          # (FIX-MCT-180 hub#343 P0, 설계 원인 — plan §2.3 mc --wait 분리 amend).
+          # → infra(postgres/redis/minio)만 --wait, mc 는 별도 oneshot + exit 0 검증.
+          docker compose --profile dev --env-file .env.dev up -d postgres redis minio --wait --wait-timeout 180
+
+      - name: mc-init bucket bootstrap (oneshot, exit 0 verify)
+        run: |
+          # mc-init = minio bucket init oneshot. minio service_healthy depends_on 이미 충족.
+          # up --no-deps mc (attached, init 완료까지 block) 후 exit code 0 검증.
+          docker compose --profile dev --env-file .env.dev up --no-deps --exit-code-from mc mc
 
       - name: compose up collector + paper-engine
         run: |

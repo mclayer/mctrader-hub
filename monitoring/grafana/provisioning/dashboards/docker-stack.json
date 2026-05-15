@@ -284,7 +284,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "id": 7,
-      "description": "metric SSOT = nas_reader_cache_hit_ratio Gauge (engine#55 LAND). MCT-180 D18 TODO 해제 — reader_cache hit_ratio() → Prometheus Gauge expose 실 바인딩. SLO = ≥ 0.95 (ADR-029 D7).",
+      "description": "[MCT-180 TODO] metric nas_reader_cache_hit_ratio = engine#55 Gauge 정의 + stats() producer wiring LAND 완료. 단 paper-engine daemon(PaperRunner WS tick) 은 ReaderCache 미인스턴스화 (MCT-170 reader_cache = NAS cold read 전용 scope, FIX-MCT-180 iter2 Phase 0 verify 실증). 본 Gauge = cold reader 사용 시(backtest-runner / ColdReader.run_smoke_test cutover) 만 emit, paper daemon real-time 미적용. backtest-runner = oneshot 실행이라 지속 panel 부적합. 후속 Story 에서 cold reader telemetry pipeline 정착 시 활성. 현재 = no-data placeholder (paper daemon 한정).",
       "options": {
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
@@ -292,13 +292,13 @@
         "showThresholdMarkers": true,
         "text": {}
       },
-      "title": "NAS Reader Cache Hit Ratio (SLO: ≥ 0.95)",
+      "title": "NAS Reader Cache Hit Ratio (SLO: ≥ 0.95) [MCT-180 TODO]",
       "type": "gauge",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "nas_reader_cache_hit_ratio",
-          "legendFormat": "hit_ratio",
+          "legendFormat": "hit_ratio (cold reader only, paper daemon 미emit)",
           "refId": "A"
         }
       ]
@@ -322,8 +322,8 @@
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "description": "[MCT-180 TODO] metric nas_reader_p99_ms = engine#55 Gauge 정의 + stats() producer wiring LAND 완료. 단 paper-engine daemon(PaperRunner WS tick) 은 ReaderCache 미인스턴스화 (MCT-170 reader_cache = NAS cold read 전용 scope, FIX-MCT-180 iter2 Phase 0 verify 실증). 본 Gauge = cold reader 사용 시(backtest-runner / ColdReader.run_smoke_test cutover) 만 emit, paper daemon real-time 미적용. 운영 gate proxy = prometheus-alerts.yml NASReaderDROpen (dr_mode OPEN 전이 = p99 >500ms 3회 trigger 흡수, cold read 경로). 현재 = no-data placeholder (paper daemon 한정).",
       "id": 8,
-      "description": "metric SSOT = nas_reader_p99_ms Gauge (engine#55 LAND). MCT-180 D18 TODO 해제 — reader_cache latency p99 Gauge expose 실 바인딩. SLO = < 100ms (ADR-029 D7). 운영 gate proxy = prometheus-alerts.yml NASReaderDROpen (dr_mode OPEN 전이 = p99 >500ms 3회 trigger 흡수).",
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -332,13 +332,13 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "text": {}
       },
-      "title": "Reader Cache p99 Latency (SLO: < 100ms)",
+      "title": "Reader Cache p99 Latency (SLO: < 100ms) [MCT-180 TODO]",
       "type": "stat",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "nas_reader_p99_ms",
-          "legendFormat": "p99 ms",
+          "legendFormat": "p99 ms (cold reader only, paper daemon 미emit)",
           "refId": "A"
         }
       ]
