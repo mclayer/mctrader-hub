@@ -11,10 +11,10 @@ reserved_stories: 4
 scope_manifest: scope_manifests/EPIC-mctrader-docker-stack.yaml
 ---
 
-# EPIC-RESULTS — EPIC-mctrader-docker-stack (IN_PROGRESS, milestone 3/7)
+# EPIC-RESULTS — EPIC-mctrader-docker-stack (IN_PROGRESS, milestone 4/7)
 
 > **Epic**: mctrader Docker stack 확장 — collector + paper-engine + backtest profile + observability + WAL measurement
-> **Status**: **IN_PROGRESS** (milestone 3/7 박제, 2026-05-15 MCT-175 + MCT-176 + MCT-177 LAND)
+> **Status**: **IN_PROGRESS** (milestone 4/7 박제, 2026-05-15 MCT-175 + MCT-176 + MCT-177 + MCT-178 LAND)
 > **Stories**: MCT-175 ~ MCT-181 (7 sequential)
 > **Parent dependency**: EPIC-tier-promotion-single-source POLICY_FINALIZED (R-CRITICAL WAL 30G measurement → MCT-179 carry over)
 
@@ -44,11 +44,11 @@ ADR-030 본문 박제 = 8 D (D1/D2/D3/D7/D12/D13/D17/D18). 10 D defer = Out of s
 | **MCT-175** | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 publish | 5 | 1 | **2026-05-15** | mctrader-hub#326 (8c485ef) + mctrader-hub#327 (daef9b3) + mctrader-hub#328 (dbba327) | **COMPLETED** |
 | **MCT-176** | collector container + NAS credential rotation + effective config dump | 5 | 2 | **2026-05-15** | mctrader-hub#330 (a92e55a) + mctrader-data#64 (e3141b6) + mctrader-hub#331 (3498a8b) + mctrader-hub#TBD Phase 2 PR2 | **COMPLETED** |
 | **MCT-177** | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix | 5 | 3 | **2026-05-15** | mctrader-hub#333 (dd59b65) + mctrader-data#65 (af6c812) + mctrader-engine#54 (9cbe3b4) + mctrader-hub#334 (cc0c368) + mctrader-hub#TBD Phase 2 PR2 | **COMPLETED** |
-| MCT-178 | backtest-runner profile + oneshot + compose config CI lint + universe override | - | 4 | - | - | PLANNED |
+| **MCT-178** | backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis migration | 5 | 4 | **2026-05-15** | mctrader-hub#336 (0d56730) + mctrader-signal-collector#1 (60787c4) + mctrader-hub#337 (bd9baf2) + mctrader-hub#TBD Phase 2 PR2 | **COMPLETED** |
 | MCT-179 | observability + WAL 30G production measurement + DR mode integration + alert rule | - | 5 | - | - | PLANNED |
 | MCT-180 | integration smoke + testcontainers + resource limits + capacity alert rule | - | 6 | - | - | PLANNED |
 | MCT-181 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제 | - | 7 | - | - | PLANNED |
-| **합계** | | **15 (3/7)** | | | | |
+| **합계** | | **20 (4/7)** | | | | |
 
 ## Story-1 결과 박제 (MCT-175, 2026-05-15)
 
@@ -245,6 +245,59 @@ MCT-175 P0 lesson (Story §6.5 §7/§11 N/A 사유) + MCT-176 §6.5 4 entry 사�
 진입 prerequisite = MCT-177 Phase 2 PR2 MERGED ✓ + MCT-178 carry over 통합 (signal-collector 5종 Redis prefix code migration + `${IMAGE_TAG}` prod pin = MCT-181 owner).
 채택 결정: D2 (backtest profile oneshot 동일 image) + D4 (SIGTERM 회귀) + D10 (universe override) + D16 (compose config lint + up --wait CI gate).
 
+## Story-4 결과 박제 (MCT-178, 2026-05-15)
+
+### 3 PR cross-repo sequential LAND timeline
+
+| 시각 | PR | LAND commit | 박제 내용 |
+|------|-----|-------------|-----------|
+| 2026-05-15T10:20:05Z | mctrader-hub#336 | 0d56730 | Phase 1 docs — Story §1-§12 + ADR-030 §D2/§D16 amendment box 본문 박제 (F-001/F-002 reconciliation note) + CLAUDE.md MCT-178 IN_PROGRESS |
+| 2026-05-15T10:35:04Z | mctrader-signal-collector#1 | 60787c4 | Phase 2 PR1 signal — 5 worker **Publisher 계층 집중** `signal:*` Redis prefix dual write + Prometheus Gauge + 4 test (land_order 1, **첫 signal-collector repo PR**) |
+| 2026-05-15T10:35:55Z | mctrader-hub#337 | bd9baf2 | Phase 2 PR1 hub — backtest-runner service (profiles oneshot + restart no + no healthcheck) + `compose-validate.yml` workflow (land_order 2) |
+| 2026-05-15 (Phase 2 PR2) | mctrader-hub#TBD | TBD | Phase 2 PR2 박제 — Story §8.5/§10/§11/§12 + ADR-030 §D2/§D16 VERIFIED + scope_manifest 4/7 + **F-001 정정** + CLAUDE.md COMPLETED + RETRO 신규 + EPIC-RESULTS §Story-4 (본 section) |
+
+### MCT-178 채택 4 D (Epic Story-4 범위)
+
+| D | 결정 | Option | 결과 |
+|---|------|--------|------|
+| D2 | backtest-runner service | A | `compose.yml` `backtest-runner` service LAND — image (paper-engine 동일) + `profiles: ["oneshot"]` + `command: ["backtest","--help"]` + `restart: "no"` + no healthcheck. command override 분기 |
+| D4 | oneshot completion | C | oneshot 실행 후 exit 0 → 컨테이너 종료 (restart "no" 정합). SIGTERM = 기존 shutdown.py asyncio SSOT (MCT-177 LAND 재사용) |
+| D10 | universe override | D | `--universe-id <id>` CLI override (MCT-177 LAND option 재사용) + 미등록 exit 1 |
+| D16 | compose config CI lint | B | `.github/workflows/compose-validate.yml` 신규 — 3 profile lint (dev/prod/oneshot) + up --wait health gate (infra only, 180s budget) |
+
+### MCT-178 AC + INV
+
+| 항목 | 결과 |
+|------|------|
+| AC-1~5 | 5/5 PASS (oneshot config / restart no / universe override / compose-validate 3 lint + health gate / signal Redis dual write + Gauge) |
+| INV-1~4 | 4/4 박제 (forward-only + backtest stateless oneshot + Redis dual write idempotent + INV-5 1주일 grace) |
+| FIX 루프 | 1 iter — design iter1 **CONDITIONAL_PASS** (F-001/F-002 ADR-030 reconciliation fast-fix ba87b3c) + code iter1 **PASS** 양 PR (signal blocking 0 / hub P2 noise 2 non-blocking) |
+
+### signal-collector Redis migration (D15 carry over 이행)
+
+MCT-177 §D15 carry over → MCT-178 이행 완료. signal-collector#1 (60787c4):
+- 5 worker (fear_greed/ecos/kimchi/announcement/coinglass) — **Publisher 계층 집중** `signal:*` prefix
+- legacy unprefixed + `signal:*` dual write (1주일 grace) + Prometheus `redis_key_migration_dual_write_active` Gauge=1
+- LAND+7d legacy cleanup = 별 PR (`scripts/redis-prefix-cleanup.sh`)
+
+### F-001 정정 (Phase 2 PR2 박제 영역)
+
+CodeReview hub#337 P2 noise (non-blocking) carry → 본 PR 정정:
+- `scope_manifests/EPIC-mctrader-docker-stack.yaml` line ~170/244 stale: `docker-compose-validate.yml` → `compose-validate.yml` / `profile=backtest` → `profiles: [oneshot]`
+- ADR-030 §D2/§D16 F-001/F-002 reconciliation SSOT 정합 (MCT-175 LAND 누적 swap 박제 해소)
+
+### lesson (Publisher 계층 집중 + design drift 단절)
+
+- **§5.1**: signal-collector Publisher 계층 집중 — 5 worker 개별 SET 산재 가설 ≠ Publisher 단일 계층 실상 (MCT-170/177 §5.1 cross-repo Phase 0 verify 독립 의무 동형 3회 재현). 첫 진입 repo (#1) 일수록 Phase 0 verify 비용 우선
+- **§5.2**: design P0×0 연속 단절 (MCT-175~177 = 1→1→0 → MCT-178 CONDITIONAL_PASS). 원인 ≠ Story §6.5 부재, = ADR-030 누적 정책 drift (MCT-175 LAND swap 박제 stale 이 4 Story 만에 surface). lesson reapply 누적 효과는 신규 finding 만 감소, 기존 박제 stale 은 별 trigger surface → Epic 중간 Story 일수록 누적 문서 audit 필요
+- **§5.3**: 첫 mctrader-signal-collector repo PR (#1) — 6번째 cross-repo 대상 repo 데뷔. secret/CI/worktree 3종 사전 점검 의무 (MCT-177 CO-3 6 repo secret verify 가 signal-collector 데뷔 prerequisite 선제 충족)
+
+### 다음 Story chain
+
+**MCT-179** (observability + WAL 30G production measurement + DR mode integration + alert rule) — sequential_phase 5.
+진입 prerequisite = MCT-178 Phase 2 PR2 MERGED ✓ + R2 (WAL 30G 미측정 CRITICAL) carry 유지 (MCT-179 owner, EPIC-tier-promotion-single-source Epic CLOSED prereq prod-2 정합).
+채택 결정: D5 (Prometheus metric + WAL measurement script + amendment trigger) + D8 (앱 내장 /metrics + Grafana + alert rule) + D17 (SIGTERM graceful + startup InvariantHarness scan).
+
 ## Epic close gate
 
 | # | gate | 상태 |
@@ -252,7 +305,7 @@ MCT-175 P0 lesson (Story §6.5 §7/§11 N/A 사유) + MCT-176 §6.5 4 entry 사�
 | 1 | MCT-175 PR MERGED + ADR-030 publish + compose base + dev/prod profile LAND | ✓ (2026-05-15, hub#326 + hub#327 + hub#328) |
 | 2 | MCT-176 PR MERGED + collector container + NAS credential rotation | ✓ (2026-05-15, hub#330 + data#64 + hub#331 + hub Phase 2 PR2) |
 | 3 | MCT-177 PR MERGED + paper-engine daemon + SIGTERM graceful | ✓ (2026-05-15, hub#333 + data#65 + engine#54 + hub#334 + hub Phase 2 PR2) |
-| 4 | MCT-178 PR MERGED + backtest profile + compose config CI gate | PENDING |
+| 4 | MCT-178 PR MERGED + backtest profile + compose config CI gate | ✓ (2026-05-15, hub#336 + signal-collector#1 + hub#337 + hub Phase 2 PR2). signal-collector 5 worker Publisher 계층 Redis prefix dual write LAND (D15 carry 이행). DesignReview iter1 CONDITIONAL_PASS (F-001/F-002 fast-fix ba87b3c) |
 | 5 | MCT-179 PR MERGED + WAL 30G production measurement (R2 CRITICAL 해소) + observability | PENDING |
 | 6 | MCT-180 PR MERGED + integration smoke + resource limits + alert rule | PENDING |
 | 7 | MCT-181 PR MERGED + Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync | PENDING |
@@ -282,4 +335,5 @@ MCT-175 P0 lesson (Story §6.5 §7/§11 N/A 사유) + MCT-176 §6.5 4 entry 사�
 - MCT-175 RETRO: `docs/retros/RETRO-MCT-175.md`
 - MCT-176 RETRO: `docs/retros/RETRO-MCT-176.md`
 - MCT-177 RETRO: `docs/retros/RETRO-MCT-177.md`
+- MCT-178 RETRO: `docs/retros/RETRO-MCT-178.md`
 - Parent Epic results (POLICY_FINALIZED): `docs/retros/EPIC-RESULTS-EPIC-tier-promotion-single-source.md`
