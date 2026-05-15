@@ -121,7 +121,8 @@
       "title": "backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis prefix code migration",
       "reserved_at": "2026-05-15",
       "started_at": "2026-05-15",
-      "status": "IN_PROGRESS",
+      "completed_at": "2026-05-15",
+      "status": "COMPLETED",
       "epic": "EPIC-mctrader-docker-stack",
       "repo": "mctrader-hub + mctrader-signal-collector",
       "phase_pair": "phase1_phase2",
@@ -133,6 +134,8 @@
     "MCT-179": {
       "title": "observability + WAL 30G production measurement + DR mode integration + alert rule",
       "reserved_at": "2026-05-15",
+      "started_at": "2026-05-15",
+      "status": "IN_PROGRESS",
       "epic": "EPIC-mctrader-docker-stack",
       "repo": "mctrader-hub + mctrader-data + mctrader-engine",
       "phase_pair": "phase1_phase2",
