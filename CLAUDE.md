@@ -85,7 +85,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 | 2 | **MCT-176** | **COMPLETED 2026-05-15** | D7/D9/D14 | collector container + NAS credential rotation + effective config dump (hub#330 + data#64 + hub#331 + Phase 2 PR2) |
 | 3 | **MCT-177** | **COMPLETED 2026-05-15** | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix (hub#333 + data#65 + engine#54 + hub#334 + Phase 2 PR2) |
 | 4 | **MCT-178** | **COMPLETED 2026-05-15** | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint + signal-collector Redis prefix code migration (hub#336 + signal-collector#1 + hub#337 + Phase 2 PR2) |
-| 5 | MCT-179 | PLANNED | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
+| 5 | **MCT-179** | **IN_PROGRESS 2026-05-15** | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
 | 6 | MCT-180 | PLANNED | D4/D11/D18 | integration smoke + testcontainers + resource limits + alert rule |
 | 7 | MCT-181 | PLANNED | D12/D19 | image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED |
 
@@ -311,7 +311,7 @@ CodeReview hub#337 P2 noise (non-blocking) carry → 본 PR 정정:
 
 ### 다음 Story 진입 권고
 
-**MCT-179** (observability + WAL 30G production measurement + DR mode integration + alert rule) — sequential_phase 5.
+**MCT-179 IN_PROGRESS** (observability + WAL 30G production measurement + DR mode integration + alert rule) — sequential_phase 5.
 
 진입 prerequisite:
 1. MCT-178 Phase 2 PR2 MERGED ✓ (본 PR LAND 시점)
@@ -319,6 +319,34 @@ CodeReview hub#337 P2 noise (non-blocking) carry → 본 PR 정정:
 3. **R2 (WAL 30G 미측정 CRITICAL) = MCT-179 owner** — peak market open 09:00 KST burst window 측정 의무. 30G 초과 시 D11 hard_limit amendment 발의 (FAIL gate). EPIC-tier-promotion-single-source Epic CLOSED prereq prod-2 정합.
 
 채택 결정: D5 (Prometheus metric + WAL measurement script + amendment trigger) + D8 (앱 내장 /metrics + Grafana + alert rule) + D17 (SIGTERM graceful + startup InvariantHarness scan).
+
+## MCT-179 IN_PROGRESS (2026-05-15) — observability + WAL 30G production measurement + DR mode + alert
+
+> **sequential_phase 5** — EPIC-mctrader-docker-stack Story-5. **R2 CRITICAL owner** (WAL 30G production
+> measurement — EPIC-tier-promotion-single-source Epic CLOSED prereq prod-2 흡수). Phase 1 PR docs IN_PROGRESS.
+
+### R2 CRITICAL 상태
+
+| 항목 | 상태 |
+|------|------|
+| WAL 30G synthetic baseline | Phase 2 PR2 박제 예정 (paper-synthetic + peak hybrid, MCT-172 D8-2 패턴) |
+| WAL 30G production 실 측정 | 별 PR carry over (production deploy + peak 09:00 KST 1h burst 후) |
+| D11 hard_limit amendment trigger | WAL > 30G 시 GitHub issue 자동 발의 + Epic CLOSE FAIL gate |
+
+### 채택 3 D
+
+| D | Option | 내용 |
+|---|--------|------|
+| D5 (WAL 측정 + Gauge) | C | `scripts/measure_wal_baseline.py` + `wal_capacity_bytes` Gauge + 30G 초과 issue trigger |
+| D8 (observability) | C | Prometheus scrape (collector/paper-engine /metrics) + Grafana docker-stack.json 5 panel + alert 4종 |
+| D17 (startup scan) | A | startup InvariantHarness 8종 scan (MCT-171 import) + warn+continue (ambiguity restart race 방지) |
+
+### Key References
+
+- Story: `docs/stories/MCT-179.md`
+- plan: `docs/superpowers/plans/2026-05-15-mct-179-observability-wal30g.md`
+- ADR-030 §D5/§D8/§D17: `docs/adr/ADR-030-docker-stack-governance.md`
+- ADR-029 §D11 cross-ref: WAL 30G hard_limit SSOT
 
 ## Pending Stories (Replication Backlog)
 
