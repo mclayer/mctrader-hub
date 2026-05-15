@@ -3,9 +3,15 @@
 name: cross-repo-lock-check
 
 on:
-  # MCT-175 Phase 2 PR1 = workflow_dispatch only (secret MCTRADER_CROSS_REPO_TOKEN 미등록 상태).
-  # MCT-176 carry over: secret 등록 + pull_request trigger 복원 (paths: uv.lock + workflow + scripts).
-  # 근거: ADR-030 §D13 amendment "MCT-176 secret 등록 후 auto trigger 활성화 의무".
+  # MCT-176: pull_request trigger 복원 (AC-5).
+  # prerequisite: MCTRADER_CROSS_REPO_TOKEN secret 등록 필요.
+  # 등록 가이드: docs/runbooks/docker-stack-deploy.md §Secret registration 참조.
+  # ADR-030 §D13 amendment "MCT-176 secret 등록 후 auto trigger 활성화 의무".
+  pull_request:
+    paths:
+      - "uv.lock"
+      - ".github/workflows/cross-repo-lock-check.yml"
+      - "scripts/check_cross_repo_locks.py"
   workflow_dispatch:
 
 jobs:

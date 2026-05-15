@@ -212,7 +212,7 @@ def test_sigterm_handler_sets_shutdown_flag(monkeypatch):
     build:
       context: ../mctrader-data
     env_file:
-      - .env.${COMPOSE_PROFILE:-dev}
+      - .env.${COMPOSE_PROFILES:-dev}  # Docker Compose 표준 var (FIX-MCT-176-PR1-001 F-001, runbook §Single Profile)
     volumes:
       - /var/lib/mctrader/wal:/var/lib/mctrader/data  # ADR-030 §D1 WAL host bind mount
       - mctrader_l1:/var/lib/mctrader/data/l1         # ADR-030 §D1 L1 named volume

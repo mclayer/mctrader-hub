@@ -28,6 +28,7 @@ out/
 .env
 .env.dev
 .env.prod
+.env.*.bak             # FIX-MCT-176-PR1-001 F-003: rotate script sed -i.bak secret 평문 잔류 방지
 docker/minio/.env
 
 # git worktrees (ADR-019)

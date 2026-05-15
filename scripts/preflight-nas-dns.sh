@@ -19,6 +19,12 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 99
 fi
 
+# P2-1 fix: env file syntax validate before sourcing
+if ! bash -n "$ENV_FILE" 2>/dev/null; then
+  echo "[preflight] FAIL: $ENV_FILE syntax invalid" >&2
+  exit 99
+fi
+
 # shellcheck disable=SC1090
 set -a; source "$ENV_FILE"; set +a
 
@@ -36,17 +42,30 @@ PORT="${HOST_PORT##*:}"
 
 echo "[preflight] endpoint = $ENDPOINT (host=$HOST, port=$PORT)"
 
-# Step 1: DNS resolution
+# Step 1: DNS resolution + P1-2 fix: sentinel IP validation (wildcard DNS guard)
 if command -v dig >/dev/null 2>&1; then
-  dig +short "$HOST" | grep -q . || { echo "[preflight] FAIL: DNS resolve $HOST"; exit 10; }
+  RESOLVED_IPS=$(dig +short "$HOST" 2>/dev/null || true)
 elif command -v getent >/dev/null 2>&1; then
-  getent hosts "$HOST" >/dev/null || { echo "[preflight] FAIL: DNS resolve $HOST"; exit 10; }
+  RESOLVED_IPS=$(getent hosts "$HOST" 2>/dev/null | awk '{print $1}' || true)
 elif command -v nslookup >/dev/null 2>&1; then
-  nslookup "$HOST" >/dev/null 2>&1 || { echo "[preflight] FAIL: DNS resolve $HOST"; exit 10; }
+  RESOLVED_IPS=$(nslookup "$HOST" 2>/dev/null | awk '/^Address: /{print $2}' | grep -v '#' || true)
 else
   echo "[preflight] WARN: no DNS tool (dig/getent/nslookup) available, skipping DNS check"
+  RESOLVED_IPS="SKIP"
 fi
-echo "[preflight] PASS: DNS resolved $HOST"
+
+if [[ "$RESOLVED_IPS" != "SKIP" ]]; then
+  if [[ -z "$RESOLVED_IPS" ]]; then
+    echo "[preflight] FAIL: DNS resolve $HOST returned empty" >&2
+    exit 10
+  fi
+  # P1-2 fix: wildcard DNS sentinel check (corporate DNS 0.0.0.0 / 127.0.0.1)
+  if echo "$RESOLVED_IPS" | grep -qE '^(0\.0\.0\.0|127\.0\.0\.1)$'; then
+    echo "[preflight] FAIL: DNS resolve $HOST returned sentinel IP ($RESOLVED_IPS) -- wildcard DNS suspected" >&2
+    exit 10
+  fi
+fi
+echo "[preflight] PASS: DNS resolved $HOST ($RESOLVED_IPS)"
 
 # Step 2: TCP connect
 if ! timeout 5 bash -c "</dev/tcp/$HOST/$PORT" 2>/dev/null; then
@@ -60,8 +79,9 @@ if ! command -v mc >/dev/null; then
   echo "[preflight] WARN: 'mc' not available, skipping S3 list bucket check"
 else
   TMP_ALIAS="preflight-$$"
+  # P1-3 fix: trap BEFORE mc alias set to avoid SIGINT race
+  trap "mc alias remove $TMP_ALIAS --quiet 2>/dev/null || true" EXIT INT TERM
   mc alias set "$TMP_ALIAS" "$ENDPOINT" "$ACCESS_KEY" "$SECRET_KEY" --quiet 2>/dev/null
-  trap "mc alias remove $TMP_ALIAS --quiet 2>/dev/null || true" EXIT
   mc ls "$TMP_ALIAS/$BUCKET" --quiet >/dev/null 2>&1 || { echo "[preflight] FAIL: S3 list $BUCKET"; exit 30; }
   echo "[preflight] PASS: S3 list bucket $BUCKET"
 fi
