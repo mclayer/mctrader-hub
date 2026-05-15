@@ -134,7 +134,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] capacity_probe.py WAL bytes Prometheus Gauge: `wal_capacity_bytes` Gauge expose (기존 capacity_probe + prometheus_exporters MCT-171 LAND 확장)
+- [x] WAL bytes Prometheus Gauge SSOT = **`mctrader_capacity_usage_bytes{layer="WAL_local"}`** (MCT-171 LAND `prometheus_exporters.py:98` + `capacity_probe.py:331` emit, 기존 Gauge 재사용 — **신규 Gauge 추가 불요**). FIX iter1 정정: `wal_capacity_bytes` 신규 Gauge 박제 폐기 (LAND registry 부재 가공 metric). data PR scope 변경 없음 (capacity_probe Gauge 추가 작업 불필요 — MCT-171 기존 emit 경로 그대로)
 - [ ] cli.py collect startup hook: `InvariantHarness().scan_all()` (MCT-171 invariant_harness.py LAND import) — 8종 scan, ambiguity (D10) container restart race log warn
 - [ ] 신규 test: measure_wal_baseline paper-synthetic exit 0 + EXCEED exit 7 (mock 45G)
 
@@ -142,37 +142,47 @@ if __name__ == "__main__":
 
 **Files:**
 - Modify: `monitoring/prometheus.yml` (collector + paper-engine /metrics scrape target)
-- Create: `monitoring/prometheus-alerts.yml` (WAL 25G/30G + NAS 5xx + p99 alert rule)
-- Create: `monitoring/grafana/dashboards/docker-stack.json` (WAL bytes / collector throughput / paper position / NAS hit ratio / reader cache p99 panel)
+- Create: `monitoring/prometheus-alerts.yml` (WAL 25G/30G + NAS DR OPEN + ambiguity alert rule)
+- Create: `monitoring/grafana/provisioning/dashboards/docker-stack.json` (9 panel — WAL / collector / paper position / NAS)
 - Modify: `compose.yml` (collector + paper-engine 의 9090 /metrics port + prometheus alerts volume mount)
 
 - [ ] prometheus.yml scrape job: `mctrader-collector:9090` + `mctrader-paper-engine:9090` (or 8080/metrics)
-- [ ] prometheus-alerts.yml:
+- [x] prometheus-alerts.yml (FIX iter1 정정 — 가공 metric 폐기 + 실 LAND series 바인딩):
 
 ```yaml
 groups:
   - name: mctrader-docker-stack
     rules:
       - alert: WALCapacityWarn
-        expr: wal_capacity_bytes > 25 * 1024^3
+        expr: mctrader_capacity_usage_bytes{layer="WAL_local"} > 25 * 1024^3
         for: 5m
         labels: { severity: warning }
         annotations: { summary: "WAL capacity > 25G (D11 warn)" }
       - alert: WALCapacityCritical
-        expr: wal_capacity_bytes > 30 * 1024^3
+        expr: mctrader_capacity_usage_bytes{layer="WAL_local"} > 30 * 1024^3
         for: 1m
         labels: { severity: critical }
         annotations: { summary: "WAL > 30G — ADR-029 D11 hard_limit amendment 의무 (Epic CLOSE FAIL gate)" }
-      - alert: NASReader5xx
-        expr: rate(nas_reader_5xx_total[5m]) > 0
+      # 폐기: nas_reader_5xx_total / nas_reader_p99_ms (LAND registry 부재 가공 metric).
+      # NAS 운영 gate = engine dr_mode.py LAND (MCT-170) 실존 series. DR OPEN 전이 = D8=C hybrid proxy.
+      - alert: NASReaderDROpen
+        expr: increase(nas_reader_dr_transitions_total{to_state="OPEN"}[5m]) > 0
         labels: { severity: warning }
-      - alert: ReaderCacheP99High
-        expr: nas_reader_p99_ms > 100
-        for: 5m
+        annotations: { summary: "NAS reader DR mode OPEN transition (D8=C hybrid threshold 충족)" }
+      - alert: NASReaderAmbiguity
+        expr: increase(nas_reader_ambiguity_total[5m]) > 0
         labels: { severity: warning }
+        annotations: { summary: "NAS reader UNKNOWN_TIER ambiguity (D10 NAS+local XOR violation)" }
 ```
 
-- [ ] grafana docker-stack.json: 5 panel (WAL bytes timeseries + collector ingest rate + paper position gauge + NAS hit_ratio + reader cache p99)
+> **metric-name SSOT** (FIX iter1 verify): WAL = `mctrader_capacity_usage_bytes{layer="WAL_local"}`
+> (MCT-171 LAND) / NAS DR = `nas_reader_dr_transitions_total` + `nas_reader_ambiguity_total`
+> (MCT-170 engine `io/dr_mode.py` LAND). 폐기 3종 = LAND registry 부재.
+
+- [x] grafana docker-stack.json: 9 panel — WAL bytes gauge+trend (id=1,2 MCT-171 SSOT) /
+  collector ingest+symbols (id=3,4 **MCT-180 TODO**) / paper open positions (id=5 `sum(mctrader_engine_open_positions)`
+  실존) + universe size (id=6 **MCT-180 TODO**) / NAS hit_ratio (id=7 **MCT-180 TODO**) +
+  reader p99 (id=8 **MCT-180 TODO**). TODO panel = description + title prefix 박제 (no-data placeholder)
 - [ ] compose.yml: prometheus service 의 `./monitoring/prometheus-alerts.yml:/etc/prometheus/alerts.yml:ro` + prometheus.yml rule_files 참조 + grafana dashboard provisioning volume
 
 ### 2.3 cross-repo LAND 순서

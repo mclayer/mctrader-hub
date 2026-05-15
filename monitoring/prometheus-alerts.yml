@@ -1,0 +1,45 @@
+# MCT-179 D8 - Prometheus alert rules (WAL capacity + NAS DR mode)
+# ADR-030 D8 + ADR-029 D11 cross-ref
+# metric-name SSOT = MCT-171 LAND prometheus_exporters.py + MCT-170 LAND engine dr_mode.py
+# (FIX-MCT-179 iter1: wal_capacity_bytes / nas_reader_5xx_total / nas_reader_p99_ms 가공 metric 폐기)
+groups:
+  - name: mctrader-docker-stack
+    rules:
+      - alert: WALCapacityWarn
+        expr: mctrader_capacity_usage_bytes{layer="WAL_local"} > 25 * 1024 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WAL capacity > 25G (D11 warn)"
+          description: "WAL bytes {{ $value | humanize1024 }}B exceeds 25G warn threshold (ADR-029 D11 hard_limit=30G). metric SSOT = MCT-171 capacity_probe.emit_capacity_usage(layer=WAL_local)."
+
+      - alert: WALCapacityCritical
+        expr: mctrader_capacity_usage_bytes{layer="WAL_local"} > 30 * 1024 * 1024 * 1024
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "WAL > 30G - ADR-029 D11 hard_limit amendment required (Epic CLOSE FAIL gate)"
+          description: "WAL bytes {{ $value | humanize1024 }}B exceeds 30G hard_limit. ADR-029 D11 amendment required (D8-7=A FAIL gate, MCT-179/MCT-172). metric SSOT = MCT-171 capacity_probe.emit_capacity_usage(layer=WAL_local)."
+
+      # NAS DR mode 전이 alert — engine dr_mode.py LAND (MCT-170) 실존 series 바인딩.
+      # 폐기: nas_reader_5xx_total / nas_reader_p99_ms (LAND registry 부재, 가공 metric).
+      # to_state=OPEN 전이 = D8=C hybrid trigger (5xx 5회 OR p99 >500ms 3회) 충족 후 회로 차단 = 운영 gate proxy.
+      - alert: NASReaderDROpen
+        expr: increase(nas_reader_dr_transitions_total{to_state="OPEN"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NAS reader DR mode OPEN transition detected"
+          description: "engine dr_mode OPEN 전이 {{ $value }}회/5m (D8=C hybrid threshold 충족 — NAS 5xx burst 또는 p99 >500ms 후 회로 차단, ADR-029 D8). MCT-170 dr_mode.py LAND series."
+
+      - alert: NASReaderAmbiguity
+        expr: increase(nas_reader_ambiguity_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NAS reader UNKNOWN_TIER ambiguity detected"
+          description: "nas_reader_ambiguity_total {{ $value }}회/5m (D10 NAS+local XOR violation / UNKNOWN_TIER 진입). ADR-029 D10 + ADR-029 §D10 footnote 30d exemption window. MCT-170 dr_mode.py LAND series."

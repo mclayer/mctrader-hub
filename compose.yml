@@ -114,6 +114,7 @@ services:
       - --storage.tsdb.retention.time=30d
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus-alerts.yml:/etc/prometheus/alerts.yml:ro  # MCT-179 D8 alert rules
       - mctrader_prometheus:/prometheus
     networks:
       mctrader_net:
