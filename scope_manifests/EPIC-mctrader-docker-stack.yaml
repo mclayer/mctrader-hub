@@ -1,0 +1,342 @@
+epic_key: EPIC-mctrader-docker-stack
+epic_title: "mctrader Docker stack 확장 — collector + paper-engine + backtest profile + observability + WAL measurement"
+parent_dependency: []
+status: phase:요구사항-PLANNED
+created: 2026-05-15
+brainstorm_session: 2026-05-15 (Phase 0 verify + Phase 1 codeforge-brainstorm + 3 pass Codex review)
+brainstorm_phase0_agents: [DomainAgent, ResearcherAgent, RequirementsAnalystAgent, PMOAgent]
+codex_review:
+  pass_1: "2026-05-15 — 6 결정점 (D1-D6 infrastructure)"
+  pass_2: "2026-05-15 — 6 결정점 (D7-D12 wiring)"
+  pass_3: "2026-05-15 — 7 결정점 (D13-D19 detail)"
+  total_decisions: 19
+  story_count: 7
+
+motivation: |
+  mctrader-hub/compose.yml 에 누락된 어플리케이션 서비스 (mctrader-data collector + mctrader-engine
+  paper-engine + backtest-runner) 를 추가해 single-host Docker stack 으로 전 mode (backtest/paper/live)
+  를 운영 가능하게 한다. 동시에 NAS MinIO (prod) ↔ hub MinIO (dev) profile 전환, observability
+  (Prometheus + Grafana + alert), WAL 30G production measurement (EPIC-tier-promotion CLOSED prereq),
+  integration smoke (compose CI) 를 통합한다.
+
+  배경:
+  - 현 compose.yml = postgres + minio + redis + mc-init 4 service 만 정의. 어플리케이션 (data/engine)
+    은 compose 외부에서 별도 실행 → operational ambiguity + dev/prod parity 부재
+  - EPIC-tier-promotion-single-source 의 R-CRITICAL (WAL 30G 가설 미측정, 50sym×3ch×12seg/h ±50%)
+    이 production 운영 진입의 blocker. 본 Epic 의 MCT-179 가 measurement 책임
+  - codeforge-plugin#620 post-mortem Fix-2 (compose CI gate) 의 mctrader-consumer 측 구현
+
+design_decisions:
+  # ─── Infrastructure 결정 (D1-D6, 1st pass Codex) ───
+  D1:
+    decision: "WAL host disk 별도 mount + L1 named volume"
+    option_chosen: C
+    rationale: "WAL = host disk bind mount (forward-only invariant + 손실 시 영구 손실 risk 명시) / L1 = named volume (compose lifecycle 정합). 4 layer capacity (D11 from EPIC-tier-promotion) 정합"
+    owner_story: MCT-175
+  D2:
+    decision: "paper-engine daemon + backtest-runner profile [oneshot] 동일 image command override"
+    option_chosen: A
+    rationale: "image build 1회 → command 분기. paper = restart unless-stopped daemon / backtest = profile + oneshot. dev/prod parity"
+    owner_story: MCT-177 + MCT-178
+  D3:
+    decision: "compose profiles dev/prod + env_file 분리 (.env.dev / .env.prod)"
+    option_chosen: A
+    rationale: "dev = hub MinIO + paper / prod = NAS MinIO + paper+live. profile + env_file 두 축으로 분리"
+    owner_story: MCT-175
+  D4:
+    decision: "SIGTERM handler + 60s grace + start-time invariant check"
+    option_chosen: C
+    rationale: "graceful drain (WAL flush + sealed segment 완료 대기) + 시작 시 InvariantHarness 8종 scan (D17 정합)"
+    owner_story: MCT-177 + MCT-179
+  D5:
+    decision: "Prometheus metric + measurement script + amendment trigger (WAL 30G hypothesis verify)"
+    option_chosen: C
+    rationale: "EPIC-tier-promotion R-CRITICAL carry over 해소. peak market open 09:00 KST 1h burst window 측정 + 30G 초과 시 D11 hard_limit amendment 발의"
+    owner_story: MCT-179
+  D6:
+    decision: "7 Story 분해 (MCT-175 ~ MCT-181)"
+    option_chosen: B
+    rationale: "infrastructure (175) → collector (176) → paper-engine (177) → backtest profile (178) → observability+WAL (179) → integration smoke (180) → Epic 박제 (181) sequential chain"
+    owner_story: epic-level
+
+  # ─── Wiring 결정 (D7-D12, 2nd pass Codex) ───
+  D7:
+    decision: "DNS 직접 해석 (preflight 검증 의무)"
+    option_chosen: A
+    rationale: "NAS MinIO endpoint = mcnas01.internal.mclayer.it:9000 직접 해석. compose preflight 에 nslookup 검증 의무 + .env.prod 의 endpoint 변경 시 fail-fast"
+    owner_story: MCT-175 + MCT-176
+  D8:
+    decision: "앱 내장 /metrics + Grafana dashboard + alert rule"
+    option_chosen: C
+    rationale: "collector + paper-engine + backtest-runner 모두 :9090/metrics expose (mctrader_* + nas_reader_* + nas_reader_ambiguity_total 등) + Grafana dashboard + Prometheus alert rule (>80% capacity warn)"
+    owner_story: MCT-179
+  D9:
+    decision: ".env 패턴 유지 + rotate-nas-credentials.sh + cron + Slack"
+    option_chosen: D
+    rationale: "secret manager 도입 cost 회피 (1-host 환경). .env 파일 + 90d rotation 스크립트 + cron schedule + Slack 알림. compose 재시작 = secret 갱신 vehicle"
+    owner_story: MCT-176
+  D10:
+    decision: "env default + compose command override 둘 다"
+    option_chosen: D
+    rationale: "universe 50-sym list = .env.example 의 default (MCT-103) + compose command 의 --universe-id 로 case-specific override (backtest = subset universe 가능)"
+    owner_story: MCT-177 + MCT-178
+  D11:
+    decision: "compose CI smoke + testcontainers 병행"
+    option_chosen: C
+    rationale: "compose CI = stack-level smoke (postgres+minio+redis 정합) / testcontainers = repo-level unit (collector→NAS 단위). 두 layer 모두 gate"
+    owner_story: MCT-180
+  D12:
+    decision: "semver + sha + latest 병행 (prod = sha/release pin, dev = latest)"
+    option_chosen: B
+    rationale: "prod = release tag (v1.x.x) + git sha pin + dev = latest (rapid iteration). image registry = ghcr.io/mclayer/{repo}:{tag}"
+    owner_story: MCT-181
+
+  # ─── Detail 결정 (D13-D19, 3rd pass Codex) ───
+  D13:
+    decision: "각 repo 독립 uv.lock + CI gate (cross-repo lock-version constraint check)"
+    option_chosen: D
+    rationale: "monorepo lock 회피 (4 repo 독립 lifecycle) + CI gate 로 cross-repo Python/major lib version drift 차단"
+    owner_story: MCT-175
+  D14:
+    decision: "env override + YAML default (effective config 출력 의무)"
+    option_chosen: D
+    rationale: "각 컨테이너 시작 시 effective config (env↔YAML 우선순위 표기) 를 stdout 로 dump → log SoT. 정합성 검증 의무"
+    owner_story: MCT-176
+  D15:
+    decision: "Redis key prefix (signal:/market:/engine:)"
+    option_chosen: C
+    rationale: "namespace 분리 + key collision 방지. flush 시 prefix 단위 partial flush 가능"
+    owner_story: MCT-177
+  D16:
+    decision: "docker compose config lint + compose up --wait health gate"
+    option_chosen: B
+    rationale: "PR CI = compose config (syntax) + compose up --wait (healthcheck pass) 2단계 gate"
+    owner_story: MCT-178
+  D17:
+    decision: "SIGTERM graceful + startup InvariantHarness scan (외부 backup 없이)"
+    option_chosen: A
+    rationale: "host disk 손실 risk 수용 (forward-only invariant + NAS = L1+ SoT). 외부 backup 도입 cost 회피"
+    owner_story: MCT-179
+    risk_note: "host disk 손실 시 WAL local segment 영구 손실 → L1 NAS PUT 직전 segment 만 RPO ≠ 0 window. D5 ingest block 으로 mitigation"
+  D18:
+    decision: "명시 resource limits + Prometheus alert (>80% warn)"
+    option_chosen: D
+    rationale: "compose deploy.resources.limits (CPU + memory) 명시 + Prometheus container_memory_usage_bytes > 80% warn alert. 4 layer capacity 정합"
+    owner_story: MCT-180
+  D19:
+    decision: "mctrader_runs named volume + NAS sync on completion"
+    option_chosen: C
+    rationale: "backtest 결과 artifact = mctrader_runs named volume (compose lifecycle) + 완료 후 NAS sync (별 prefix tier=runs/). completion marker + retry on fail"
+    owner_story: MCT-181
+    risk_note: "NAS sync 실패 시 local↔remote 갈림 → completion marker file + 3회 retry + alert"
+
+# ─── 19 D ↔ 7 Story 통합 매트릭스 (PMO finalize) ───
+story_decision_matrix:
+  MCT-175:
+    title: "compose base + dev/prod profile + env 분리 + cross-repo lock gate"
+    repo: mctrader-hub
+    phase_pair: phase1_phase2
+    decisions: [D1, D3, D7, D13]
+    cross_repo:
+      - { repo: mctrader-hub, change: "compose.yml refactor + compose.override.yml 신규 + .env.dev/.env.prod template + scripts/cross-repo-lock-check.sh" }
+    sequential_depends_on: []
+    rationale: "Epic entry — infrastructure 기반. WAL host mount + L1 named volume + dev/prod profile + NAS DNS preflight + cross-repo lock CI gate"
+  MCT-176:
+    title: "collector container + NAS credential rotation + effective config dump"
+    repo: mctrader-hub + mctrader-data
+    phase_pair: phase1_phase2
+    decisions: [D7, D9, D14]
+    cross_repo:
+      - { repo: mctrader-hub, change: "compose.yml 에 collector service 추가 + scripts/rotate-nas-credentials.sh 신규 + cron job + docs/runbooks/nas-minio-secret-rotation.md amend" }
+      - { repo: mctrader-data, change: "src/mctrader_data/cli.py 에 effective config dump (env↔YAML 우선순위 표기) + collector entrypoint 정합" }
+    sequential_depends_on: [MCT-175]
+    rationale: "compose 진입 후 첫 어플리케이션 service. NAS endpoint preflight (D7) + credential rotation (D9) + config provenance (D14)"
+  MCT-177:
+    title: "paper-engine daemon + SIGTERM graceful + universe override + Redis prefix"
+    repo: mctrader-hub + mctrader-engine
+    phase_pair: phase1_phase2
+    decisions: [D2, D4, D10, D15]
+    cross_repo:
+      - { repo: mctrader-hub, change: "compose.yml 에 paper-engine service (restart unless-stopped) + redis key prefix 정합" }
+      - { repo: mctrader-engine, change: "src/mctrader_engine/cli.py 에 SIGTERM handler + 60s grace + universe override CLI arg + redis client prefix" }
+    sequential_depends_on: [MCT-176]
+    rationale: "daemon mode 첫 service. SIGTERM graceful (D4) + universe env↔command override (D10) + redis namespace 분리 (D15)"
+  MCT-178:
+    title: "backtest-runner profile + oneshot + compose config lint + universe override"
+    repo: mctrader-hub + mctrader-engine
+    phase_pair: phase1_phase2
+    decisions: [D2, D4, D10, D16]
+    cross_repo:
+      - { repo: mctrader-hub, change: "compose.yml 에 backtest-runner service (profile=backtest, restart=no) + Dockerfile HEALTHCHECK adjust + .github/workflows/docker-compose-validate.yml 신규" }
+      - { repo: mctrader-engine, change: "backtest CLI entrypoint + oneshot completion marker" }
+    sequential_depends_on: [MCT-177]
+    rationale: "paper-engine 와 동일 image, command override 로 backtest 분기 (D2). compose config + up --wait CI gate (D16)"
+  MCT-179:
+    title: "observability + WAL 30G measurement + DR mode integration + alert rule"
+    repo: mctrader-hub + mctrader-data + mctrader-engine
+    phase_pair: phase1_phase2
+    decisions: [D5, D8, D17]
+    cross_repo:
+      - { repo: mctrader-hub, change: "monitoring/grafana/dashboards/docker-stack.json 신규 + monitoring/prometheus.yml scrape target 추가 + alert rule (>80% capacity warn) + docs/runbooks/docker-stack-deploy.md 신규" }
+      - { repo: mctrader-data, change: "scripts/measure_wal_baseline.py 신규 (peak 09:00 KST 1h burst) + capacity_probe Prometheus emit 정합" }
+      - { repo: mctrader-engine, change: "/metrics endpoint expose + startup InvariantHarness scan call" }
+    sequential_depends_on: [MCT-178]
+    rationale: "EPIC-tier-promotion R-CRITICAL 해소 (WAL 30G prod measurement). D5 amendment trigger + D8 Grafana + D17 startup invariant scan"
+  MCT-180:
+    title: "integration smoke + testcontainers + resource limits + alert rule"
+    repo: mctrader-hub + mctrader-data + mctrader-engine
+    phase_pair: phase1_phase2
+    decisions: [D4, D11, D18]
+    cross_repo:
+      - { repo: mctrader-hub, change: ".github/workflows/docker-compose-smoke.yml 신규 (compose up --wait + smoke) + compose deploy.resources.limits 명시 + alert rule (container_memory_usage_bytes > 80%)" }
+      - { repo: mctrader-data, change: "tests/integration/test_compose_smoke.py 신규 (testcontainers) + collector→NAS write 단위 smoke" }
+      - { repo: mctrader-engine, change: "tests/integration/test_paper_engine_smoke.py 신규 (testcontainers) + paper daemon graceful 검증" }
+    sequential_depends_on: [MCT-179]
+    rationale: "stack-level (compose) + repo-level (testcontainers) 2 layer gate (D11). resource limits + alert (D18). SIGTERM graceful 회귀 (D4)"
+  MCT-181:
+    title: "image registry pin + backtest artifact NAS sync + Epic POLICY_FINALIZED 박제"
+    repo: mctrader-hub + mctrader-data + mctrader-engine
+    phase_pair: phase1_phase2
+    decisions: [D12, D19]
+    cross_repo:
+      - { repo: mctrader-hub, change: "compose.yml image pin (prod = ghcr.io/mclayer/*:sha-* + dev = latest) + mctrader_runs named volume + NAS sync entrypoint + EPIC-RESULTS-EPIC-mctrader-docker-stack.md + CLAUDE.md POLICY_FINALIZED 박제" }
+      - { repo: mctrader-data, change: "Dockerfile build → ghcr.io push CI" }
+      - { repo: mctrader-engine, change: "Dockerfile build → ghcr.io push CI + backtest completion marker + NAS sync hook" }
+    sequential_depends_on: [MCT-180]
+    rationale: "Epic 박제 + image registry governance (D12) + backtest artifact NAS sync (D19, completion marker + retry)"
+
+planned_adrs:
+  amendments:
+    - adr: ADR-027
+      section: §D2 Stage 1 HTTP gate
+      change: "MCT-155 TLS cutover gate 승격 권장 (HIGH risk surface). 본 Epic 진입 전 amendment 채택 여부 결정 의무"
+      owner_story: MCT-176
+      optional: true
+  new_proposals:
+    - adr: ADR-030-docker-stack-governance
+      title: "Docker stack governance — single-host compose + dev/prod profile + image registry + observability"
+      owner_story: MCT-175
+      expected_sections: |
+        D1 (WAL host mount + L1 volume) / D2 (paper daemon + backtest profile) / D3 (dev/prod profile)
+        / D7 (NAS DNS preflight) / D12 (image registry pin) / D13 (cross-repo lock gate)
+        / D17 (host disk loss risk acceptance) / D18 (resource limits) — 8 D 박제 대상
+        D4/D5/D8/D9/D10/D11/D14/D15/D16/D19 = Story 구현 detail (ADR 본문 박제 제외, manifest 박제로 충분)
+      status: Proposed
+      drafted_at: "2026-05-15"
+      land_target: MCT-175
+
+planned_files:
+  mctrader-hub:
+    - { path: compose.yml, owner: MCT-175 + MCT-176 + MCT-177 + MCT-178 + MCT-181, change: "service 추가 (collector + paper-engine + backtest-runner) + profile + image pin" }
+    - { path: compose.override.yml, owner: MCT-175, change: "신규 — dev 전용 override" }
+    - { path: .env.example, owner: MCT-175, change: "NAS_MINIO_* + UNIVERSE_ID + IMAGE_TAG 추가" }
+    - { path: .env.dev, owner: MCT-175, change: "신규 template — hub MinIO + paper" }
+    - { path: .env.prod, owner: MCT-175, change: "신규 template — NAS MinIO + paper+live" }
+    - { path: scripts/rotate-nas-credentials.sh, owner: MCT-176, change: "신규 — 90d rotation + Slack 알림" }
+    - { path: scripts/cross-repo-lock-check.sh, owner: MCT-175, change: "신규 — D13 CI gate" }
+    - { path: scripts/measure_wal_baseline.py, owner: MCT-179, change: "신규 — peak 09:00 KST 1h burst measurement (mctrader-data 측 import)" }
+    - { path: monitoring/grafana/dashboards/docker-stack.json, owner: MCT-179, change: "신규 — capacity + DR mode + ambiguity dashboard" }
+    - { path: monitoring/prometheus.yml, owner: MCT-179 + MCT-180, change: "scrape target 추가 + alert rule" }
+    - { path: docs/adr/ADR-030-docker-stack-governance.md, owner: MCT-175, change: "신규 ADR" }
+    - { path: docs/runbooks/docker-stack-deploy.md, owner: MCT-179, change: "신규 — dev/prod deploy + DR mode 절차" }
+    - { path: docs/runbooks/docker-stack-dr.md, owner: MCT-179, change: "신규 — host disk loss + NAS unreachable 절차" }
+    - { path: docs/runbooks/nas-minio-secret-rotation.md, owner: MCT-176, change: "amend — 자동화 절차 추가" }
+    - { path: .github/workflows/docker-compose-validate.yml, owner: MCT-178, change: "신규 — compose config + up --wait gate" }
+    - { path: .github/workflows/docker-compose-smoke.yml, owner: MCT-180, change: "신규 — stack-level smoke" }
+    - { path: docs/stories/MCT-175.md ~ MCT-181.md, owner: each, change: "Story §1-§11" }
+    - { path: scope_manifests/EPIC-mctrader-docker-stack.yaml, owner: MCT-175, change: "본 manifest" }
+    - { path: docs/retros/EPIC-RESULTS-EPIC-mctrader-docker-stack.md, owner: MCT-181, change: "신규 EPIC-RESULTS 박제" }
+    - { path: CLAUDE.md, owner: MCT-175 + MCT-179 + MCT-181, change: "## Docker stack 확장 (EPIC-mctrader-docker-stack) + ## 4 layer capacity ↔ container resource limits 매핑 (D18) + ## dev/prod profile 전환 (D3)" }
+  mctrader-data:
+    - { path: src/mctrader_data/cli.py, owner: MCT-176, change: "SIGTERM handler + effective config dump" }
+    - { path: Dockerfile, owner: MCT-176 + MCT-181, change: "image build entry + ghcr.io push CI 정합" }
+    - { path: scripts/measure_wal_baseline.py 호출 entry, owner: MCT-179, change: "capacity_probe Prometheus emit" }
+    - { path: tests/integration/test_compose_smoke.py, owner: MCT-180, change: "신규 — testcontainers" }
+  mctrader-engine:
+    - { path: src/mctrader_engine/cli.py, owner: MCT-177, change: "SIGTERM handler + 60s grace + universe override + redis prefix" }
+    - { path: src/mctrader_engine/io/dr_mode.py, owner: MCT-179, change: "startup InvariantHarness scan hook" }
+    - { path: Dockerfile, owner: MCT-177 + MCT-181, change: "HEALTHCHECK + EXPOSE :9090 + ghcr.io push CI" }
+    - { path: tests/integration/test_paper_engine_smoke.py, owner: MCT-180, change: "신규 — testcontainers" }
+
+planned_claude_md_sections:
+  - "## Docker stack 확장 (EPIC-mctrader-docker-stack) — service topology + entry point"
+  - "## 4 layer capacity ↔ container resource limits 매핑 (D18) — WAL 30G / L1 20G / NAS 1TB / Host 200G → CPU/memory limits"
+  - "## dev/prod profile 전환 (D3) — compose --profile dev|prod + .env.dev|.env.prod"
+  - "## NAS credential rotation (D9, MCT-176) — 90d + Slack alert"
+  - "## WAL 30G production baseline (D5, MCT-179) — peak 09:00 KST 1h burst measurement"
+
+risks:
+  R1:
+    severity: HIGH
+    desc: "NAS HTTP-only 평문 통신 (MCT-155 TLS cutover gate 미적용 상태에서 prod profile 운영)"
+    mitigation: "MCT-176 진입 전 ADR-027 §D2 Stage 1 HTTP gate amendment 채택 여부 결정. 미채택 시 사용자 explicit accept 의무"
+    owner_story: MCT-176
+  R2:
+    severity: CRITICAL
+    desc: "WAL 30G 가설 미측정 (EPIC-tier-promotion R-CRITICAL carry over) — 50sym × 3ch × 12seg/h ±50% range, production 측정 부재"
+    mitigation: "MCT-179 peak 09:00 KST 1h burst window 측정 + 30G 초과 시 D11 hard_limit amendment 발의 (FAIL gate)"
+    owner_story: MCT-179
+    cross_ref: "EPIC-tier-promotion-single-source.yaml epic_close_gate_remaining"
+  R3:
+    severity: MEDIUM
+    desc: "D14 effective config 미출력 시 env↔YAML 우선순위 운영 ambiguity"
+    mitigation: "MCT-176 collector entrypoint 의 stdout dump 의무 + integration smoke (MCT-180) 검증"
+    owner_story: MCT-176
+  R4:
+    severity: MEDIUM
+    desc: "D17 host disk 손실 → WAL local segment 영구 손실 (forward-only invariant)"
+    mitigation: "외부 backup 도입 회피 (cost) + NAS L1+ SoT + L1 NAS PUT 직전 segment window 만 RPO ≠ 0 + D5 ingest block + Grafana alert"
+    owner_story: MCT-179
+    risk_acceptance: "사용자 explicit accept 의무 (MCT-179 brainstorm Phase 1 단계)"
+  R5:
+    severity: MEDIUM
+    desc: "D19 NAS sync 실패 시 backtest artifact local↔remote 갈림"
+    mitigation: "completion marker file + 3회 retry + alert + manual reconcile runbook"
+    owner_story: MCT-181
+  R6:
+    severity: LOW
+    desc: "D12 image registry ghcr.io rate limit / 인증 (private repo)"
+    mitigation: "GitHub Actions GITHUB_TOKEN 사용 + dev local build fallback"
+    owner_story: MCT-181
+
+dependency:
+  blocked_by: []
+  reuses_primitives:
+    - "InvariantHarness 8종 (MCT-171 SSOT + MCT-172 EPIC POLICY_FINALIZED)"
+    - "capacity_probe + ingest_blocker (MCT-171)"
+    - "NASUploader / DualWriter / RetryQueue (MCT-150 / 151)"
+    - "dr_mode (MCT-170)"
+    - "reader_cache LRU+byte budget (MCT-170)"
+  carry_over:
+    - "EPIC-tier-promotion-single-source R-CRITICAL (WAL 30G prod measurement) → MCT-179 owner"
+    - "EPIC-tier-promotion-single-source D8 sunset 14d window (2026-08-18 ~ 2026-09-01) → MCT-179 telemetry watcher alert 정합"
+
+story_sequence:
+  - { story: MCT-175, phase: 1, mode: sequential, rule: "Epic entry — compose base + dev/prod profile + cross-repo lock gate + ADR-030 publish", status: IN_PROGRESS, started_date: "2026-05-15" }
+  - { story: MCT-176, phase: 2, mode: sequential, rule: "collector container — MCT-175 LAND 후, compose 측 service 슬롯 의존", status: PLANNED }
+  - { story: MCT-177, phase: 3, mode: sequential, rule: "paper-engine daemon — MCT-176 LAND 후, NAS endpoint 정합 의존", status: PLANNED }
+  - { story: MCT-178, phase: 4, mode: sequential, rule: "backtest profile — MCT-177 LAND 후, paper-engine image 재사용 (D2)", status: PLANNED }
+  - { story: MCT-179, phase: 5, mode: sequential, rule: "observability + WAL measurement — MCT-178 LAND 후, 모든 service /metrics expose 의존", status: PLANNED }
+  - { story: MCT-180, phase: 6, mode: sequential, rule: "integration smoke + resource limits — MCT-179 LAND 후, alert rule + capacity 검증 의존", status: PLANNED }
+  - { story: MCT-181, phase: 7, mode: sequential, rule: "Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync", status: PLANNED }
+
+milestone_progress:
+  total: 7
+  completed: 0
+  completed_stories: []
+  in_progress: 1
+  in_progress_stories: [MCT-175]
+  reserved: 6
+
+epic_status: phase:구현-IN_PROGRESS
+epic_close_gate:
+  - "MCT-175 PR MERGED + ADR-030 publish + compose base + dev/prod profile LAND"
+  - "MCT-176 PR MERGED + collector container + NAS credential rotation"
+  - "MCT-177 PR MERGED + paper-engine daemon + SIGTERM graceful"
+  - "MCT-178 PR MERGED + backtest profile + compose config CI gate"
+  - "MCT-179 PR MERGED + WAL 30G production measurement (R2 CRITICAL 해소) + observability"
+  - "MCT-180 PR MERGED + integration smoke + resource limits + alert rule"
+  - "MCT-181 PR MERGED + Epic POLICY_FINALIZED 박제 + image registry pin + backtest artifact NAS sync"
+
+epic_close_gate_carry_over:
+  - "EPIC-tier-promotion-single-source Epic CLOSED 박제 별 PR (prod-1~prod-4) 와 병렬 carry over — 본 Epic 의 MCT-179 WAL 30G 측정이 prod-2 의무"
