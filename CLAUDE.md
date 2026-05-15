@@ -82,7 +82,7 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 | sequential_phase | Story | 상태 | 결정 | 내용 |
 |---|-------|------|------|------|
 | 1 | **MCT-175** | **COMPLETED 2026-05-15** | D1/D3/D7/D13 | compose base + dev/prod profile + env 분리 + cross-repo lock gate + ADR-030 (hub#326 + hub#327 + hub#328) |
-| 2 | **MCT-176** | **IN_PROGRESS 2026-05-15** | D7/D9/D14 | collector container + NAS credential rotation + effective config dump (defer 3건 carry over + secret 등록 + workflow trigger 복원) |
+| 2 | **MCT-176** | **COMPLETED 2026-05-15** | D7/D9/D14 | collector container + NAS credential rotation + effective config dump (hub#330 + data#64 + hub#331 + Phase 2 PR2) |
 | 3 | MCT-177 | PLANNED | D2/D4/D10/D15 | paper-engine daemon + SIGTERM graceful + universe override + Redis prefix |
 | 4 | MCT-178 | PLANNED | D2/D4/D10/D16 | backtest-runner profile + oneshot + compose config CI lint |
 | 5 | MCT-179 | PLANNED | D5/D8/D17 | observability + WAL 30G production measurement + DR mode + alert |
@@ -104,41 +104,58 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 | R2 WAL 30G 미측정 | CRITICAL | MCT-179 에서 peak 09:00 KST 1h burst 측정 의무 (EPIC-tier-promotion CLOSED prereq) |
 | R4 host disk 손실 → WAL 영구 손실 | MEDIUM | **사용자 explicit accept (2026-05-15)** — forward-only invariant (ADR-029 §D4), 1d max |
 
-## MCT-176 IN_PROGRESS (2026-05-15) — Collector container + credential rotation + effective config
+## MCT-176 COMPLETED (2026-05-15) — Collector container + credential rotation + effective config
 
-> **sequential_phase 2** — MCT-175 COMPLETED 직후 진입. Phase 1 PR (docs only) IN_PROGRESS.
-> depends_on: MCT-175 LAND (hub#326 + hub#327 + hub#328 ALL MERGED).
+> **sequential_phase 2** — Epic Story-2. cross-repo 4 PR sequential LAND (hub Phase 1 docs + data Phase 2 PR1 code +
+> hub Phase 2 PR1 code + hub Phase 2 PR2 박제). AC-1~5 PASS + 8 신규 test + 965 회귀 0.
 
-### 목적
+### 결과 요약
 
-- **D7 carry over**: compose.yml 의 collector service stub 주석 → 실 service 정의 활성화 (NAS preflight hook 연결)
-- **D9 credential rotation**: `scripts/rotate-nas-credentials.sh` 신규 (90d cron + Slack webhook)
-  + `docs/runbooks/nas-credential-rotation-automation.md` 신규 (automation layer)
-- **D14 effective config**: `mctrader-data effective-config --format {json,yaml}` 서브커맨드 신규
-  (env > YAML default > built-in default source order stdout dump)
+| 항목 | 결과 |
+|------|------|
+| Phase 1 PR (hub docs) | mctrader-hub#330 MERGED (a92e55a, 2026-05-15) — Story + ADR-030 §D9/§D14 amend + rotation runbook + CLAUDE.md |
+| Phase 2 PR1 (data code) | mctrader-data#64 MERGED (e3141b6, 2026-05-15T08:00:41Z) — CLI SIGTERM handler stub + effective-config subcommand + 8 신규 test |
+| Phase 2 PR1 (hub code) | mctrader-hub#331 MERGED (3498a8b, 2026-05-15T08:04:03Z) — collector service 활성화 + rotation script + carry over fix + workflow trigger 복원 |
+| Phase 2 PR2 (hub 박제) | mctrader-hub#TBD (본 PR) — Story §10/§11/§12 + ADR-030 amendment confirm + scope_manifest 2/7 + CLAUDE.md + RETRO 신규 + EPIC-RESULTS §Story-2 |
+| 총 AC | **5/5 PASS** (AC-1 collector compose config + AC-2 effective-config json/yaml + AC-3 rotate dry-run + AC-4 carry over fix + AC-5 workflow trigger 복원) |
+| 신규 test (data) | **8** (`tests/test_effective_config.py`) ALL PASS |
+| 회귀 (data full suite) | 965 passed + 24 skipped + 4 xfailed (MCT-172 954 baseline → 11 추가 test, 회귀 0) |
+| FIX 루프 | **4 iter** (design Phase 1 iter 1 + code data iter 1 + code hub iter 1, iter 2 모두 PASS) = 6 commit |
+| MCT-177 carry over | 3 항목 (YAML loader / signal handler wiring / 6 repo secret read 검증) |
 
-### 4 결정
+### 4 D 결정 (Epic Story-2 채택)
 
-| D | Option | 내용 |
+| D | Option | 결과 |
 |---|--------|------|
-| D7 | A (carry from MCT-175) | NAS DNS preflight → collector service 실 진입 시 preflight hook 연결 |
-| D9 | D | .env 패턴 유지 + `rotate-nas-credentials.sh` + 90d cron + Slack webhook |
-| D14 | D | effective config stdout dump (env > YAML > builtin, json/yaml format) |
-| D1 | C (carry from MCT-175) | WAL host bind mount `/var/lib/mctrader/wal:/var/lib/mctrader/data` collector service 실 적용 |
+| D7 (carry from MCT-175) | A | collector service preflight hook 연결 LAND — `scripts/preflight-nas-dns.sh` (sentinel IP 차단 + trap 순서 + `bash -n` 통과) |
+| D9 | D | `scripts/rotate-nas-credentials.sh` 신규 LAND — Slack reorder + `.bak` trap cleanup + `.gitignore` `.env.*.bak` |
+| D14 | D | `mctrader-data effective-config --format {json,yaml}` 신규 LAND — `source_order=["env","built_in"]` downgrade (MCT-177 YAML loader carry) |
+| D1 (carry from MCT-175) | C | WAL host bind mount `/var/lib/mctrader/wal:/var/lib/mctrader/data` collector service 실 적용 LAND |
 
-### carry over 4건 (Phase 2에서 처리)
+### MCT-175 carry over 4건 처리 결과
 
-| 항목 | MCT-175 사유 | MCT-176 처리 시점 |
-|------|-------------|-------------------|
-| P1-2 preflight DNS wildcard FP | 실 위험 낮음 + logging 통합 시 fix | Phase 2 PR1 검토 |
-| P1-3 mc alias trap race | SIGINT race window 위협 낮음 | cross-ref 박제 (별 FIX 불요) |
-| P2-1 shell error handling | 실 위험 낮음 | rotate script 에 set -euo pipefail 반영 |
-| NAS_MINIO_* secret 등록 + workflow trigger 복원 | secret 미등록 → workflow_dispatch only 유지 | Phase 2 실 등록 후 on:pull_request 복원 |
+| 항목 | 처리 |
+|------|------|
+| P1-2 preflight DNS wildcard FP | ✓ fix — sentinel IP `203.0.113.1` 차단 |
+| P1-3 mc alias trap race | ✓ fix — trap 순서 cleanup→ERR |
+| P2-1 shell error handling | ✓ fix — `set -euo pipefail` + `trap ERR` + `bash -n` syntax check |
+| NAS_MINIO_* secret 등록 + workflow trigger 복원 | ✓ LAND — `MCTRADER_CROSS_REPO_TOKEN` secret + `on: pull_request` 복원 |
 
-### ADR-030 amendment (MCT-176 Phase 1 박제)
+### MCT-177 carry over (CodeReviewPL FIX iter 1 결과)
 
-- §D9 amendment box: rotation script path + cron + Slack + failure → GitHub Issue
-- §D14 amendment box: CLI subcommand + source order + operator verify hook
+| 항목 | 사유 | MCT-177 처리 |
+|------|------|-------------|
+| YAML config loader (option A) | Phase 2 PR1 env+built_in only — F-005 P1 fix option B downgrade (false claim 차단) | YAML loader 신규 + `source_order` → 3-tier chain (env > YAML > built_in) 복원 + AC-2 + §8 amend |
+| `_register_signal_handlers` + `_SHUTDOWN_REQUESTED` collect loop wiring | Phase 2 PR1 stub — F-006 P2 fix TODO 헤더 + docstring 확장 only | non-asyncio entry point (backfill / compact one-shot) 측 `signal.signal()` 등록 + collect loop chunk boundary polling 통합 |
+| cross-repo-lock-check secret 6 repo 측 secret read 검증 | hub 측 단방향 등록 | 6 repo (data/engine/web/market/signal-collector/hub) 측 secret read 의무 검증 후 LAND |
+
+### ADR-030 amendment box (MCT-176 LAND 박제, Phase 2 PR2)
+
+`docs/adr/ADR-030-docker-stack-governance.md` 본문 박제:
+- **§D7 VERIFIED** (preflight collector wiring + MCT-175 carry over fix 3건)
+- **§D9 VERIFIED** (Slack reorder + `.bak` trap cleanup + `.gitignore` pattern)
+- **§D14 VERIFIED** (CodeReviewPL FIX iter 1 amendment — `source_order` downgrade + MCT-177 carry)
+- Phase 2 PR1 양측 LAND timeline (data#64 + hub#331) + MCT-175 carry over 5 항목 처리 결과 + MCT-177 carry over 3 항목
 
 ### Key References
 
@@ -146,6 +163,13 @@ Status: Proposed (MCT-175 Phase 1 박제, LAND 시 Accepted)
 - plan: `docs/superpowers/plans/2026-05-15-mct-176-collector-container.md`
 - automation runbook: `docs/runbooks/nas-credential-rotation-automation.md`
 - ADR-030 §D9/§D14: `docs/adr/ADR-030-docker-stack-governance.md`
+- RETRO: `docs/retros/RETRO-MCT-176.md`
+- EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-mctrader-docker-stack.md` (§Story-2 박제)
+
+### 다음 Story 진입 권고
+
+**MCT-177** (paper-engine daemon + SIGTERM graceful + universe override + Redis prefix) — sequential_phase 3.
+진입 prerequisite = MCT-176 Phase 2 PR2 MERGED ✓ + MCT-177 carry over 3 항목 (YAML loader + signal handler wiring + 6 repo secret read 검증) 통합 처리.
 
 ## Pending Stories (Replication Backlog)
 

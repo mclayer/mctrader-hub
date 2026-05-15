@@ -265,6 +265,46 @@ Prometheus alert:
 - **구현 위치**: `mctrader-data/src/mctrader_data/cli.py` (MCT-176 Phase 2 PR1 LAND 시 신규 subcommand)
 - **unit test**: `tests/unit/test_effective_config.py` (5 test, env/yaml/builtin 우선순위 검증)
 
+### Amendment box (MCT-176 LAND confirm, 2026-05-15 Phase 2 PR2)
+
+**MCT-176 D7/D9/D14 VERIFIED** (Phase 2 PR1 양측 LAND 후 박제):
+
+- **D7 (NAS preflight collector wiring)**: `compose.yml` collector service 진입 시 preflight hook (depends_on +
+  `scripts/preflight-nas-dns.sh` exit gate). MCT-175 LAND 도구 활용 (재구현 없음). P1-2 (sentinel IP `203.0.113.1`
+  차단) + P1-3 (trap 순서 cleanup→ERR) + P2-1 (`bash -n` syntax check + `set -euo pipefail`) MCT-175 carry over fix 통합 (AC-4 PASS).
+- **D9 (NAS credential rotation 90d automation)**: `scripts/rotate-nas-credentials.sh` 신규 LAND (hub#331 3498a8b).
+  CodeReviewPL FIX iter 1 P1 fix 박제 — F-002 Slack reorder before revoke (rollback 가능) + F-003 `.env.prod.bak`
+  trap cleanup (`rm -f $ENV_FILE.bak` on EXIT/INT/TERM) + `.gitignore` `.env.*.bak` pattern 등록. dry-run 모드 exit 0 (AC-3 PASS).
+- **D14 (effective-config CLI subcommand)**: `mctrader-data effective-config --format {json,yaml}` 신규 LAND
+  (data#64 e3141b6). **CodeReviewPL FIX iter 1 P1 amendment — `source_order` 다운그레이드** to `["env", "built_in"]`
+  (YAML loader 미구현 false claim 차단, MCT-177 carry over). 8 신규 test ALL PASS (AC-2 PASS). docstring +
+  TODO(MCT-177) 주석 박제.
+
+**Phase 2 PR1 양측 LAND timeline**:
+
+| repo | PR | LAND commit | merged_at |
+|------|-----|-------------|-----------|
+| mctrader-data | #64 | e3141b6 | 2026-05-15T08:00:41Z |
+| mctrader-hub | #331 | 3498a8b | 2026-05-15T08:04:03Z |
+
+**Operational carry over 처리 결과 (MCT-175 → MCT-176)**:
+
+| 항목 | MCT-176 처리 |
+|------|-------------|
+| P1-2 (preflight DNS wildcard FP) | ✓ fix — sentinel IP `203.0.113.1` 차단 + DNS resolver verify |
+| P1-3 (mc alias trap race) | ✓ fix — trap 순서 cleanup→ERR (race window 차단) |
+| P2-1 (shell error handling) | ✓ fix — `set -euo pipefail` + `trap ERR` 박제 (`bash -n` syntax check 통과) |
+| NAS_MINIO_* secret 등록 | ✓ 박제 — `MCTRADER_CROSS_REPO_TOKEN` GitHub Actions secret 등록 (hub 측 단방향) |
+| `cross-repo-lock-check.yml` PR auto trigger 복원 | ✓ LAND — `on: pull_request` 복원 (workflow_dispatch + pull_request 양립) |
+
+**MCT-177 carry over (3 항목)** — CodeReviewPL FIX iter 1 결과 박제:
+
+| 항목 | 사유 | MCT-177 처리 |
+|------|------|-------------|
+| YAML config loader | Phase 2 PR1 = env + built-in only chain. YAML default 단계 미구현 (F-005 P1 fix option B = false claim 차단 위해 downgrade) | MCT-177 에서 YAML loader 신규 + `source_order` → `["env", "yaml_default", "built_in"]` 복원 + AC-2 + §8 test 3-tier chain 으로 amend |
+| `_register_signal_handlers` + `_SHUTDOWN_REQUESTED` collect loop wiring | Phase 2 PR1 = stub (F-006 P2 fix = TODO 헤더 + docstring 확장 only) | MCT-177 에서 non-asyncio entry point (`backfill` / `compact` one-shot) 측 `signal.signal()` 등록 + collect loop chunk boundary 측 `_SHUTDOWN_REQUESTED` polling 통합 |
+| cross-repo-lock-check secret 6 repo 측 secret read 검증 | 현 hub 측만 secret 등록 (단방향) | MCT-177 또는 별 Story 에서 6 repo (data/engine/web/market/signal-collector/hub) 측 secret read 의무 검증 후 LAND |
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
