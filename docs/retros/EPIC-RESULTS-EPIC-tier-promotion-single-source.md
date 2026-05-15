@@ -45,7 +45,7 @@ MCT-156/162/160 3-cycle 누적 실패 patterns ("review lane PASS vs production 
 | 2026-05-14 (early) | mctrader-hub#314 | 311b795 | Phase 1 docs — Story §1-§12 + spec + plan + ADR-029 §D7/§D8/§D10 amendment + scope_manifest IN_PROGRESS + CLAUDE.md + counters retitle (7 file) |
 | 2026-05-14 (mid) | mctrader-data#61 | 9d26438 | Phase 2 PR#1 — NullReaderCache 제거 + LRUReaderCache 구현 (20 신규 test + 53 test ALL PASS, AC-7 grep 0건) |
 | 2026-05-14 (mid-late) | mctrader-engine#53 | a00690bc | Phase 2 PR#2 — tier_reader / l1_reader / dr_mode 3 module 신규 + reader_cache byte budget 확장 + 5 test 신규 (107 io/ test ALL PASS, MCT-154 회귀 0) |
-| 2026-05-14 (late) | mctrader-hub#TBD | TBD | Phase 2 PR#3 — RETRO + Story §11/§12 fill + milestone 4/6 COMPLETED + EPIC-RESULTS Story-4 entry + counters DELETE (6 file) |
+| 2026-05-14 (late) | mctrader-hub#315 | f1e04e6 | Phase 2 PR#3 — RETRO + Story §11/§12 fill + milestone 4/6 COMPLETED + EPIC-RESULTS Story-4 entry + counters DELETE (6 file) |
 
 ### D7 NFR 측정 결과
 
