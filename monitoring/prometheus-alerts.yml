@@ -43,3 +43,15 @@ groups:
         annotations:
           summary: "NAS reader UNKNOWN_TIER ambiguity detected"
           description: "nas_reader_ambiguity_total {{ $value }}회/5m (D10 NAS+local XOR violation / UNKNOWN_TIER 진입). ADR-029 D10 + ADR-029 §D10 footnote 30d exemption window. MCT-170 dr_mode.py LAND series."
+
+      # MCT-180 D18 — container memory > 80% limit 선제 경보 (cadvisor MCT-123 LAND series 바인딩)
+      # cadvisor container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.8 for 5m
+      # compose.yml deploy.resources.limits 설정과 연동 (MCT-180 D18 SSOT)
+      - alert: ContainerMemoryHigh
+        expr: container_memory_usage_bytes{name=~"mctrader-.*"} / container_spec_memory_limit_bytes{name=~"mctrader-.*"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container memory > 80% limit (D18 OOM 선제 경보)"
+          description: "{{ $labels.name }} 컨테이너 메모리 사용률 {{ $value | humanizePercentage }} (> 80% warn threshold). ADR-030 D18 resource limits + MCT-180 D18 cadvisor alert. OOM kill 방지를 위한 선제 경보."

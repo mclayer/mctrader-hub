@@ -1,0 +1,47 @@
+name: integration-smoke
+# MCT-180 D11 — CI integration smoke (infra-only, ESCALATE F-301 resolution)
+#
+# ESCALATE (CodeReview iter 3/3 max, F-301 P0 설계 원인 — ArchitectPL chief judge 2026-05-15):
+#   `compose up collector + paper-engine` = CI 격리 환경 구조적 실행 불가:
+#     - image: ghcr.io/mclayer/mctrader-{data,engine}:latest 미배포 → pull denied
+#     - build.context: ../mctrader-{data,engine} sibling repo path 부재 (hub 단독 checkout)
+#     → docker compose up collector paper-engine --wait 가 구조적 exit 1
+#   resolution (option b): CI smoke = infra(postgres/redis/minio) --wait + mc-init oneshot
+#   exit 0 만. collector/paper-engine boundary = testcontainers 2-layer (data#67
+#   test_collector_nas_boundary + engine#55 test_paper_redis_boundary, 이미 LAND).
+#   full-stack compose up = production deploy carry (D12 MCT-181 image registry pin 의존).
+#   ADR-030 §D11 amendment (integration-smoke CI = infra-only) SSOT.
+# Trigger: compose.yml 또는 본 workflow 변경 시 PR push + workflow_dispatch
+on:
+  pull_request:
+    paths:
+      - "compose.yml"
+      - ".github/workflows/integration-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: compose up infra (postgres + redis + minio)
+        run: |
+          cp .env.example .env.dev
+          # postgres/redis/minio 3개 모두 healthcheck 보유 → `--wait` 정상 (180s budget).
+          # collector/paper-engine 는 sibling repo image/build context 의존 → CI 격리
+          # 구조적 실행 불가 (ESCALATE F-301). component boundary = testcontainers
+          # (data#67 + engine#55 LAND). full-stack = production deploy carry.
+          docker compose --profile dev --env-file .env.dev up -d postgres redis minio --wait --wait-timeout 180
+
+      - name: mc-init bucket bootstrap (oneshot, exit 0 verify)
+        run: |
+          # mc-init = minio bucket init oneshot. minio service_healthy depends_on 충족
+          # (직전 step --wait 로 minio healthy). `--exit-code-from mc` = init exit 0 검증.
+          # `--no-deps` 로 minio 재기동 회피.
+          docker compose --profile dev --env-file .env.dev up --no-deps --exit-code-from mc mc
+
+      - name: teardown
+        if: always()
+        run: docker compose --profile dev down -v

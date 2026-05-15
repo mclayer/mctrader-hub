@@ -841,6 +841,118 @@ ADR-030 본문 만 박제 (Status = Accepted 유지). MCT-180 ~ MCT-181 LAND 시
   - L1 named volume: 20G → NAS 의존 (container mem limit 외)
   - container memory limit: 위 표 (D18 MCT-180 LAND)
 
+### Amendment box (MCT-180 CodeReview FIX iter2, 2026-05-15)
+
+#### §D8 amendment — reader cache hit_ratio/p99 = cold reader 한정 metric (paper daemon 미적용)
+
+**FIX-MCT-180 engine#55 P1 (설계 원인 — Phase 0 verify lesson 5회째)**:
+
+- **근본 원인**: Plan §2.2 + Story §4 AC-5 + 본 ADR §D8 (MCT-179 박제분) 이
+  `nas_reader_cache_hit_ratio` / `nas_reader_p99_ms` Gauge 의 daemon producer path 를
+  **paper-engine daemon** 으로 잘못 가정. Phase 0 verify 실증:
+  - paper-engine daemon = `PaperRunner` (WS tick 경로). runtime/ grep 결과
+    `ReaderCache`/`ColdReader`/`TierReader` 미인스턴스화 (0 match)
+  - `ReaderCache.stats()` production caller = `ColdReader.run_smoke_test()` 1곳뿐.
+    `run_smoke_test` production caller = 0 (cutover runbook Phase 3 / backtest 경로 only)
+  - MCT-170 reader_cache = **NAS cold read 전용 scope** (paper daemon real-time tick 미사용)
+  - → paper daemon 기동 시 `nas_reader_cache_hit_ratio`/`nas_reader_p99_ms` **영구 0.0**
+- **contract 정정 (option 1 — contract 수정 채택)**:
+  - `nas_reader_cache_hit_ratio` / `nas_reader_p99_ms` = **cold reader 사용 컴포넌트
+    한정** metric 으로 재정의 (backtest-runner / `ColdReader.run_smoke_test()` cutover
+    경로). **paper-engine daemon 미적용** 명시 박제.
+  - engine#55 `ReaderCache.stats()` → Gauge producer wiring = **보존** (cold reader /
+    backtest 경로에서 유효). docstring 에 scope 명시 추가 (logic 변경 0).
+  - hub `docker-stack.json` panel **id=7 (hit_ratio) / id=8 (p99) = `[MCT-180 TODO]`
+    downgrade 유지** (MCT-179 박제 해제 취소). 사유: cold read 경로만 emit, paper daemon
+    real-time 미emit. backtest-runner = oneshot 실행이라 지속 panel 부적합.
+    `description` = "cold reader 사용 시 (backtest-runner) emit, paper daemon 미적용" 박제.
+  - panel **id=3 (collector ticks) / id=4 (active_symbols) / id=6 (engine universe_size)
+    = 정상 해제 유지** — paper daemon `set_universe_size` cli.py startup 1회 emit 배선
+    정합 (engine#55 정상) + collector ticks/active_symbols data#67 LAND 정합.
+- **lesson (MCT-170/177/178/179 cross-repo Phase 0 verify 독립 의무 5회째 재현)**:
+  cross-repo Story 는 sibling repo 패턴 무비판 carry over 금지. metric producer path 는
+  각 daemon runtime 실 instantiation 경로 Phase 0 verify 의무 (가설 = 코드 실증 전 미수용).
+
+#### §D11 amendment — integration-smoke.yml mc(mc-init) --wait 분리
+
+**FIX-MCT-180 hub#343 P0 (설계 원인)**:
+
+- **근본 원인**: Plan §2.3 line 131 verbatim
+  `docker compose up -d postgres redis minio mc --wait --wait-timeout 180`.
+  `mc` (`mctrader-mc-init`) = **healthcheck 미보유 일회성 init 컨테이너**
+  (entrypoint = minio bucket init 후 exit 0, restart 미정의). `docker compose --wait`
+  는 healthcheck 미보유 즉시 종료 컨테이너를 비정상 간주 → **exit 1 → D11 integration
+  smoke 게이트 무력화**.
+- **fix (mc --wait 분리)**:
+  - infra wait = `docker compose up -d postgres redis minio --wait --wait-timeout 180`
+    (mc 제외 — postgres/redis/minio 3개 모두 healthcheck 보유, `--wait` 정상)
+  - mc-init = 별도 oneshot step:
+    `docker compose up --no-deps --exit-code-from mc mc` (attached, minio
+    service_healthy depends_on 충족 → bucket init 완료까지 block + exit code 0 검증)
+  - Plan §2.3 amend (mc --wait 분리)
+- **운영 정합**: mc-init = minio bucket bootstrap. `--exit-code-from mc` 가
+  `--abort-on-container-exit` 함의 → init 정상 완료(exit 0) 검증. `--no-deps` 로
+  minio 재기동 회피 (직전 step 의 `--wait` 로 minio 이미 healthy).
+
+#### §D11 amendment — integration-smoke CI = infra-only + testcontainers 2-layer (full-stack = production carry)
+
+**FIX-MCT-180 hub#343 ESCALATE (CodeReview iter 3/3 max, F-301 P0 설계 원인 — ArchitectPL chief judge 최종 판정 2026-05-15)**:
+
+- **근본 원인 (설계 결함, 구현 결함 아님)**: ADR-030 §D11 amendment (MCT-180 publish, line 781-783)
+  + Plan §2.3 + Story §4 AC-1 이 **"compose up full stack (collector+paper-engine) in CI"** 를
+  명시. 그러나 `compose.yml` collector(L358) / paper-engine(L321) / backtest-runner(L393) =
+  `image: ghcr.io/mclayer/mctrader-{data,engine}:latest` (미배포 — D12 MCT-181 carry over) +
+  `build.context: ../mctrader-{data,engine}` (sibling repo 상대 경로). GitHub Actions CI =
+  hub repo **단독 checkout** → sibling repo path 부재 + 미배포 이미지 pull denied →
+  `compose up collector paper-engine --wait` **구조적 exit 1**. CI evidence (hub#343 run
+  25920127360 smoke job):
+  ```
+  collector  Warning Head "https://ghcr.io/v2/mclayer/mctrader-data/manifests/latest": denied
+  paper-engine Warning Head "https://ghcr.io/v2/mctrader-engine/manifests/latest": denied
+  unable to prepare context: path "/home/runner/work/mctrader-hub/mctrader-engine" not found
+  ##[error]Process completed with exit code 1.
+  ```
+  iter1/iter2 의 mc --wait 분리(c1d7938)는 mc-init 표면 증상만 해소. full-stack compose up 의
+  sibling 의존이라는 **근본 설계 전제 (CI 격리 환경에서 production 불가능)** 미해소.
+  FIX 3회 소진 → mechanical/구현 layer 해소 불가 → **설계 재정의가 유일 경로**.
+- **resolution (option b — CI 격리 정합, ArchitectPL chief judge 채택)**:
+  - **Layer 1 재정의 (CI smoke = infra-only)**: `.github/workflows/integration-smoke.yml` =
+    hub infra (postgres+redis+minio) compose up `--wait` + mc-init oneshot `--exit-code-from mc`
+    exit 0 검증 **만**. collector / paper-engine compose up step **제거** (CI 격리 구조적
+    실행 불가 — sibling repo image/build context 의존). SIGTERM D4 회귀 step 도 동반 제거
+    (collector/paper-engine 부재 시 무의미) → D4 회귀는 testcontainers + 각 repo unit test
+    가 담당 (MCT-176/177 LAND graceful 경로 unchanged).
+  - **Layer 2 (testcontainers = component boundary 실 carrier)**: data#67
+    `tests/integration/test_collector_nas_boundary.py` (collector→MinIO mock) + engine#55
+    `tests/test_paper_redis_boundary.py` (paper-engine→Redis) — 이미 LAND. D11 2-layer 의
+    **실 검증 책무 = testcontainers layer** 로 이관 (compose CI smoke layer 는 infra 정합만).
+  - **full-stack compose up 검증 = production deploy carry**: D12 MCT-181 image registry
+    pin (`${IMAGE_TAG}` prod) 후 가능. EPIC-tier-promotion prod-2 류 production evidence
+    carry over (별 PR/Story). full-stack compose up 은 CI 가 아닌 production deploy 시점
+    검증 (image registry pin 의존).
+  - **Story §4 AC-1 재정의** (Phase 1 docs 영역 — ArchitectPL write scope 외):
+    "compose up full stack" → "infra compose up --wait + mc oneshot exit 0 +
+    testcontainers 2-layer boundary (collector→NAS + paper→Redis)". production full-stack
+    compose up = carry over (D12 image registry pin 의존). → Orchestrator forward
+    또는 Phase 2 PR2 박제 carry.
+- **F-302 (cross-repo LAND 순서)**: data#67 (전 check SUCCESS, LAND ready) + engine#55
+  선행 LAND → hub#343 재검증. **추가 발견 (독립 검증 surface)**: engine#55 `ci`/`lookahead-lint`
+  job = 별개 원인 FAILURE (`mctrader-market-upbit` private repo git dependency auth 실패 —
+  `Invalid username or token`). F-301/F-302 외 영역 (engine repo 자체 CI infra private-dep
+  token 이슈). CodeReview iter3 PASS = lane scope 정합이나, engine CI workflow 자체는 별도
+  token 이슈 carry over (engine repo 별 처리, 본 ESCALATE 범위 외 명시).
+- **lesson**: cross-repo full-stack compose up 을 CI 격리 환경 gate 로 설계하는 것은 sibling
+  repo image registry pin (D12) 선행 없이는 구조적 불가능. CI smoke = infra 정합 + boundary
+  = testcontainers + full-stack = production deploy evidence 의 **3-layer 분리**가 cross-repo
+  Epic 의 CI-friendly 검증 SSOT. (MCT-179 §D8 가공 metric 설계 원인 + MCT-170/177/178
+  Phase 0 verify lesson 누적 동형 — 설계가 실행 환경 제약 미검증).
+
+#### N-002 promotion 문구 carry (Phase 2 PR2 유지)
+
+- N-002 (promotion.py 잔여 문구 정합) = Phase 2 PR2 carry over 유지. 본 contract 정정
+  (reader cache scope = cold reader 한정) 과 Story/ADR 정합성 동반 박제 의무
+  (Phase 2 PR2 §10/§11 amend 시).
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`

@@ -121,15 +121,15 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
       "id": 3,
-      "description": "[MCT-180 TODO] metric mctrader_collector_ticks_total = LAND registry 부재 (collector.py Prometheus emit 0건, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 collector ingest counter 신규 emit 후 expr 활성. 현재 = no-data placeholder.",
+      "description": "metric SSOT = mctrader_collector_ticks_total{exchange,symbol} Counter (data#67 LAND). MCT-180 D18 TODO 해제 — collector ingest rate (ticks/s) 실 emit 바인딩.",
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
-      "title": "Collector Ingest Rate (ticks/s) [MCT-180 TODO]",
+      "title": "Collector Ingest Rate (ticks/s)",
       "type": "timeseries",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "rate(mctrader_collector_ticks_total[1m])",
-          "legendFormat": "ingest rate (MCT-180 pending)",
+          "legendFormat": "{{exchange}}/{{symbol}}",
           "refId": "A"
         }
       ]
@@ -153,7 +153,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
       "id": 4,
-      "description": "[MCT-180 TODO] metric mctrader_collector_active_symbols = LAND registry 부재 (collector.py Prometheus emit 0건, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 active symbol Gauge 신규 emit 후 활성. 현재 = no-data placeholder.",
+      "description": "metric SSOT = mctrader_collector_active_symbols Gauge (data#67 LAND). MCT-180 D18 TODO 해제 — 현재 ingest 활성 symbol count 실 emit 바인딩.",
       "options": {
         "colorMode": "background",
         "graphMode": "none",
@@ -162,13 +162,13 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "text": {}
       },
-      "title": "Collector Active Symbols [MCT-180 TODO]",
+      "title": "Collector Active Symbols",
       "type": "stat",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "mctrader_collector_active_symbols",
-          "legendFormat": "active symbols (MCT-180 pending)",
+          "legendFormat": "active symbols",
           "refId": "A"
         }
       ]
@@ -236,7 +236,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
       "id": 6,
-      "description": "[MCT-180 TODO] metric mctrader_engine_universe_size = LAND registry 부재 (engine metrics.py 실존 = open_positions/open_orders/cycle_delay/db_write_latency/cycles_total only, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 universe size Gauge 신규 emit 후 활성. 현재 = no-data placeholder.",
+      "description": "metric SSOT = mctrader_engine_universe_size Gauge (engine#55 LAND). MCT-180 D18 TODO 해제 — paper-engine 활성 universe sym count 실 emit 바인딩.",
       "options": {
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
@@ -244,13 +244,13 @@
         "showThresholdMarkers": true,
         "text": {}
       },
-      "title": "Paper Engine Universe Size [MCT-180 TODO]",
+      "title": "Paper Engine Universe Size",
       "type": "gauge",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "mctrader_engine_universe_size",
-          "legendFormat": "universe size (MCT-180 pending)",
+          "legendFormat": "universe size",
           "refId": "A"
         }
       ]
@@ -284,7 +284,7 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "id": 7,
-      "description": "[MCT-180 TODO] metric nas_reader_cache_hit_ratio = LAND registry 부재. engine reader_cache.py hit_ratio() = method/stats dict only (Prometheus Gauge 미노출, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 hit_ratio Gauge expose 후 활성. 현재 = no-data placeholder.",
+      "description": "[MCT-180 TODO] metric nas_reader_cache_hit_ratio = engine#55 Gauge 정의 + stats() producer wiring LAND 완료. 단 paper-engine daemon(PaperRunner WS tick) 은 ReaderCache 미인스턴스화 (MCT-170 reader_cache = NAS cold read 전용 scope, FIX-MCT-180 iter2 Phase 0 verify 실증). 본 Gauge = cold reader 사용 시(backtest-runner / ColdReader.run_smoke_test cutover) 만 emit, paper daemon real-time 미적용. backtest-runner = oneshot 실행이라 지속 panel 부적합. 후속 Story 에서 cold reader telemetry pipeline 정착 시 활성. 현재 = no-data placeholder (paper daemon 한정).",
       "options": {
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
@@ -298,7 +298,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "nas_reader_cache_hit_ratio",
-          "legendFormat": "hit_ratio (MCT-180 pending)",
+          "legendFormat": "hit_ratio (cold reader only, paper daemon 미emit)",
           "refId": "A"
         }
       ]
@@ -322,8 +322,8 @@
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "description": "[MCT-180 TODO] metric nas_reader_p99_ms = engine#55 Gauge 정의 + stats() producer wiring LAND 완료. 단 paper-engine daemon(PaperRunner WS tick) 은 ReaderCache 미인스턴스화 (MCT-170 reader_cache = NAS cold read 전용 scope, FIX-MCT-180 iter2 Phase 0 verify 실증). 본 Gauge = cold reader 사용 시(backtest-runner / ColdReader.run_smoke_test cutover) 만 emit, paper daemon real-time 미적용. 운영 gate proxy = prometheus-alerts.yml NASReaderDROpen (dr_mode OPEN 전이 = p99 >500ms 3회 trigger 흡수, cold read 경로). 현재 = no-data placeholder (paper daemon 한정).",
       "id": 8,
-      "description": "[MCT-180 TODO] metric nas_reader_p99_ms = LAND registry 부재 (engine reader_cache.py latency Histogram 미노출, FIX-MCT-179 iter1 verify). MCT-180 follow-up 에서 reader latency Histogram emit 후 histogram_quantile(0.99, ...) 활성. 현재 = no-data placeholder. 운영 gate proxy = prometheus-alerts.yml NASReaderDROpen (dr_mode OPEN 전이 = p99 >500ms 3회 trigger 흡수).",
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -338,7 +338,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
           "expr": "nas_reader_p99_ms",
-          "legendFormat": "p99 ms (MCT-180 pending)",
+          "legendFormat": "p99 ms (cold reader only, paper daemon 미emit)",
           "refId": "A"
         }
       ]
