@@ -1,0 +1,56 @@
+# .github/workflows/cross-repo-lock-check.yml
+# ADR-030 §D13 — cross-repo uv.lock drift gate
+name: cross-repo-lock-check
+
+on:
+  pull_request:
+    paths:
+      - "uv.lock"
+      - ".github/workflows/cross-repo-lock-check.yml"
+      - "scripts/check_cross_repo_locks.py"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout hub
+        uses: actions/checkout@v4
+        with:
+          path: mctrader-hub
+      - name: checkout data
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-data
+          path: mctrader-data
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout engine
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-engine
+          path: mctrader-engine
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout signal-collector
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-signal-collector
+          path: mctrader-signal-collector
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout web
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-web
+          path: mctrader-web
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: checkout market
+        uses: actions/checkout@v4
+        with:
+          repository: mclayer/mctrader-market
+          path: mctrader-market
+          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: run check
+        run: python mctrader-hub/scripts/check_cross_repo_locks.py
