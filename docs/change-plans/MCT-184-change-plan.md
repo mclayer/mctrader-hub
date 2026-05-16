@@ -124,10 +124,13 @@ GET /v1/historical/candles
     body: Arrow IPC stream (io/ reader 출력 table → pyarrow.ipc.new_stream)
 ```
 
-- **INV-2 byte-equivalence**: REST 응답 Arrow table == io/ reader 직접 출력 Arrow
-  table. wrap = serialize-only (데이터 변형 0). `arrow_ipc.py` = io/ reader 가 반환한
-  pyarrow Table 을 `pyarrow.ipc.RecordBatchStreamWriter` 로 직렬화 (schema + 행 byte
-  보존).
+- **INV-2 byte-equivalence** *(F-4 contract amend, 2026-05-17 data#74 LAND)*:
+  `ReadResult.data` = raw Arrow IPC bytes (io/ reader 가 직접 직렬화한 bytes — contract).
+  `arrow_ipc.read_result_to_ipc_bytes()` = schema validation only (`reader.schema` parse)
+  + `return data` unchanged (re-serialize 0). re-serialize 는 RecordBatch boundary /
+  dictionary dedup / alignment 차이로 bytes-identical 보장 불가 (pyarrow 버전 의존).
+  Option A: validation + pass-through → bytes-level INV-2 달성. 이전 설계 (pyarrow Table
+  재직렬화 = table 동등 but bytes 비보장) 정정.
 - **presigned-NAS-handoff 기각 (SecurityArch + chief author 합치)**: REST 응답 = Arrow
   IPC stream **only** — NAS object key/parquet tier/ETag/endpoint resolution **응답
   비노출** (engine NAS 비인지 — D2/ADR-029 정합). io/ reader 내부에서 NAS 접근, REST
@@ -142,12 +145,15 @@ POST /v1/reverse-write/paper-candles
     run_id: str
     snapshot_id: str
     lineage: PaperLineageSchema
-  → idempotency: payload canonical sha256 hash key
+  → idempotency: canonical sha256 sidecar SSOT *(F-2 contract amend, 2026-05-17 data#74 LAND)*
     (paper_lineage.canonical_jsonl_hash 패턴 재사용 — MCT-182 LAND market-core)
-    동일 hash 재POST → sidecar _paper_lineage_{snapshot_id}.json 존재 검사
-      → 존재 시 write skip + 동일 200 (no-op, INV-3)
-      → 미존재 시 paper_storage.write_paper_candles(...) 호출
-  → response: 200 {written: bool, path: str, idempotent_skip: bool}
+    request_sha256 = PaperCandlesRequest.canonical_sha256() [always called — dead code 해소]
+    sidecar _paper_lineage_{snapshot_id}.json 존재 + sha256 field 검사 3-case:
+      (a) sidecar 존재 + sha256 match → idempotent no-op 200 {idempotent_skip: True}
+      (b) sidecar 존재 + sha256 mismatch → 409 Conflict (INV-3 violation, 다른 payload)
+      (c) sidecar 미존재 → write + sidecar에 sha256 persist (재시작 후 재검사 안전)
+    [이전 설계 = sidecar 존재 검사만 (sha256 검증 0) → different payload silent skip 버그 정정]
+  → response: 200 {written: bool, path: str, idempotent_skip: bool} | 409 Conflict
 
 POST /v1/reverse-write/backtest-artifact
   body: BacktestArtifactRequest (Pydantic strict)
