@@ -37,6 +37,18 @@ cold-read cutover pending MCT-185):
 - cold-read 실경로 cutover (engine `mctrader_data.storage.scan_candles/orderbook_replay/
   path.resolve_data_root` 직독 → data REST 경유) = **MCT-185 owner** (§D2 VERIFIED = MCT-185 후)
 
+### §D3 amendment box (MCT-184 Phase 2 LAND confirm — data#72 MERGED 45e501c, 2026-05-16)
+
+> **§D3 부분 진행 LAND 확정** — data#72 (45e501c5) Phase 2 PR1 MERGED (2026-05-16).
+> `src/mctrader_data/api/` FastAPI 6 파일 신규 LAND. 21 API test PASS. ruff + pyright 0 error.
+> ubuntu CI PASS (1152 passed 신규 실패 0). §D3 VERIFIED 는 MCT-185 realtime stream 후.
+
+- **LAND commit**: data#72 45e501c5 (squash merge — MCT-184 api/ + MCT-189 testcontainers)
+- **MCT-184 api/ 파일**: `api/__init__.py` + `api/app.py` + `api/arrow_ipc.py` + `api/deps.py` + `api/routes_v1.py` + `api/schemas.py` (6 CREATE)
+- **test**: `tests/api/test_rest_api.py` TC-1~11 + Perf Baseline (21 passed + 2 skipped)
+- **dead-in-data 유지**: production caller 0건 확정 (AC-6 wiring drift 차단 — consumer=MCT-185)
+- **§8.5 Impl Manifest**: `docs/stories/MCT-184.md §8.5` (DeveloperPL CFP-39 self-write)
+
 ### §D3 amendment box (MCT-184 Phase 1 — REST boundary 부분 진행 박제, 2026-05-16)
 
 > **§D3 VERIFIED 아님 — 부분 진행 (amendment box only)**. §D3 `fastapi-v1 + redis-stream`
