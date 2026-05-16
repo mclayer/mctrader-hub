@@ -305,7 +305,7 @@
       "land_prs": [
         "mctrader-hub#TBD (Phase 1 docs — 8e90758)",
         "mctrader-engine#61 (07e8ac4 Phase 2 PR1 — Gate 1~4 PASS, MERGED 2026-05-16T23:22:04Z)",
-        "mctrader-hub#TBD (Phase 2 PR2 박제)"
+        "mctrader-hub#380 (ef8be47 Phase 2 PR2 박제 — MERGED 2026-05-17)"
       ],
       "rationale": "strangler-fig 5단계 (finalize+ADR amend+grep0). D7 quad gate = engine src/ from/import mctrader_data==0 AND engine pyproject mctrader-data 제거 AND engine src/ mctrader_market_bithumb|upbit==0 AND engine pyproject 어댑터 의존 제거. MCT-172 grep0 strict CI 패턴 재사용 (.github/workflows/data-free-grep0.yml). ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm + EPIC-RESULTS + CLAUDE.md POLICY_FINALIZED 박제. Epic CLOSED 자체 = 별 PR (docker-stack/tier-promotion 패턴 정합). Gate 1~4 전수 PASS: engine PR #61 07e8ac4 MERGED. pytest.importorskip pattern (tests/ 8파일 legacy storage skip). Gate 2 CI: tomllib [project.dependencies] 전용 체크 (dev deps 제외). latency SLO pre-existing flap admin merge 우회."
     },
