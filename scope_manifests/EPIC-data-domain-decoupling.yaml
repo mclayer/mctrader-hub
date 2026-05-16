@@ -110,9 +110,9 @@ story_decision_matrix:
     phase_pair: phase1_phase2
     decisions: [D2, D3]
     cross_repo:
-      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-029 amendment confirm (NAS SoT 경로에 data REST indirection LAND)" }
-      - { repo: mctrader-data, change: "/v1 realtime 정규화 stream publisher (Redis Stream — redis[hiredis] 기존 의존, ADR-030 single-host loopback, tick.v1.1 패턴)" }
-      - { repo: mctrader-engine, change: "mctrader_engine/data_client/ thin/generated client 신규 (OpenAPI SSOT 기반). engine cold-read (mctrader_data.storage.scan_candles/orderbook_replay/path.resolve_data_root 직독) → data_client REST 경유 cutover. mctrader_data storage import 제거" }
+      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-029 §D2 VERIFIED amendment box + ADR-031 §D2/§D3 VERIFIED amendment box + ADR-030 cross-ref (Redis Stream loopback) + scope_manifest milestone 3/7→4/7 + CLAUDE.md (F-2 정정: D-row 13/13 reconcile + Story §10/Change Plan §10/ADR amendment box draft 정합)" }
+      - { repo: mctrader-data, change: "/v1 realtime 정규화 stream publisher (Redis Stream — redis[hiredis] 기존 의존, ADR-030 single-host loopback, tick.v1.1 패턴) + historical/orderbook endpoint 신설(MCT-184 amendment 분리 기각, lock-step 회피)" }
+      - { repo: mctrader-engine, change: "mctrader_engine/data_client/ thin/generated client 신규 (OpenAPI SSOT 기반, httpx>=0.27 의존 추가). engine cold-read 8곳 + reverse-write 3곳 = 11곳 5파일 cutover (mctrader_data.storage.scan_candles/orderbook_replay/path.resolve_data_root/paper_lineage 직독 제거 → data_client REST 경유). paper_runner:290 paper_lineage market-core 직독 변경 본 Story 포함 (MCT-188 shim 5→4 축소). pyproject mctrader-data 의존 line 유지 (MCT-188 final 제거)" }
     sequential_depends_on: [MCT-184]
     land_order: "hub Phase1 → data#N → engine#N → hub Phase2 PR2"
     rationale: "strangler-fig 3단계 (engine cold-read cutover). engine 실제 mctrader_data 직독 경로 제거 — D7 grep0 의 cold-read 절반. Phase 0 verify 의무 = engine cold-read 실 호출부 정확 식별 (가설 금지, MCT-180 reader_cache producer path 오류 동형 방지)"
