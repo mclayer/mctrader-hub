@@ -343,9 +343,13 @@
       "reserved_at": "2026-05-17",
       "reserved_by": "PMOAgent (PMO-AUDIT-MCT-189 §4.2 직접 author)",
       "started_at": "2026-05-17",
-      "status": "IN_PROGRESS",
-      "worktree": "c:\\workspace\\mclayer\\mctrader-hub\\.claude\\worktrees\\mct-190-adr-032-author",
-      "worktree_branch": "worktree-mct-190-adr-032-author",
+      "completed_at": "2026-05-17",
+      "status": "COMPLETED",
+      "land_prs": [
+        "mctrader-hub#375 (6f19ec0, MERGED 2026-05-16T22:45:05Z) — 단일 PR: 9 file (ADR-032 158 lines + governance/evidence-triad-verified-badge.md 117 + PMO-AUDIT-MCT-190 300 + RETRO-MCT-190 172 + Story 252 + scope_manifest 156 + spec + plan + CLAUDE.md §MCT-190 52 lines + counters.json) + post-merge cleanup (counters.json COMPLETED 전환 + Story §11 LAND timeline 박제 + plugin-codeforge#804/#805 consumer comment)"
+      ],
+      "worktree": "c:\\workspace\\mclayer\\mctrader-hub\\.claude\\worktrees\\mct-190-adr-032-author (LAND 후 mct-190-post-merge 신규 격리)",
+      "worktree_branch": "worktree-mct-190-adr-032-author (Phase 1 PR LAND 후 mct-190-post-merge 신규)",
       "epic": "cross-Epic governance",
       "repo": "mctrader-hub",
       "phase_pair": "phase1_only (doc-only Story, codeforge:story-cutoff-classification fast-path)",

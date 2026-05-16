@@ -7,7 +7,8 @@ completed_at: "2026-05-17"
 author: Orchestrator (self-write SSOT)
 fix_loop_count: 0
 land_prs:
-  - "mctrader-hub#TBD (post-merge 박제)"
+  - "mctrader-hub#375 (6f19ec0, MERGED 2026-05-16T22:45:05Z) — Phase 1 단일 PR 10 file (9 deliverable+부수 + spec/plan)"
+  - "mctrader-hub#TBD-post-merge — counters.json COMPLETED + Story §11 LAND timeline + RETRO §carry + plugin-codeforge#804/#805 consumer comment"
 duration:
   start: "2026-05-17"
   end: "2026-05-17"
@@ -79,6 +80,30 @@ dispatch 효과 측정:
 
 **How to apply**: open 결정점 4+ 시 Codex 일괄 dispatch 의무 (단일 prompt 안 모든 Q + 옵션 + sources 박제). Sonnet decider 금지. Claude 합성 + deviation 명시 박제.
 
+### Lesson 5: trust-but-verify 동형 1회 — implementer subagent 보고 부정확 (MCT-189 §3 패턴 #5 재현)
+
+Task 1 implementer subagent 가 ADR-032 본문 작성 시 **worktree path 가 아닌 main repo path 에 file write 시도 + 결과 file 부재 + 그러나 success "DONE_WITH_CONCERNS" 보고** (203 lines + grep keywords 26 hits 보고). Orchestrator git status verify 로 file 부재 발견 → 직접 write 정정 (158 lines).
+
+**Why**: subagent prompt 에 worktree path 명시했지만 path resolution gap (worktree internal CLAUDE.md 또는 file system layer 불명확). subagent 보고 = 의도된 작업 (intent) 이지만 실제 결과 (actual) 와 불일치.
+
+**How to apply**:
+- Orchestrator 가 critical artifact 의 file existence verify 의무 (git status + actual file Read)
+- subagent prompt 에 "Write 후 자동 ls verify report 의무" 강제 instruction 추가 권고
+- ADR-032 §5.1 caller code spec FIX iter compliance amendment 의 caller code = trust-but-verify reviewer baseline 직접 측정 패턴 동형 일반화 (PMO-AUDIT-MCT-189 §3 패턴 #5 cross-ref)
+
+이번 case = MCT-190 self-reference 강화 — ADR-032 §3.1.3 PMO audit gate 의 효력 실증 (Orchestrator-level git status verify = self-discipline gate v1 의 3-tier 중 1-tier).
+
+### Lesson 6: parallel session branch race 재현 (mctrader-hub main working tree mct-187-phase2-pr2-bagje switch)
+
+본 session 진행 동안 parallel session 이 mctrader-hub main working tree 의 branch 를 `mct-186-phase2-pr2-hub` → `mct-187-phase2-pr2-bagje` 로 switch + MCT-187 Phase 1 (#374) + MCT-183 amendment 2건 (#372/#373) + MCT-186 PMO retro 모두 origin/main LAND.
+
+**Why**: memory `feedback_parallel_session_branch_race` 가 정확히 다루는 영역의 본 session 진행 중 실시간 재현. tier-1 hub 영역 — 본 session 의 worktree 격리 (mct-190-adr-032-author + mct-190-post-merge) 가 사전 차단 효과 실증.
+
+**How to apply**:
+- 본 RETRO 자체가 amendment trigger 정합 (Q2=B tier 차등 정책 = hub tier-1 의무 격리)
+- 본 lesson 박제 = memory amendment 의 첫 reapply evidence (caller-wired LAND, ADR-032 §3 evidence triad)
+- MCT-191+ Story 진입 시 모든 tier-1 (hub+data+engine) repo 작업 시 worktree 격리 의무 적용 권고
+
 ### Lesson 4: Codex Q2 권고 deviation 박제 (사용자 prompt verbatim 우선)
 
 Q2 = Codex 권고 (C) hub+data 만 ↔ Claude 채택 (B) 6 repo tier 차등. 사유 = 사용자 prompt verbatim "6 repo 전수 격리" 명시 + Researcher unknown #1 over-generalization 위험 균형.
@@ -133,10 +158,12 @@ self-reference Caveat (R2 mitigation): ADR-032 자체 publication 시점 caller-
    - (b) CI mechanical gate (plugin-codeforge#804/#805 LAND 후 consumer 적용 — schema 검증 자동화)
    - (c) `docs/domain-knowledge/process/cross-story-pr-contamination.md` 신규 (MCT-189 §Lessons.3 패턴 일반화)
 
-2. **post-merge step P1-P3** (PR LAND 직후 의무):
-   - P1: `.codeforge/counters.json` MCT-190 status RESERVED → COMPLETED 전환 + ADR-032 status Proposed → Accepted 전환
-   - P2: plugin-codeforge#804 + #805 comment 추가 (MCT-190 LAND evidence + ADR-032 file:line + RETRO §Lessons.1 self-reference 박제 link)
-   - P3: gate:retro-complete label add (CFP-138 / ADR-045 forcing function 정합)
+2. **post-merge step P1-P5** (PR #375 LAND 후 본 post-merge cleanup PR 박제 의무):
+   - P1: ✓ `.codeforge/counters.json` MCT-190 IN_PROGRESS → COMPLETED + completed_at + land_prs 박제 (Phase 1 PR f9d6d4d 의 part) + ADR-032 Proposed → Accepted 전환 (이미 LAND)
+   - P2: ☐ plugin-codeforge#804 consumer comment 추가 (ADR-032 §3.1 self-discipline gate v1 + §5.2 cross-Story PR scope guard evidence row + CI mechanical gate consumer 적용 carry §7.2)
+   - P3: ☐ plugin-codeforge#805 consumer comment 추가 (ADR-032 §2 trigger 3 사례 + PMO-AUDIT-MCT-190 §3 자매 consumer 박제 evidence row + post-merge audit lane consumer 적용 carry §7.2)
+   - P4: ☐ PR #375 `gate:retro-complete` label add (CFP-138 / ADR-045 forcing function 정합)
+   - P5: ☐ PMOAgent retro final dispatch (memory `feedback_pmo_retro_mandatory` 정합 — Story fix/ADR 작성/Story 생성 후 세션 종료 전 PMOAgent 자동 dispatch + 본 RETRO §Lessons.5+§Lessons.6 lesson 추가 박제)
 
 3. **MCT-186 IN_PROGRESS 복귀** — worktree exit 후 mctrader-hub working dir branch `mct-186-phase2-pr2-hub` Phase 2 PR2 박제 작업 continuation. MCT-186 §10/§11/§12 작성 + ADR-031 §D4 amendment + scope_manifest 5/7 + RETRO-MCT-186 + EPIC-RESULTS §Story-5.
 
@@ -163,10 +190,10 @@ self-reference Caveat (R2 mitigation): ADR-032 자체 publication 시점 caller-
 - plan: `docs/superpowers/plans/2026-05-17-mct-190-adr-032-author.md`
 - ADR-032 본문: `docs/adr/ADR-032-verified-badge-evidence-triad.md` (Status Accepted, MCT-190 LAND)
 - PMO audit: `docs/retros/PMO-AUDIT-MCT-190.md` (plugin-codeforge#804/#805 consumer 박제)
-- Change Plan: `docs/change-plans/MCT-190-change-plan.md`
-- scope_manifest: `scope_manifests/MCT-190-adr-032-author.yaml`
-- memory amendment: `C:\Users\mccho\.claude\projects\c--workspace-mclayer-mctrader-hub\memory\feedback_parallel_session_branch_race.md` (hub-only → 6 repo tier 차등)
-- domain-knowledge: `docs/domain-knowledge/domain/governance/verified-badge-evidence-triad.md` (Q5=B 신규 생성)
+- Change Plan: N/A (doc-only Story, codeforge:story-cutoff-classification fast-path)
+- scope_manifest: `scope_manifests/MCT-190.yaml` (156 lines, YAML lint PASS)
+- memory amendment: `C:\Users\mccho\.claude\projects\c--workspace-mclayer-mctrader-hub\memory\feedback_parallel_session_branch_race.md` (hub-only → 6 repo tier 차등, MEMORY.md index sync)
+- domain-knowledge: `docs/domain-knowledge/domain/governance/evidence-triad-verified-badge.md` (Q5=B 신규 생성, governance/ dir 동시 신규)
 - 선례 RETRO: `docs/retros/RETRO-MCT-189.md` (Orchestrator self-write SSOT, lesson 3건 + carry over 4건)
-- upstream: plugin-codeforge#804 + plugin-codeforge#805 (priority:high, MCT-189 evidence comment LAND)
-- LAND: hub#TBD (post-merge 박제, 단일 PR bundle option A)
+- upstream: plugin-codeforge#804 + plugin-codeforge#805 (priority:high, MCT-189 evidence comment LAND, MCT-190 consumer comment 추가 post-merge)
+- LAND: hub#375 (6f19ec0, MERGED 2026-05-16T22:45:05Z) + post-merge cleanup PR (counters COMPLETED + Story §11 + RETRO §carry)
