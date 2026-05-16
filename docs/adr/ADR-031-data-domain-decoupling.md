@@ -127,6 +127,30 @@ endpoint 신설 갱신) **전수 1:1 정합** (MCT-179 lesson reapply — MCT-18
 패턴 계승. §3.6.1 gate v2 cross-Story reapply — Change Plan §3.6.1 SSOT, plugin-codeforge#795
 mechanical gate 미가용).
 
+### §D4 amendment box draft (MCT-186 IN_PROGRESS — engine exchange-adapter 제거, 2026-05-17)
+
+> **§D4 VERIFIED draft — MCT-186 Phase 1 진입 박제**. MCT-185 LAND (data realtime_stream.py
+> Redis Stream publisher + engine data_client/) 를 전제로 engine `mctrader_market_bithumb`
+> 직접 import 5곳 5파일 제거 + Redis Stream XREAD 구독 전환 진행 중.
+>
+> **§D4 VERIFIED amendment box 확정 = MCT-186 Phase 2 PR2 LAND 후** (engine#TBD LAND + AC-1 grep0
+> + integration test PASS 확인 시점). 본 draft = 설계 lane 박제 (Phase 1 commit 기준).
+
+#### §D4 설계 확정 사항 (Phase 0 + Change Plan §1 기반)
+
+- **대상 5곳 5파일** (Phase 0 V3 HEAD 실증치 — engine origin/main `1312195`):
+  `fill/simulated.py:18` + `realtime/stream_consumer.py:8-12` + `runtime/mock_stream.py:19` +
+  `runtime/paper_runner.py:267` (function-local) + `runtime/ws_wrapper.py:30`
+- **subscribe-normalized-stream 채택** (D4 option_chosen): MCT-185 publisher
+  `market:tick:{exchange}:{symbol}` XREAD + `TickRowV1_1.model_validate_json()` 역직렬화
+- **신규 파일**: `realtime/types.py` (engine-local `OrderbookSnapshot`/`_Level` — V7/V8 Phase 0 정정)
+  + `realtime/redis_subscriber.py` (XREAD asyncio subscriber, MarketStream Protocol 준수)
+- **engine-local `OrderbookSnapshot`**: bithumb `_BaseEvent` 미상속 → INV-3 영구 (exchange-agnostic)
+- **R2 ZERO RISK 확인**: MCT-43~47 active branch = 0건 (Phase 0 V2 재재cross-check)
+- **ADR-030 NAS cred drop**: engine compose NAS env drop (MCT-186 owner 확정 — MCT-184 amendment box 예고)
+
+D4-D7 = 후속 Story owner (MCT-187~188) — §D4 VERIFIED 는 MCT-186 LAND 후.
+
 ### §D3 amendment box (MCT-184 Phase 2 LAND confirm — data#72 MERGED 45e501c, 2026-05-16)
 
 > **§D3 부분 진행 LAND 확정** — data#72 (45e501c5) Phase 2 PR1 MERGED (2026-05-16).
