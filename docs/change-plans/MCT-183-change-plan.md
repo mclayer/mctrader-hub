@@ -496,6 +496,28 @@ relocation 약함 정합).
   - grep gate: `git diff` `src/mctrader_data/compactor/reader_cache.py` == 0
   - 테스트: 기존 data `tests/compactor/` green 유지
 
+### 8.1 INV-1 amendment box (post-completion 2026-05-17, hub#TBD post-completion amendment LAND)
+
+> **트리거**: data#70 post-merge audit (Codex) 가 INV-1 위반 5건 (ruff --fix --select F401,SIM105
+> lint auto-fix 의도치 않은 적용) 발견. 6450cfd direct commit 으로 1차 부분 정정 (cold_reader
+> 등 partial), 그러나 ruff per-file-ignores 정책 미박제 + 5 module 전수 revert 미완 → data#71
+> PR carry over. CFP-795 isPostMergeFix 4번째 fast-pass source 정식 escalation 발의 trigger.
+
+**amendment 결정 (LAND 박제)**:
+
+- **AM-1 (relocate 자산 ruff per-file-ignores 정책 명문)**:
+  - data `pyproject.toml` `[tool.ruff.lint.per-file-ignores]` 에 `"src/mctrader_data/io/*.py" = ["F401", "SIM105"]` 추가 (data#71 950e82b)
+  - **사유**: relocate 자산 (engine origin/main byte-equivalent) 의 INV-1 보존 의무 → ruff auto-fix 격리. 재발생 차단 mechanical gate.
+  - **carry over (MCT-185 cutover)**: io/ 가 production caller 연결 + cold-read REST cutover 시점에 lint 재적용 (per-file-ignores 해제 + auto-fix 검증). io/ 자산이 더 이상 byte-equivalence 의무가 아니게 되는 시점 = MCT-185 LAND 시점. ADR-031 §D2 partial → full VERIFIED 전환 시 amendment 박제.
+
+- **AM-2 (INV-1 위반 5 module 전수 revert)**:
+  - data#71 6450cfd commit = INV-1 byte-equivalence 5 module 전수 revert (cold_reader.py line 35-36 field/Optional import 복원 + dr_mode.py contextlib.suppress → try/except revert + endpoint_router.py field/Optional 복원 + l1_reader.py field 복원 + reader_cache.py:36 Optional 복원 + tier_reader.py field 복원)
+  - **engine origin/main `c6249fa6` byte-for-byte 동일 verify** (data main = §11.1 행 8 LAND commit 박제 후)
+
+- **AM-3 (CFP-795 isPostMergeFix carrier)**:
+  - data#71 = CFP-795 isPostMergeFix 1st 적용 case. 3-조건 AND gate (post-merge-fix label + hub §10 binding + 양면 §7 보안 non-touch) 통과 → phase-gate-mergeable fast-pass.
+  - hub-side carrier: 본 §10 post-merge 1 row + §11.1 행 8/9 + Story §10 (mctrader-hub `docs/stories/MCT-183.md`) 모두 binding marker carrier 의무 (CFP-795 isPostMergeFix Cond 2 source).
+
 ### 8.2 byte-equivalence 회귀 (engine origin/main pinned tree ↔ data 이전 6 module)
 
 > **P1-1 source pin**: 비교 source = engine `origin/main` 고정 commit hash (§8.0
@@ -510,6 +532,25 @@ relocation 약함 정합).
 | Perf Baseline | `test_reader_perf` NFR 이전 동등 verdict (relocate 라 perf 무영향 — engine.metrics 비의존 직접 계산, reader_perf.py 이전 green 으로 충분, §5.1 N/A 정합) | INV-4 |
 | `test_reader_cache_flush` 정정 회귀 | engine 원본 `test_stats_emits_prometheus_gauges` (L215 engine.metrics Gauge assert) = data 측 `pytest.mark.skip(reason="MCT-183 relocate: Gauge emit = MCT-185 cutover owner, dead-in-data no-op")` 또는 stats() 반환 dict 만 assert (hit_ratio/p99 값 검증 유지) — 로직 정정 동반 (§3.5) | INV-4 |
 | compactor Protocol 회귀 | `compactor/reader_cache.py` diff 0 + data compactor 테스트 회귀 0 | INV-6 |
+
+### 8.2 INV-4 amendment box (post-completion 2026-05-17, hub#TBD post-completion amendment LAND)
+
+> **트리거**: data#70 LAND 후 발견 — `tests/io/` 7 test 가 ubuntu CI 환경에서 (A) pyright type
+> error 1건 + (B) flaky timing tolerance (test_reader_perf p99 latency assertion) + (C) CacheEntry
+> dataclass 정식화 부재 (dict-tuple 혼용) 발견. data#70 의 byte-equivalence INV-1 보존은 src/
+> 한정이며 tests/io/ 는 relocate 시 CI 정합 의무 (INV-4 "tests/io/ 7 test green") 가 CI 통과
+> 의무 카테고리임을 명문 amendment.
+
+**amendment 결정 (LAND 박제)**:
+
+- **AM-4 (tests/io/ pyright fix + timing tolerance + CacheEntry 정식화 = CI 통과 의무 카테고리)**:
+  - tests/io/ test 의 CI 통과 의무 (data ubuntu-latest CI green) 가 INV-4 carrier — pyright type error 정정 + timing tolerance 안정화 + CacheEntry dataclass 정식화 (dict-tuple 혼용 제거) 모두 byte-equivalence INV-1 영역과 분리 (src/ 가 아닌 tests/ 영역).
+  - **engine origin/main 의 tests/io/ 7 test** = data 측에 byte-relocate 시점 = engine 측 CI 가 통과한 시점 → data 측에서도 CI 통과 의무. 단 data 측 환경 (newer pyright, slower CI runner) 에서 fix 필요 → CI 통과 의무 카테고리 명문.
+  - **carry**: tests/io/ 가 production wiring (MCT-185 cutover) 시점에 다시 검증 의무. pyright + timing tolerance + CacheEntry 정식화는 MCT-185 cutover 와 무관 — relocate 시점에 정식 박제 (본 amendment box).
+
+- **AM-5 (data#71 PR 가 §8.2 INV-4 정정 동반 포함)**:
+  - data#71 PR scope = INV-1 revert (§8.1 AM-2) + ruff per-file-ignores (§8.1 AM-1) + tests/io/ pyright/timing/CacheEntry 정정 (§8.2 AM-4) 통합.
+  - 사용자 결정 옵션 A (hub Phase 2 PR2 박제 시 통합) → 본 post-completion amendment 로 확장 (Phase 2 PR2 hub#355 LAND 후 발견되어 post-completion 별 PR carry over).
 
 ### 8.3 engine 삭제 후 회귀 (engine#N)
 

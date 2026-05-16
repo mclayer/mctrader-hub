@@ -70,15 +70,33 @@
 
 ## 5. carry over (post-Story)
 
-| # | 항목 | severity | owner |
-|---|------|----------|-------|
-| 1 | data tests/io/test_reader_cache_flush.py:215+221 skipped test 본문 mctrader_engine.metrics import 잔존 (Change Plan §8.2 정합 + @pytest.mark.skip, 실행 0) | non-blocking | MCT-185 (Gauge 재배선 cutover 시 정리) |
-| 2 | reader_cache.py stats() Gauge 실 emit 재배선 (data 측 동등 Gauge 신설 + producer wiring) | scope 외 | MCT-185 cold-read cutover |
-| 3 | engine `mctrader_engine.metrics.set_reader_cache_hit_ratio`/`set_reader_p99_ms` setter 고아화 (engine io/ 삭제 후 caller 0) | non-blocking dead code | MCT-185/188 |
-| 4 | engine NAS 직독 폐기 실 amend confirm (ADR-029 §D2) | scope 외 | MCT-185 cold-read REST cutover |
-| 5 | data io/ production wiring (dead-in-data → live) | scope 외 | MCT-185 |
-| 6 | data-free grep0 quad gate CI + ADR-029/027 본문 결정 무변경 → 실 amend confirm | scope 외 | MCT-188 POLICY_FINALIZED |
-| 7 | **codeforge upstream ADR escalation 발의** (cross-document SSOT mechanical gate plugin-level) | HIGH 누적 | PMO-AUDIT-MCT-183 + codeforge marketplace issue 발의 |
+| # | 항목 | severity | owner | 상태 |
+|---|------|----------|-------|------|
+| 1 | data tests/io/test_reader_cache_flush.py:215+221 skipped test 본문 mctrader_engine.metrics import 잔존 (Change Plan §8.2 정합 + @pytest.mark.skip, 실행 0) | non-blocking | MCT-185 (Gauge 재배선 cutover 시 정리) | OPEN |
+| 2 | reader_cache.py stats() Gauge 실 emit 재배선 (data 측 동등 Gauge 신설 + producer wiring) | scope 외 | MCT-185 cold-read cutover | OPEN |
+| 3 | engine `mctrader_engine.metrics.set_reader_cache_hit_ratio`/`set_reader_p99_ms` setter 고아화 (engine io/ 삭제 후 caller 0) | non-blocking dead code | MCT-185/188 | OPEN |
+| 4 | engine NAS 직독 폐기 실 amend confirm (ADR-029 §D2) | scope 외 | MCT-185 cold-read REST cutover | OPEN |
+| 5 | data io/ production wiring (dead-in-data → live) | scope 외 | MCT-185 | OPEN |
+| 6 | data-free grep0 quad gate CI + ADR-029/027 본문 결정 무변경 → 실 amend confirm | scope 외 | MCT-188 POLICY_FINALIZED | OPEN |
+| 7 | **codeforge upstream ADR escalation 발의** (cross-document SSOT mechanical gate plugin-level) | HIGH 누적 | PMO-AUDIT-MCT-183 + codeforge marketplace issue 발의 | **CLOSED 2026-05-16** — PMO-AUDIT-MCT-183 (#356 LAND f8443109) + codeforge upstream **#795 정식 escalation** (CLOSED 2026-05-16T15:51:22Z) + Phase 1 #806 + Phase 2 #808 MERGED (isPostMergeFix 4번째 fast-pass source 정식 박제) |
+| 8 | **post-merge fix iter 1 (data#70 lint auto-fix INV-1 위반 5건 + tests/io/ CI 통과 의무 카테고리)** | post-merge-fix carrier | data#71 (mctrader-data) + hub post-completion amendment (본 PR) | **LAND 진행 중 2026-05-17** — codeforge#795 isPostMergeFix 1st 적용 case. consumer workflow drift sync (data#77 22e2ece MERGED 2026-05-16T22:09:24Z) + hub Change Plan §8.1 AM-1/2/3 + §8.2 AM-4/5 amendment 박제 + Story §10 post-merge 1 row binding + §11.1 행 7/8/9 timeline. data#71 fast-pass merge = 본 amendment LAND 후 |
+
+## §5.1 codeforge escalate-and-fix 1st 성공 case (LAND 박제 2026-05-17)
+
+본 RETRO §4.2 ("codeforge upstream ADR escalation 결정 발의") + §5 carry over #7 (HIGH 누적) → 정식 escalation 후 LAND 까지 **1일 (2026-05-16~05-17) 완결**:
+
+| 단계 | timing | 산출 |
+|------|--------|------|
+| 0. PMO-AUDIT-MCT-183 박제 + codeforge marketplace issue 발의 | 2026-05-16T11:00:09Z | hub#356 LAND |
+| 1. codeforge upstream Story 발의 (plugin-codeforge#795) | 2026-05-16 (PMO retro 후) | Issue OPEN phase:설계 |
+| 2. codeforge Phase 1 PR (#806) — ADR-026 Amendment 4 (post-merge-fix 3-조건 AND + hub whitelist) | 2026-05-16 | LAND (`8cfe9b1`) |
+| 3. codeforge Phase 2 PR (#808) — `phase-gate-mergeable.yml` 4번째 fast-pass source isPostMergeFix + label-registry MINOR + 9 file 이행 + 28 TC TDD GREEN | 2026-05-16T16:57:44Z | MERGED |
+| 4. #795 Issue CLOSED + gate:retro-complete | 2026-05-16T15:51:22Z | CLOSED |
+| 5. consumer adoption (mctrader-data#77) — byte-identical mirror + ALLOWED_HUB_REPOS 확장 (ADR-057 정합) | 2026-05-16T22:09:24Z | MERGED |
+| 6. hub MCT-183 post-completion amendment (본 PR) — §10 binding + §11 timeline + Change Plan §8.1/§8.2 amendment + RETRO 본 §5.1 박제 | **2026-05-17** | **본 PR LAND 후** |
+| 7. data#71 fast-pass merge (CFP-795 isPostMergeFix 1st 적용 case) | 2026-05-17 (본 amendment LAND 후) | TBD |
+
+**lesson**: memory `feedback_escalate_to_codeforge.md` ("codeforge 사용 의무, 어려우면 시간 들여서라도 upstream issue escalation, consumer workaround 금지") + `feedback_consumer_evidence_rapid_iteration.md` ("codeforge SSOT merge 후 consumer 적용 즉시 발견된 UX 문제는 1일 내 amendment + reverse migration 정당") 의 cross-Story 동작 검증. PMO retro 가 trigger 한 upstream escalation → upstream LAND → consumer adoption 까지 **24h 내 cycle** 완결. relocation/dead-in-prod Story 패턴의 안전 invariant 화 권고 (MCT-185 cutover Story 동형 reapply 의무).
 
 ## 6. 다음 Story 진입
 
