@@ -44,6 +44,66 @@ Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance s
 - **D1=B VERIFIED** (mctrader-data#59): L1Compactor.compact_segment() 내 _write_parquet_atomic() 직후 DualWriter.put_l1() 호출 확인. compactor 측 timing 정합 (22 tests PASS).
 - **D2=B VERIFIED** (mctrader-data#59): DualWriter.put_l1() → NASUploader.put_streaming() + queued → local_only 경로 확인. retry_queue + local_only 재사용 정합 (INV-5 status enum 3종 exhaustive PASS).
 
+### §D2 VERIFIED amendment box (MCT-185 LAND 박제, 2026-05-17, EPIC-data-domain-decoupling Story-4 — engine NAS 직독 폐기 LAND confirm)
+
+> **MCT-185 amendment (2026-05-17, Phase 1 draft → Phase 2 PR2 VERIFIED)**: MCT-183
+> amendment box "engine NAS 직독 폐기 예고" 의 **LAND confirm** 단계. 본 amendment box
+> 박제 시점 = Phase 1 draft (Story §0-§11 박제 + ADR-029 §D2 VERIFIED amendment box draft).
+> 실 LAND confirm = Phase 2 PR2 박제 시점 (engine#N LAND + cold-read 8곳 cutover + reverse-write
+> 3곳 cutover + AC-6 evidence triad PASS 후 confirm 박제 갱신). ADR-029 **본문 11 D 정책
+> 무변경 (POLICY_FINALIZED 보존)** — MCT-181 LAND Status Amendment box 패턴 정합. 본 §D2
+> VERIFIED 가 engine NAS 직독 폐기의 invariant carrier (D2 cold-read cutover 완결).
+>
+> **§D2 cold-read cutover LAND 박제 (MCT-185 Phase 1 draft, EPIC-data-domain-decoupling
+> §D2 `io-relocate + cold-read-behind-REST` 의 cold-read-behind-REST 절반 — io-relocate
+> MCT-183 LAND 정합)**:
+>
+> - **engine cold-read 8곳 cutover** = engine src/ `from mctrader_data.(storage|path|orderbook_replay)`
+>   import = **0건 grep** 충족 예정 (engine#N LAND 시점, Phase 0 V2 식별 8곳: `cli.py:279,280`
+>   `resolve_data_root + scan_candles` + `executor/tick_replay.py:26,559` `orderbook_replay`
+>   top-level + function-local + `wfo/evaluator/data_loader.py:43,44` `resolve_data_root +
+>   scan_candles` + `wfo/search/data_loader.py:81,82` 동형) → engine `data_client.historical`
+>   REST 경유 cutover (MCT-184 routes_v1.py LAND `/v1/historical/candles` + `/v1/historical/candles/l1`
+>   + 본 Story 신설 `/v1/historical/orderbook/snapshots` + `/v1/historical/orderbook/ticks`)
+> - **engine reverse-write carrier 3곳 cutover** = `from mctrader_data.paper_storage import
+>   write_paper_candles` 0건 grep + `from mctrader_data.nas_storage.nas_uploader import` 0건
+>   grep + paper_runner.py:290 paper_lineage market-core 직독 변경 (MCT-185 Change Plan §3.5
+>   본 Story 포함 채택) → engine `data_client.reverse_write` REST 경유 cutover (MCT-184
+>   routes_v1.py LAND `/v1/reverse-write/paper-candles` + `/v1/reverse-write/backtest-artifact`)
+> - **engine 측 NAS object layout / parquet tier / ETag / endpoint resolution = 비인지**
+>   (D2/ADR-029 정합 — REST 응답 = Arrow IPC stream only, presigned-NAS-handoff 기각 효력
+>   실증). io reader 6 module = mctrader-data Layer 2 자족 (MCT-183 LAND 정합)
+> - **§D8 forward-only + local fallback 정합**: engine `data_client.base` retry/circuit-breaker
+>   에 **local-fallback 없음** (fallback 도입 시 D2 invariant 위반 — ADR-029 §D8 cutoff
+>   2026-09-01 sunset 가속화 가능, MCT-170 D8 amendment 정합). data api down → engine cold-read
+>   503 propagate (graceful + alert) = D2 invariant strict 유지
+
+**§D9 NAS = SoT for ALL tiers 정합 (MCT-167 amendment box 재명시)**:
+
+- 본 ADR §D9 (MCT-167 amendment) "NAS = SoT for ALL tiers" 의 engine read carrier =
+  MCT-185 LAND 후 **data REST API indirection 으로 전환 완결**. "engine read-through cache"
+  모델 = engine 측 cache 없음 (engine `data_client.base` = stateless HTTP client + circuit-breaker
+  in-memory state only) + data 측 io/ reader cache (MCT-183 LAND `reader_cache.py` LRU+TTL+byte
+  budget) = Layer 2 자족 cache.
+- **engine NAS credential drop** = MCT-186 owner (engine 컨테이너 NAS credential env drop —
+  ADR-030 §D2 amendment box "engine NAS cred drop" 정합). 본 Story = engine import 0건 grep
+  목표 (AC-3 D2 cutover grep0), engine pyproject `mctrader-data @ git+` 의존 line 유지 (MCT-188
+  D7 final 제거 owner)
+
+**D-row ↔ scope_manifest 1:1 reconcile (MCT-179 lesson reapply — R1 가드)**:
+
+scope_manifest `§design_decisions.D2` (`option_chosen: io-relocate + cold-read-behind-REST`
+/ `owner_story: MCT-183 (io relocate) + MCT-185 (cold-read cutover)`) ↔ `§planned_adrs.amendments`
+ADR-029 (`section: engine NAS 직독 폐기 + io reader relocated + NAS SoT 경로 data REST
+indirection` / `owner_story: MCT-183 (relocate) + MCT-185 (cutover confirm)`) ↔
+`§story_decision_matrix.MCT-185` (`decisions: [D2, D3]`) ↔ 본 §D2 VERIFIED amendment box
+**전수 1:1 정합** (MCT-182/183/184 D-row reconcile 패턴 계승, cross-document SSOT desync
+사전 차단).
+
+cross-ref: `docs/stories/MCT-185.md` §0/§4.3/§4.4/§5/§6 + `docs/change-plans/MCT-185-change-plan.md`
+§3/§7/§8.0/§10/§11 + `docs/adr/ADR-031-data-domain-decoupling.md` §D2 VERIFIED amendment box
+(MCT-185 LAND 박제, Phase 1 draft → Phase 2 PR2 VERIFIED).
+
 ### MCT-189 amendment box (2026-05-16, EPIC-tier-promotion-single-source carry over — §D3=C grace-0 로컬삭제 wiring 완결, Phase 1 draft → Phase 2 PR3 VERIFIED)
 
 > **MCT-189 amendment (2026-05-16, Phase 1 draft → Phase 2 PR3 VERIFIED)**: 2026-05-16 운영 진단에서 `promote_l1()` production caller = 0건 발견 (MCT-169 D3=C 정의만 LAND, caller wiring 부재 = cross-document SSOT drift 2호). 본 Story = wiring 완결: (a) DualWriter `status=committed` branch self-delete (D-2 A) — caller 0건 재발 차단, (b) 4중 HEAD verify primitive (ETag+VersionId+sha256 metadata+ContentLength, D-4 C), (c) pre-delete HEAD guard (D-8 B, race window 차단). §D3 line 246 grace 0 일관 amend (D-1 A unconditional, terminal path "7-day FIFO grace" 표현 제거). §D11 표 L1 local 행 "7-day grace 기본" → "DualWriter status=committed self-delete (grace 0)" 정정. §D10 production evidence gate 강화 (post-LAND 14d 0 violation, ADR-032 evidence triad 형식 차용). Migration §Forward-only invariant 격상 (local fallback 제거, NAS versioning 30d window 의존, D-5 A). **POLICY_FINALIZED 유지** (강등 없음 — 10/11 D 정상 + D3 wiring carry over → resolved). 채택 결정 D-1 A / D-2 A / D-3 C(사용자) / D-4 C / D-5 A / D-6 A / D-7 A / D-8 B / D-9 A / D-10 B. spec `docs/superpowers/specs/2026-05-16-MCT-189-grace0-wiring-design.md` SSOT.

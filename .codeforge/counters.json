@@ -240,6 +240,8 @@
     "MCT-185": {
       "title": "data realtime stream + engine thin client + cold-read cutover",
       "reserved_at": "2026-05-16",
+      "started_at": "2026-05-17",
+      "status": "IN_PROGRESS",
       "epic": "EPIC-data-domain-decoupling",
       "repo": "mctrader-hub + mctrader-data + mctrader-engine",
       "phase_pair": "phase1_phase2",

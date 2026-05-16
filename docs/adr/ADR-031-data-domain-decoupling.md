@@ -37,6 +37,96 @@ cold-read cutover pending MCT-185):
 - cold-read 실경로 cutover (engine `mctrader_data.storage.scan_candles/orderbook_replay/
   path.resolve_data_root` 직독 → data REST 경유) = **MCT-185 owner** (§D2 VERIFIED = MCT-185 후)
 
+### §D2 + §D3 VERIFIED amendment box (MCT-185 LAND 박제, 2026-05-17, EPIC-data-domain-decoupling Story-4 — cold-read cutover 완결 + realtime stream + reverse-write wiring 완결)
+
+> **MCT-185 amendment (2026-05-17, Phase 1 draft → Phase 2 PR2 VERIFIED)**: EPIC-data-domain-decoupling
+> Story-4 (가장 복잡 Story — 3 repo + production wiring 전환) Phase 1 박제분. **§D2 cold-read
+> cutover 완결 + §D3 realtime stream + reverse-write wiring 완결** 동시 충족 (D2+D3 owner
+> Story 절반 + 절반). 본 amendment box 박제 시점 = Phase 1 draft. 실 LAND confirm = Phase
+> 2 PR2 박제 시점 (data#N LAND + engine#N LAND + AC-6 evidence triad PASS 후 confirm 박제
+> 갱신).
+>
+> **Status `Accepted` 유지 (POLICY_FINALIZED 전이 = MCT-188 owner)** — 본 Story = D2+D3
+> 진전 (VERIFIED amendment box 박제), POLICY_FINALIZED transition 은 MCT-188 (data-free
+> grep0 quad gate + EPIC 7/7 finalize) 시점.
+
+#### §D2 cold-read cutover 완결 박제 (D2 owner 절반 — MCT-183 io-relocate 완결 후 cold-read-behind-REST 절반)
+
+- **engine cold-read 8곳 cutover LAND** (engine#N Phase 2 PR1) — engine src/ `from mctrader_data.(storage|path|orderbook_replay)`
+  import = **0건 grep** 충족 (Phase 0 V2 식별 8곳 4파일: `cli.py:279,280` + `executor/tick_replay.py:26,559`
+  + `wfo/evaluator/data_loader.py:43,44` + `wfo/search/data_loader.py:81,82`)
+- **engine `data_client/` 신설** (engine#N Phase 2 PR1) = `src/mctrader_engine/data_client/`
+  서브패키지 (`base.py` + `historical.py` + `reverse_write.py` + `exceptions.py` + `__init__.py`
+  5 파일). hand-written thin client 채택 (MCT-184 OpenAPI SSOT 단방향 소비 + Pydantic schema
+  market-core SSOT 재사용 = SSOT 단일 정합). `httpx>=0.27` 신규 의존 추가 (sync httpx Client
+  — engine 기존 동기 호출 패턴 정합)
+- **historical/orderbook endpoint 신설** (data#N Phase 2 PR1) = `/v1/historical/orderbook/snapshots`
+  + `/v1/historical/orderbook/ticks` 2 endpoint 신설 (MCT-184 routes_v1.py 372 lines LAND 후
+  본 Story 확장 — executor/tick_replay.py:26,559 cutover 완결 의무). OpenAPI snapshot 갱신 +
+  hub `.codeforge/contracts/data-api-v1.openapi.json` 동반 갱신
+- **ADR-029 §D2 VERIFIED amendment confirm** (`docs/adr/ADR-029-tier-promotion-single-source.md`
+  §D2 VERIFIED amendment box, MCT-185 LAND 박제) — engine NAS 직독 폐기 LAND confirm + io
+  reader 6 module = mctrader-data Layer 2 (MCT-183 LAND 정합) + cold-read 8곳 = data REST
+  indirection 실 적용 박제. ADR-029 본문 11 D 정책 무변경 (POLICY_FINALIZED 보존)
+
+#### §D3 realtime stream + reverse-write wiring 완결 박제 (D3 owner 절반 — MCT-184 historical+reverse-write 완결 후 redis-stream + reverse-write client 절반)
+
+- **data `src/mctrader_data/api/realtime_stream.py` 신설** (data#N Phase 2 PR1) = Redis Stream
+  `XADD market:tick:{exchange}:{symbol}` publisher (`REDIS_KEY_PREFIX_MARKET` env 도입, ADR-030
+  §D15 prefix 정합). tick.v1.1 정규화 schema = `mctrader_market.schemas.tick.TickRowV1_1`
+  SSOT 재사용 (market-core Layer 0 contract). data 기존 `redis[hiredis]>=5` 의존 재사용 (신규
+  의존 0). MAXLEN `~ 100000` approximate trim
+- **ASGI lifespan 통합** = `api/app.py` lifespan hook 에 `RealtimeStreamPublisher.startup()` /
+  `.shutdown()` 통합 (uvicorn `--timeout-graceful-shutdown=60` 정합 — XADD in-flight drain
+  + Redis connection close)
+- **engine reverse-write 3곳 cutover LAND** (engine#N Phase 2 PR1) = `runtime/paper_runner.py:290,291`
+  + `backtest/nas_sync.py:36` 3곳 2파일 → `data_client.reverse_write.post_paper_candles` +
+  `.post_backtest_artifact` REST 경유 cutover. canonical sha256 client-side 정합 (market-core
+  `canonical_jsonl_hash` SSOT 재사용 + MCT-184 post-merge fix `e612296` F-2 정합 — bytes-level
+  정밀도 lesson reapply)
+- **paper_runner.py:290 paper_lineage market-core 직독 변경** (Change Plan §3.5 본 Story
+  포함 채택) = `from mctrader_data.paper_lineage import ...` → `from mctrader_market.paper_lineage
+  import PaperLineage, canonical_jsonl_hash` (MCT-182 LAND market-core SSOT 정합). MCT-188 shim
+  잔존 5곳 → 4곳 축소 (D7 grep0 quad gate scope 사전 축소)
+- **MCT-184 dead-in-data → production wiring 전환** = MCT-184 routes_v1.py 4 endpoint (production
+  caller 0 → ≥11곳 cutover scope 활성화) + 본 Story 신설 historical/orderbook 2 endpoint (production
+  caller 신규 활성화). MCT-184 AC-6 의도된 dead-in-data SSOT → **본 Story AC-6 의도된 production
+  wiring SSOT 박제** = ADR-032 evidence triad (file:line + caller grep ≥11 + integration test
+  result) **선제 reapply 효력 1회 실증**
+
+#### ADR-029/030/032 정합
+
+- **ADR-029 §D2 VERIFIED amendment confirm**: 위 §D2 cold-read cutover 박제 정합. ADR-029
+  본문 11 D 정책 무변경 (POLICY_FINALIZED 보존)
+- **ADR-030 cross-ref only**: Redis Stream loopback 정합 재명시 (data 기존 `redis[hiredis]`
+  의존 재사용 + 신규 service 추가 0 — 실 compose wiring + engine NAS cred drop = MCT-186 owner).
+  본문 19 D 무변경 (POLICY_FINALIZED 보존)
+- **ADR-032 선제 reapply 효력 실증 시점**: MCT-184 AC-6 의도된 dead-in-data SSOT → 본 Story
+  AC-6 의도된 production wiring SSOT 박제 = evidence triad 갱신 (caller grep 0 → ≥11) =
+  선제 reapply 효력 **1회 실증** (PMO-AUDIT-MCT-184 §3 패턴 #3 relocation/신규 신설 Story 안전
+  invariant 화 권고의 MCT-185 실 검증)
+
+#### D-row ↔ scope_manifest 1:1 reconcile (MCT-179 lesson reapply — §3.6.1 gate v2 cross-Story)
+
+| 항목 | scope_manifest SSOT | 본 §D2+§D3 VERIFIED amendment box | reconcile |
+|------|---------------------|-----------------------------------|-----------|
+| D2 option_chosen | `§design_decisions.D2.option_chosen: io-relocate + cold-read-behind-REST` | 본 Story = cold-read-behind-REST 절반 (cold-read 8곳 cutover 완결 + io-relocate MCT-183 LAND 정합) | ✅ 1:1 |
+| D2 owner_story | `§design_decisions.D2.owner_story: MCT-183 (io relocate) + MCT-185 (cold-read cutover)` | 본 amendment box = MCT-185 cutover 절반 LAND 박제 | ✅ 1:1 |
+| D3 option_chosen | `§design_decisions.D3.option_chosen: fastapi-v1 + redis-stream` | 본 Story = redis-stream + reverse-write client 절반 (fastapi-v1 MCT-184 LAND 정합) | ✅ 1:1 |
+| D3 owner_story | `§design_decisions.D3.owner_story: MCT-184 (historical+reverse-write) + MCT-185 (realtime stream)` | 본 amendment box = MCT-185 realtime stream + reverse-write wiring 절반 LAND 박제 | ✅ 1:1 |
+| MCT-185 decisions | `§story_decision_matrix.MCT-185.decisions: [D2, D3]` | 본 Story = D2 (cold-read cutover) + D3 (realtime stream + reverse-write wiring) | ✅ 1:1 |
+| ADR-029 amendment | `§planned_adrs.amendments[0]` ADR-029 `owner_story: MCT-183 (relocate) + MCT-185 (cutover confirm)` | ADR-029 §D2 VERIFIED amendment box (MCT-185 LAND 박제) = engine NAS 직독 폐기 LAND confirm | ✅ 1:1 |
+| Status 전이 | (POLICY_FINALIZED 전이 = MCT-188 owner) | 본 Story = Status `Accepted` 유지 (POLICY_FINALIZED = MCT-188) | ✅ 1:1 |
+| historical/orderbook endpoint | (scope_manifest 미명시 — MCT-184 LAND surface 4 endpoint) | 본 Story = data#N 에 신규 2 endpoint 추가 (cutover 완결 의무) + OpenAPI snapshot 갱신 | ✅ 1:1 (MCT-184 LAND surface 의 본 Story 확장 — final POLICY_FINALIZED 까지 amendment 누적 패턴 정합) |
+
+**reconcile verdict**: ADR-031 §D2+§D3 VERIFIED amendment box ↔ `scope_manifests/EPIC-data-domain-decoupling.yaml`
+`§design_decisions.D2/D3` + `§story_decision_matrix.MCT-185` + `§planned_adrs.amendments`
+ADR-029 ↔ ADR-029 §D2 VERIFIED amendment box ↔ ADR-030 cross-ref ↔ MCT-185 Story §2/§4
+DELTA ↔ `.codeforge/contracts/data-api-v1.openapi.json` snapshot (historical/orderbook 2
+endpoint 신설 갱신) **전수 1:1 정합** (MCT-179 lesson reapply — MCT-182/183/184 D-row reconcile
+패턴 계승. §3.6.1 gate v2 cross-Story reapply — Change Plan §3.6.1 SSOT, plugin-codeforge#795
+mechanical gate 미가용).
+
 ### §D3 amendment box (MCT-184 Phase 2 LAND confirm — data#72 MERGED 45e501c, 2026-05-16)
 
 > **§D3 부분 진행 LAND 확정** — data#72 (45e501c5) Phase 2 PR1 MERGED (2026-05-16).
