@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 189
+      "next": 190
     },
     "mctrader-data": {
       "next": 1
@@ -209,8 +209,12 @@
       "title": "Layer 2 read 도메인 relocation → mctrader-data (engine io/ 6 module)",
       "reserved_at": "2026-05-16",
       "started_at": "2026-05-16",
-      "status": "IN_PROGRESS",
-      "design_review_status": "PASS (post-RESET, gate:design-review-pass) — iter1→3 FIX P0×3→×2 max 3/3 + RESET path (3 trigger 0 충족) + ArchitectPL 수렴 회귀(ADR-031+sibling MCT-182 canonical + §3.6.1 gate v2 self-verify) + Orchestrator 독립 verify PASS",
+      "completed_at": "2026-05-16",
+      "status": "COMPLETED",
+      "epic_milestone": "2/7",
+      "design_review_status": "PASS (post-RESET) — iter1→3 FIX P0×3→×2 max 3/3 + RESET path (3 trigger 0 충족) + ArchitectPL 수렴 회귀(ADR-031+sibling MCT-182 canonical + §3.6.1 gate v2 self-verify) + Orchestrator 독립 verify PASS",
+      "code_review_status": "PASS FIX 0회 — MCT-182 lesson reapply 효과 검증 (§3.6.1 gate v2 가 cross-document SSOT desync carry 사전 차단, post-LAND grep 0줄)",
+      "land_prs": ["mctrader-hub#353 (29e9c0d Phase 1)", "mctrader-data#70 (0e6f35b0)", "mctrader-engine#58 (18275737)", "mctrader-hub#354 (d2f48fb §8.5)", "mctrader-data 6450cfd (post-merge lint-revert)", "mctrader-hub#TBD Phase 2 PR2"],
       "epic": "EPIC-data-domain-decoupling",
       "repo": "mctrader-hub + mctrader-data + mctrader-engine",
       "phase_pair": "phase1_phase2",
@@ -275,6 +279,16 @@
       "depends_on": ["MCT-187"],
       "rationale": "strangler-fig 5단계 (finalize+ADR amend+grep0). D7 quad gate = engine src/ from/import mctrader_data==0 AND engine pyproject mctrader-data 제거 AND engine src/ mctrader_market_bithumb|upbit==0 AND engine pyproject 어댑터 의존 제거. MCT-172 grep0 strict CI 패턴 재사용 (.github/workflows/data-free-grep0.yml). ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm + EPIC-RESULTS + CLAUDE.md POLICY_FINALIZED 박제. Epic CLOSED 자체 = 별 PR (docker-stack/tier-promotion 패턴 정합)."
     },
+    "MCT-189": {
+      "title": "ADR-029 §D3=C grace-0 로컬삭제 wiring 완결 (promote_l1 + DualWriter post-PUT local delete)",
+      "reserved_at": "2026-05-16",
+      "status": "RESERVED",
+      "epic": "EPIC-tier-promotion-single-source",
+      "repo": "mctrader-hub + mctrader-data",
+      "phase_pair": "phase1_phase2",
+      "decisions": ["ADR-029 §D3=C wiring 완결", "§D10 ambiguity 실적용"],
+      "rationale": "2026-05-16 운영 진단 세션 — production 디스크 압박 진단 중 발견. ADR-029 §D3=C 'NAS HEAD verify → grace-0 local delete' 정책이 MCT-169 D3 VERIFIED + EPIC-tier-promotion-single-source POLICY_FINALIZED 로 박제됐으나, `promote_l1()` 호출 site = 0건 (f233952 + HEAD main 동일 grep). DualWriter / l1.py / l2.py / l3.py 어디서도 NAS PUT commit 후 source local unlink 없음 (`tmp_path` unlink 만 존재). 결과: 130 GB legacy Parquet 영구 누적. 본 Story = wiring 완결 + ADR-029 §D3 amendment box (file:line + commit sha + integration test 박제). cross-document SSOT drift 2호 (1호 = mctrader-data:pilot 이미지 배포 drift = 본 세션 응급 처리)."
+    },
     "ADR-031": {
       "title": "Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant",
       "reserved_at": "2026-05-16",
@@ -286,6 +300,16 @@
       "finalized_by_story": "MCT-188",
       "expected_sections": "D1 (contract relocation → market-core Layer0) / D2 (read 도메인 relocation → data Layer2) / D3 (data REST API boundary — historical Arrow IPC + reverse-write + Redis Stream realtime) / D4 (engine exchange-adapter 제거) / D5 (다중거래소 확장 불변식 — engine/market-core/ADR 변경 0) / D7 (data-free done-criterion grep0 quad gate) — 6 D 박제 대상",
       "rationale": "본 Epic 의 governance singleton. D6 = ADR meta-decision (본 ADR 자체 + amendment 3건 ADR-029/027/030, 본문 박제 제외 manifest 박제로 충분). status transition: Proposed (MCT-182 Phase 1) → POLICY_FINALIZED (MCT-188 LAND, Epic 7/7). MCT-179 lesson 정합 = ADR-031 D-row ↔ scope_manifest §design_decisions 1:1 전수 reconcile (cross-repo Out-of-scope stale 사전 차단)."
+    },
+    "ADR-032": {
+      "title": "VERIFIED badge evidence triad — file:line + production caller grep ≥1 + integration test result 3종 evidence 의무 (cross-document SSOT forcing function 강화)",
+      "reserved_at": "2026-05-16",
+      "drafted_at": "2026-05-16",
+      "status": "Proposed",
+      "epic": "cross-Epic governance",
+      "repo": "mctrader-hub",
+      "owner_story": "(PMO 발의 — owner Story 미정, MCT-189 LAND 시 동시 Accepted 후보)",
+      "rationale": "2026-05-16 운영 진단 세션에서 cross-document SSOT drift 2건 동시 발견 (1번째 = mctrader-data:pilot 이미지 2026-05-13 build 가 POLICY_FINALIZED 2026-05-15 정책 미적용으로 2일 가동 / 2번째 = ADR-029 §D3=C `grace-0 local delete` VERIFIED 박제됐으나 `promote_l1()` production caller = 0건). MCT-179 ADR-030 Out-of-scope reconcile + MCT-182 PMO 발의 cross-document SSOT forcing function pattern 의 3번째 재현 → 일반화 룰 발의. expected_sections = §1 trigger (3 사례 분석) / §2 evidence triad rule (file:line + caller grep ≥1 + integration test PASS) / §3 enforcement layer (scope_manifest verify_evidence schema + Story §11 박제 의무 + PMO audit gate) / §4 Story §8.5 Impl Manifest 와의 통합 / §5 (1회만 적용 면제 — Epic POLICY_FINALIZED 박제 시 prod evidence carry-over 명시 의무)."
     }
   }
 }
