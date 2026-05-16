@@ -273,14 +273,21 @@
       "title": "다중거래소 확장 불변식 + 신규 거래소 추가 절차 박제",
       "reserved_at": "2026-05-16",
       "started_at": "2026-05-17",
-      "status": "IN_PROGRESS",
+      "completed_at": "2026-05-17",
+      "status": "COMPLETED",
+      "epic_milestone": "6/7",
+      "land_prs": [
+        "mctrader-hub#374 (91a8bfa Phase 1 docs + ADR-031 §D5 draft + runbook + scope_manifest + counters, 2026-05-16)",
+        "mctrader-data#78 (6346b55 Phase 2 PR1 — tests/test_multi_exchange_invariant.py 5 TC, 2026-05-17)",
+        "mctrader-hub#TBD (Phase 2 PR2 박제 — 본 PR)"
+      ],
       "epic": "EPIC-data-domain-decoupling",
       "repo": "mctrader-hub + mctrader-data",
       "phase_pair": "phase1_phase2",
       "decisions": ["D5", "D6"],
       "sequential_phase": 6,
       "depends_on": ["MCT-186"],
-      "rationale": "strangler-fig 5단계 일부 (D5 일반화 박제). 신규 거래소 = Layer1 어댑터 repo + data adapters.py 등록(BithumbCandleProvider/UpbitCandleProvider 팩토리 이미 존재) + data 수집/정규화 설정. engine 변경 0 / market-core 변경 0 / ADR 0 invariant 회귀 test 박제 + docs/runbooks/add-new-exchange.md. ADR-031 amendment box (extensibility invariant)."
+      "rationale": "strangler-fig 5단계 일부 (D5 일반화 박제). 신규 거래소 = Layer1 어댑터 repo + data adapters.py 등록(BithumbCandleProvider/UpbitCandleProvider 팩토리 이미 존재) + data 수집/정규화 설정. engine 변경 0 / market-core 변경 0 / ADR 0 invariant 회귀 test 박제 + docs/runbooks/add-new-exchange.md. ADR-031 amendment box (extensibility invariant). code-change-zero Story (adapters.py 변경 0, MCT-186 LAND 정합). ubuntu-latest 1183 passed 회귀 0. ADR-031 §D5 VERIFIED."
     },
     "MCT-188": {
       "title": "data-free done-criterion verify (grep0 quad gate) + Epic POLICY_FINALIZED 박제",
