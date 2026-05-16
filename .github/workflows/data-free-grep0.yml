@@ -17,7 +17,6 @@ jobs:
         with:
           repository: mclayer/mctrader-engine
           path: engine
-          token: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
 
       - name: "Gate 1 — engine src/ no mctrader_data import (ADR-031 §D7 Gate 1)"
         run: |
