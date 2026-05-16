@@ -530,7 +530,7 @@ D11 Layer 3 (full-stack production smoke) = production deploy carry prod-2. 나�
 - **MCT-181 retro**: `docs/retros/RETRO-MCT-181.md`
 - **EPIC-RESULTS (docker-stack, POLICY_FINALIZED)**: `docs/retros/EPIC-RESULTS-EPIC-mctrader-docker-stack.md`
 
-## EPIC-data-domain-decoupling (4-Layer, MCT-182 COMPLETED 2026-05-15, milestone 1/7)
+## EPIC-data-domain-decoupling (4-Layer, MCT-182~183 COMPLETED 2026-05-15~16, milestone 2/7)
 
 > mctrader-engine 을 **data-free + exchange-agnostic pure consumer** 로 전환. 7 Story sequential
 > strangler-fig (MCT-182~188). brainstorm Phase 0 deep-verify + Codex 9 결정점 + why-first dialog 확정.
@@ -556,7 +556,7 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 | phase | Story | 제목 | D | 상태 |
 |---|-------|------|---|------|
 | 1 | **MCT-182** | Layer0 contract relocation → market (aggregation/records/paper_lineage + engine CandleModel 4곳 재지정) | D1,D6 | **COMPLETED 2026-05-15** (hub#349+market#11+data#68+engine#57+hub#350+data#69 fix1) |
-| 2 | **MCT-183** | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | **IN_PROGRESS** (설계-리뷰 PASS post-RESET, Phase 1 진행) |
+| 2 | **MCT-183** | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | **COMPLETED 2026-05-16** (hub#353+data#70+engine#58+hub#354+data 6450cfd lint-revert) |
 | 3 | MCT-184 | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | RESERVED |
 | 4 | MCT-185 | data realtime stream + engine thin client + cold-read cutover | D2,D3 | RESERVED |
 | 5 | MCT-186 | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | RESERVED |

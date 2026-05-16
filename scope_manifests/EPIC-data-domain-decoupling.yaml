@@ -266,14 +266,14 @@ story_sequence:
 
 milestone_progress:
   total: 7
-  completed: 1
-  completed_stories: [MCT-182]
+  completed: 2
+  completed_stories: [MCT-182, MCT-183]
   in_progress: 0
   in_progress_stories: []
-  reserved: 6
-  reserved_stories: [MCT-183, MCT-184, MCT-185, MCT-186, MCT-187, MCT-188]
+  reserved: 5
+  reserved_stories: [MCT-184, MCT-185, MCT-186, MCT-187, MCT-188]
 
-epic_status: phase:구현-IN_PROGRESS  # MCT-182 COMPLETED 2026-05-15 (milestone 1/7)
+epic_status: phase:구현-IN_PROGRESS  # MCT-183 COMPLETED 2026-05-16 (milestone 2/7)
 epic_close_gate:
   - "MCT-182 PR MERGED + ADR-031 publish + Layer0 contract (aggregation/records/paper_lineage) market-core 이전 + data/engine shim/경로 재지정"
   - "MCT-183 PR MERGED + io/ 6 module mctrader-data relocated + engine io/ 삭제 (src caller 0) + ADR-029/027 amend"
@@ -286,3 +286,4 @@ epic_close_gate:
 epic_status_history:
   - { status: "phase:요구사항-PLANNED", date: "2026-05-16", note: "Epic 창설 (Phase 0 deep-verify + codeforge-brainstorm + Codex review 7 D). 7 Story sequential strangler-fig" }
   - { status: "phase:구현-IN_PROGRESS", date: "2026-05-15", note: "MCT-182 COMPLETED — milestone 1/7. Layer0 contract relocation LAND (market#11+data#68+engine#57+hub#349/350+data#69 fix1). 설계리뷰 FIX iter1/3 PASS + 구현리뷰 FIX iter1/3 PASS. ADR-031 Status Proposed → Accepted (D1 VERIFIED)" }
+  - { status: "phase:구현-IN_PROGRESS", date: "2026-05-16", note: "MCT-183 COMPLETED — milestone 2/7. Layer 2 io/ relocation LAND (data#70+engine#58+hub#353/354). 설계리뷰 iter1→3 P0×3→×2 max 3/3 + RESET path(3 trigger 0) + post-RESET PASS. 구현리뷰 PASS FIX 0회 (MCT-182 lesson reapply 효과 검증). ADR-027 §D9 amendment + ADR-029 §D2 io reader relocated 박제 (cutover confirm=MCT-185). §3.6.1 gate v2 cross-document SSOT desync forcing function 영구 박제. 수동 reconcile 5회 누적 → codeforge upstream ADR escalation 후보 (PMO retro)" }
