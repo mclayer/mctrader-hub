@@ -272,6 +272,8 @@
     "MCT-187": {
       "title": "다중거래소 확장 불변식 + 신규 거래소 추가 절차 박제",
       "reserved_at": "2026-05-16",
+      "started_at": "2026-05-17",
+      "status": "IN_PROGRESS",
       "epic": "EPIC-data-domain-decoupling",
       "repo": "mctrader-hub + mctrader-data",
       "phase_pair": "phase1_phase2",
