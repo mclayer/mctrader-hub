@@ -1121,6 +1121,72 @@ ADR-030 본문 만 박제 (Status = Accepted 유지, MCT-180 LAND 시점). **MCT
 전수 VERIFIED → Status POLICY_FINALIZED transition (본 Phase 2 PR2 박제). 후속 production
 evidence (prod-1~4) = 별 PR carry over.
 
+### Amendment box (MCT-184 Phase 1 — data api service compose topology 예고, 2026-05-16)
+
+> **본 amendment box 는 ADR-030 본문 19 D 정책을 무변경한다 (Status POLICY_FINALIZED 보존,
+> MCT-181 "Status Amendment box" 패턴 정합).** EPIC-data-domain-decoupling §D3 (ADR-031,
+> owner MCT-184 historical+reverse-write + MCT-185 realtime stream) 의 REST boundary 신설이
+> docker compose topology 에 신규 service 1종 (data api/FastAPI) 추가를 **예고**하는 박제다.
+> **실 compose wiring (compose.yml service block 추가 + engine 컨테이너 NAS credential env
+> drop) 은 본 Story 범위 외 — MCT-186 owner** (ADR-031 §D6 amendment 표 / scope_manifest
+> `§planned_adrs.amendments` ADR-030 `owner_story: "MCT-184 (data api service) + MCT-186
+> (engine NAS cred drop)"` 1:1 정합). 본 Story (MCT-184) = REST API 코드 신설 (mctrader-data
+> `src/mctrader_data/api/` FastAPI) + amendment box 예고 박제만.
+
+#### topology 예고 (MCT-184 publish — 실 compose wiring = MCT-186)
+
+**신규 service (예고 — 실 compose.yml block 추가 = MCT-186)**:
+
+- service 명 (예고): `data-api` — image `ghcr.io/mclayer/mctrader-data:${IMAGE_TAG:-latest}`
+  (collector service 와 동일 image, command override 로 ASGI 서버 기동 — §D2 paper/backtest
+  command override 패턴 정합)
+- command (예고): `["python","-m","uvicorn","mctrader_data.api.app:app","--host","0.0.0.0","--port","8000"]`
+  (ASGI 서버 = uvicorn — 설계 lane 확정, port 8000 = §D8 `:8080` health/metrics 와 분리)
+- **port 경계 (§D8 cross-ref)**: data api FastAPI `:8000` ≠ `health_server.py` stdlib liveness
+  probe `:8080` (Phase 0 V3 실증 — `health_server.py:18` `BaseHTTPRequestHandler` DEFAULT_PORT
+  8080). **두 listener 별 프로세스/포트 분리** — FastAPI app 추가가 health probe / Prometheus
+  scrape (`:8080/metrics`, §D8 MCT-179 LAND) 동작 무영향. compose healthcheck = FastAPI
+  `:8000/health` (설계 lane SecurityArch internal-only 확정) 또는 기존 `:8080` health probe
+  재사용 (MCT-186 wiring 결정)
+- network mode (예고): **internal-only** — data api `:8000` = engine↔data 내부 통신 only
+  (ADR-030 single-host compose loopback 정합, MCT-175 §D3 single-host 토대). 외부 publish
+  port 미노출 (`ports:` block 부재, compose 내부 network 만). SecurityArch §7.1 trust
+  boundary 확정 — attack surface = compose internal network 한정 (외부 노출 0)
+- restart policy (예고): `restart: unless-stopped` (§D2 paper-engine daemon 패턴 정합,
+  long-running ASGI service). depends_on (예고): `redis service_healthy` (MCT-185 realtime
+  stream Redis Stream 의존 — 본 Story historical/reverse-write 는 io/ reader + paper_storage
+  만, redis 직접 의존 0이나 MCT-185 forward-compat 위해 예고 표기)
+
+**engine NAS credential drop (예고 — 실 적용 = MCT-186)**:
+
+- engine 컨테이너 `NAS_MINIO_ENDPOINT`/`NAS_MINIO_ACCESS_KEY`/`NAS_MINIO_SECRET_KEY` env
+  drop = **MCT-186 owner** (engine cold-read cutover → data REST 경유 후 engine NAS 직접
+  접근 0 = ADR-029 NAS SoT 강화 + presigned-NAS-handoff 기각 정합). 본 Story 는 engine
+  비참여 (2 repo only: hub + data) — engine NAS cred drop 무관, 예고 표기만.
+
+#### ADR-031 §D3 cross-ref
+
+본 amendment box = ADR-031 §D3 (`fastapi-v1 + redis-stream`, owner MCT-184
+historical+reverse-write + MCT-185 realtime stream) 의 docker topology 영향 박제다. ADR-029
+(NAS SoT = data 단독 소유) 강화 정합 — REST 응답 = Arrow IPC stream only (engine 은 NAS
+object layout / parquet tier / ETag / endpoint resolution 비인지). ADR-030 single-host
+compose loopback (MCT-175 §D3) 토대 → presigned NAS handoff 가 풀려던 성능 문제 비실재
+(loopback latency) → Arrow IPC over REST 채택 정합.
+
+#### D-row ↔ scope_manifest 1:1 reconcile (MCT-179 lesson reapply)
+
+| 항목 | scope_manifest SSOT | 본 amendment box | reconcile |
+|------|---------------------|------------------|-----------|
+| amendment ADR | `§planned_adrs.amendments[2]` ADR-030 | 본 amendment box (MCT-184 Phase 1) | ✅ 1:1 |
+| section | `compose topology — engine NAS cred drop + data api service 추가` | "data api service compose topology 예고 + engine NAS cred drop (MCT-186)" | ✅ 1:1 |
+| owner_story | `MCT-184 (data api service) + MCT-186 (engine NAS cred drop)` | 본 Story = data api service 예고 박제 / engine NAS cred drop = MCT-186 owner 명시 | ✅ 1:1 |
+| §design_decisions.D3 | `option_chosen: fastapi-v1 + redis-stream` / `owner_story: MCT-184 (historical+reverse-write) + MCT-185 (realtime stream)` | 본 amendment box = D3 docker topology 영향 (ADR-031 §D3 cross-ref) | ✅ 1:1 |
+
+**reconcile verdict**: ADR-030 amendment box ↔ `scope_manifests/EPIC-data-domain-decoupling.yaml`
+`§planned_adrs.amendments` ADR-030 + `§design_decisions.D3` + `§story_decision_matrix.MCT-184`
+↔ ADR-031 §D3 amendment box ↔ MCT-184 Story §2/§4 DELTA **전수 1:1 정합**. POLICY_FINALIZED
+본문 정책 무변경 (예고 박제 only — MCT-181 Status Amendment box 패턴 정합).
+
 ## References
 
 - Spec: `docs/superpowers/specs/2026-05-15-EPIC-mctrader-docker-stack-design.md`
@@ -1136,3 +1202,7 @@ evidence (prod-1~4) = 별 PR carry over.
   (forward-only invariant)
 - Owner Story: MCT-175 (ADR publish) / 후속 MCT-176 ~ MCT-181 (각 D 구현)
 - Epic: EPIC-mctrader-docker-stack (2026-05-15 ~, 7 Story sequential)
+- **Amendment (MCT-184, 2026-05-16)**: data api service compose topology 예고 (EPIC-data-domain-decoupling
+  §D3 / ADR-031). 실 compose wiring + engine NAS cred drop = MCT-186 owner. 본문 19 D 정책 무변경
+  (POLICY_FINALIZED 보존). cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D3 +
+  `docs/stories/MCT-184.md` + `docs/change-plans/MCT-184-change-plan.md`

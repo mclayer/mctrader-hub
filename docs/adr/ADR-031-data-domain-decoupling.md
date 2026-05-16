@@ -21,6 +21,93 @@ D6 (ADR meta) **VERIFIED**: 본 ADR-031 publish + D-row↔scope_manifest 7/7 byt
 
 D2-D5/D7 = 후속 Story owner (MCT-183~188) — 본 LAND 무관.
 
+### §D2 partial VERIFIED amendment box (MCT-183 LAND 박제, 2026-05-16)
+
+D2 (Read 도메인 relocation → mctrader-data Layer 2) **partial VERIFIED** (io relocate 완료,
+cold-read cutover pending MCT-185):
+- engine `io/` 6 module (tier_reader/reader_cache/endpoint_router/dr_mode/cold_reader/l1_reader)
+  → `src/mctrader_data/io/` 물리 이전 (data#70 `0e6f35b0`, engine#58 `18275737`, src caller 0
+  dead-in-prod 안전 제거). tests/io/ 7 test 동반 이전
+- reader_cache.py:339-348 stats() producer-wiring 블록 = 외부 import 없는 내부 no-op 치환
+  (채택안 A — engine 역의존 0, Layer2 자족)
+- ADR-027 §D9 amendment box + ADR-029 io reader relocated 박제 (engine NAS 직독 폐기 cutover
+  confirm = MCT-185 owner)
+- §3.6.1 gate v2 (glob-scope + 변형포괄 + self-verify TEST1/TEST2) cross-document SSOT desync
+  forcing function 영구 박제 — RESET path post-LAND repo-wide grep 0줄 evidence
+- cold-read 실경로 cutover (engine `mctrader_data.storage.scan_candles/orderbook_replay/
+  path.resolve_data_root` 직독 → data REST 경유) = **MCT-185 owner** (§D2 VERIFIED = MCT-185 후)
+
+### §D3 amendment box (MCT-184 Phase 1 — REST boundary 부분 진행 박제, 2026-05-16)
+
+> **§D3 VERIFIED 아님 — 부분 진행 (amendment box only)**. §D3 `fastapi-v1 + redis-stream`
+> 의 owner 는 **MCT-184 (historical + reverse-write 절반) + MCT-185 (realtime stream 절반 +
+> engine thin client cutover)** 다 (scope_manifest `§design_decisions.D3.owner_story` 1:1
+> 정합). 본 Story (MCT-184) = §D3 **historical + reverse-write REST boundary 신설**만 LAND.
+> **§D3 VERIFIED 는 MCT-185 realtime stream (Redis Stream) + engine `data_client/` thin
+> client cutover LAND 후**. 본 amendment box 는 §D3 부분 진행 record 박제 (VERIFIED badge
+> 아님 — MCT-189 wiring drift 동형 차단 정합, 아래 dead-in-data 명시 박제).
+
+#### MCT-184 LAND 박제 (REST boundary historical + reverse-write)
+
+- **data `src/mctrader_data/api/` FastAPI 신규** (Phase 0 V2/V3/V4 실증 — web framework 0 +
+  stdlib health_server only + api/ 부재 → 신규 배치 충돌 0). `pyproject.toml` fastapi +
+  uvicorn (ASGI) 의존 추가 (INV-5 — data 1020+ test 회귀 0)
+- **`/v1` historical GET** — Arrow IPC streaming 응답. MCT-183 LAND io/ reader wrap
+  (`mctrader_data.io.tier_reader.TierReader.read(partition_path)` :147 /
+  `cold_reader.ColdReader.read(partition_path)` :106 / `l1_reader.L1Reader.read(symbol,
+  date, hour)` :85 — Phase 0 V5 read 진입점). **presigned-NAS-handoff 기각** (engine NAS
+  object layout/parquet tier/ETag/endpoint resolution 비인지 — D2/ADR-029 정합. REST 응답 =
+  Arrow IPC stream only). INV-2 byte-equivalence (REST 응답 Arrow table == io/ reader 직접
+  출력 Arrow table)
+- **`/v1` reverse-write POST** — paper-candles (`paper_storage.write_paper_candles(candles,
+  *, root, run_id, snapshot_id, lineage)` :18 wrap) + backtest-artifact NAS sync wrap.
+  **idempotent** — 동일 hash payload 재POST = no-op (INV-3, idempotency key/hash 전략 =
+  Change Plan §7 SecurityArch + §11.6 DataMigrationArch 확정)
+- **OpenAPI emit (SSOT = data repo 단방향)** — FastAPI 자동 OpenAPI 3.x. engine generated
+  client = MCT-185 owner (본 Story 비참여 → 단방향 자연 성립, INV-1). hub
+  `.codeforge/contracts/data-api-v1.openapi.json` = governance snapshot (SSOT = data emit,
+  hub = drift detection copy) + `scripts/cross-repo-contract-lock-check.sh` drift CI gate
+  (ADR-030 §D13 cross-repo lock 패턴 재사용)
+
+#### dead-in-data 명시 박제 (MCT-189 wiring drift 동형 차단 — ADR-032 evidence triad 선제 reapply)
+
+본 Story = REST boundary **신설**이며 production caller wiring 은 **의도된 dead-in-data**
+다. REST endpoint production caller grep = **0건** (engine `data_client/` 경유 호출 =
+MCT-185 owner — 본 Story 비참여). 이는 MCT-189 (ADR-029 §D3=C "VERIFIED 박제 ↔
+`promote_l1()` production caller 0건" wiring drift) 동형 위험 영역이나, 본 §D3 amendment
+box 가 **VERIFIED 아님 (부분 진행)** + `consumer=MCT-185 (engine data_client REST 경유
+cold-read cutover)` 명시 박제 = **drift 아닌 의도된 미배선 evidence** (ADR-032 evidence
+triad: caller grep 0건 + 명시적 consumer 박제). MCT-185 cold-read cutover LAND 시 engine
+`data_client/` → `/v1` historical REST 경유 wiring 으로 §D3 VERIFIED transition.
+
+#### ADR-029/030 정합
+
+- **ADR-029 (NAS SoT = data 단독 소유) 강화**: presigned-NAS-handoff 기각 → REST 응답 =
+  Arrow IPC stream only (NAS object layout/parquet tier/ETag/endpoint resolution 비노출).
+  engine NAS 직독 폐기의 선행 토대 (실 amend confirm = MCT-185 cold-read cutover owner)
+- **ADR-030 amendment box (MCT-184 Phase 1)**: data api service compose topology 예고
+  (`docs/adr/ADR-030-docker-stack-governance.md` "Amendment box (MCT-184 Phase 1)"). 실
+  compose wiring + engine NAS cred drop = MCT-186 owner. 본문 19 D 정책 무변경
+  (POLICY_FINALIZED 보존)
+
+#### D-row ↔ scope_manifest 1:1 reconcile (MCT-179 lesson reapply — §3.6.1 gate v2 cross-Story)
+
+| 항목 | scope_manifest SSOT | 본 §D3 amendment box | reconcile |
+|------|---------------------|----------------------|-----------|
+| D3 option_chosen | `§design_decisions.D3.option_chosen: fastapi-v1 + redis-stream` | 본 Story = fastapi-v1 historical+reverse-write 절반 (realtime stream = MCT-185) | ✅ 1:1 |
+| D3 owner_story | `§design_decisions.D3.owner_story: MCT-184 (historical+reverse-write) + MCT-185 (realtime stream)` | 본 amendment box = MCT-184 historical+reverse-write LAND 박제 / realtime stream = MCT-185 명시 | ✅ 1:1 |
+| MCT-184 decisions | `§story_decision_matrix.MCT-184.decisions: [D3, D6]` | 본 Story = D3 (REST boundary) + D6 (ADR amendment box) | ✅ 1:1 |
+| ADR-030 amendment | `§planned_adrs.amendments[2]` ADR-030 `owner_story: MCT-184 (data api service) + MCT-186 (engine NAS cred drop)` | ADR-030 amendment box (MCT-184 Phase 1) = data api service 예고 박제 / engine NAS cred drop = MCT-186 | ✅ 1:1 |
+| §D3 VERIFIED 시점 | (MCT-185 realtime stream + engine thin client cutover 후) | 본 amendment box = 부분 진행 (VERIFIED 아님 — consumer=MCT-185 dead-in-data 명시) | ✅ 1:1 |
+
+**reconcile verdict**: ADR-031 §D3 amendment box ↔ `scope_manifests/EPIC-data-domain-decoupling.yaml`
+`§design_decisions.D3` + `§story_decision_matrix.MCT-184` + `§planned_adrs.amendments`
+ADR-030 ↔ ADR-030 amendment box (MCT-184 Phase 1) ↔ MCT-184 Story §2/§4 DELTA ↔
+`.codeforge/contracts/data-api-v1.openapi.json` snapshot **전수 1:1 정합** (MCT-179 lesson
+reapply — Out-of-scope/D-row stale 사전 차단. MCT-182/183 D-row reconcile 패턴 계승. §3.6.1
+gate v2 cross-Story reapply — Change Plan §3.6.1 SSOT, plugin-codeforge-design#44 mechanical
+gate 미가용).
+
 > **본 ADR scope (D6 = ADR meta-decision)**: ADR-031 은 EPIC-data-domain-decoupling 의 4-Layer
 > 의존 모델 + 7 결정(D1-D7)을 박제한다. MCT-182(본 Story)는 **D1(contract relocation) 실 LAND
 > + D6(ADR-031 publish Proposed)** 만 수행한다. D2-D5/D7 은 후속 Story(MCT-183~188) owner —
@@ -265,7 +352,14 @@ Out-of-scope stale 사전 차단 lesson reapply.
 - plan: `docs/superpowers/plans/2026-05-16-mct-182-layer0-contract-relocation.md`
 - 관련 ADR: ADR-029 (tier-promotion-single-source) / ADR-027 (cold-tier-object-storage-nas-minio) /
   ADR-030 (docker-stack-governance) — amendment 예고 box (실 amend = 후속 owner Story) /
-  ADR-025 (aggregation-core-lib-contract — aggregation SSOT 계보)
+  ADR-025 (aggregation-core-lib-contract — aggregation SSOT 계보) /
+  ADR-032 (PMO 발의 — VERIFIED badge evidence triad, MCT-184 §D3 dead-in-data 명시 박제 선제 reapply)
+- **§D2 partial VERIFIED (MCT-183 LAND, 2026-05-16)**: io/ 6 module relocated to mctrader-data
+  Layer2 (cutover confirm = MCT-185). `docs/stories/MCT-183.md` + `docs/change-plans/MCT-183-change-plan.md`
+- **§D3 amendment box (MCT-184 Phase 1, 2026-05-16)**: REST boundary historical+reverse-write
+  부분 진행 (§D3 VERIFIED = MCT-185 realtime stream + engine thin client cutover 후). consumer=MCT-185
+  dead-in-data 명시 박제 (MCT-189 wiring drift 동형 차단). `docs/stories/MCT-184.md` +
+  `docs/change-plans/MCT-184-change-plan.md` + ADR-030 amendment box (MCT-184 Phase 1)
 - **ADR-025 amendment 불요 근거** (Change Plan §10 정합): D1 relocate 는 aggregation 의 위치
   이동 + import 경로 재지정이며 ADR-025 의 4 Aggregator/scaled-int/contract_id contract 자체는
   byte-equivalence 보존 (Change Plan INV-1 — `from_scaled(to_scaled(d))==d` / 4 Aggregator 출력
