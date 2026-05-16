@@ -557,7 +557,7 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 |---|-------|------|---|------|
 | 1 | **MCT-182** | Layer0 contract relocation → market (aggregation/records/paper_lineage + engine CandleModel 4곳 재지정) | D1,D6 | **COMPLETED 2026-05-15** (hub#349+market#11+data#68+engine#57+hub#350+data#69 fix1) |
 | 2 | **MCT-183** | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | **COMPLETED 2026-05-16** (hub#353+data#70+engine#58+hub#354+data 6450cfd lint-revert) |
-| 3 | **MCT-184** | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | **COMPLETED 2026-05-16** (hub#358+data#72+hub#359 Phase 2 PR2 부분+data#74 post-merge fix F-1/F-2/F-4+hub#360 amendment F-3 LAND ✅) |
+| 3 | **MCT-184** | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | **COMPLETED 2026-05-16** (hub#358+data#72+hub#359 Phase 2 PR2 부분+data#74 post-merge fix F-1/F-2/F-4+hub#361 amendment F-3 LAND ✅) |
 | 4 | MCT-185 | data realtime stream + engine thin client + cold-read cutover | D2,D3 | RESERVED |
 | 5 | MCT-186 | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | RESERVED |
 | 6 | MCT-187 | 다중거래소 확장 불변식 박제 | D5,D6 | RESERVED |
@@ -608,7 +608,7 @@ Status transition: Proposed (MCT-182) → POLICY_FINALIZED (MCT-188).
 | 2026-05-16T14:45:38Z | mctrader-data#72 | 45e501c5 | Phase 2 PR1 data — `src/mctrader_data/api/` 6 파일 신규 (FastAPI ASGI + Arrow IPC helpers + DI deps + Pydantic strict schemas + /v1 historical/reverse-write routes) + tests/api/ TC-1~11 + Perf Baseline + pyproject fastapi/uvicorn (land_order 1, single repo, 21 API test PASS, ubuntu CI 1152 passed) |
 | 2026-05-16T14:51:30Z | mctrader-hub#359 | 4924b16 | Phase 2 PR2 hub 박제 (**부분**) — Story §8.5 Impl Manifest + ADR-031 §D3 Phase 2 LAND confirm + scope_manifest 3/7 + CLAUDE.md MCT-184 RESERVED→COMPLETED. **incomplete**: RETRO-MCT-184.md 미생성 + EPIC-RESULTS §Story-3 미작성 + Story frontmatter status 미전환 + F-3 hub#TBD 잔존 |
 | 2026-05-17 | mctrader-data#74 | e612296 | post-merge fix data (F-1+F-2+F-4) — ts_utc strict datetime + INV-3 sha256 3-case sidecar SSOT + arrow_ipc Option A bytes-level (ubuntu CI 1169 passed 회귀 0). MERGED 2026-05-17 |
-| 2026-05-17 | mctrader-hub#360 | TBD | **박제 amendment PR (F-3 LAND ✅)** — §10 FIX Ledger iter1 F-1/F-2/F-4 LAND 박제 + §11 TBD→실 LAND 정정 + CLAUDE.md hub#TBD→hub#360 + Change Plan §3.2/§3.3 contract amend. MERGED 2026-05-17 |
+| 2026-05-17 | mctrader-hub#361 | TBD | **박제 amendment PR (F-3 LAND ✅)** — §10 FIX Ledger iter1 F-1/F-2/F-4 LAND 박제 + §11 TBD→실 LAND 정정 + CLAUDE.md hub#TBD→hub#361 + Change Plan §3.2/§3.3 contract amend. MERGED 2026-05-17 |
 
 ### 결과 요약
 
