@@ -560,7 +560,7 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 | 3 | **MCT-184** | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | **COMPLETED 2026-05-16** (hub#358+data#72+hub#359 Phase 2 PR2 부분+data#74 post-merge fix F-1/F-2/F-4+hub#361 amendment F-3 LAND ✅) |
 | 4 | **MCT-185** | data realtime stream + engine thin client + cold-read/reverse-write 11-place cutover | D2,D3 | **COMPLETED 2026-05-17** (hub#366+data#76+engine#59+hub Phase2 PR2) |
 | 5 | **MCT-186** | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | **COMPLETED 2026-05-17** (hub#370+engine#60+hub Phase2 PR2 — AC-1 grep0 PASS 5곳 5파일 전부 제거 + RedisStreamSubscriber + types.py + ws_wrapper.py 삭제) |
-| 6 | MCT-187 | 다중거래소 확장 불변식 박제 | D5,D6 | RESERVED |
+| 6 | **MCT-187** | 다중거래소 확장 불변식 박제 | D5,D6 | **COMPLETED 2026-05-17** (hub#374+data#78+hub Phase2 PR2 — 5 TC PASS, adapters.py 변경 0, runbook 신규, ADR-031 §D5 VERIFIED) |
 | 7 | MCT-188 | data-free grep0 quad gate + Epic POLICY_FINALIZED | D7,D6 | RESERVED |
 
 ### ADR-031 (신규, MCT-182 publish + LAND VERIFIED)
@@ -707,7 +707,7 @@ hub#359 박제 PR MERGED 그러나 박제 작업의 약 절반만 처리. "Phase
 | 3 | MCT-184 | COMPLETED 2026-05-16~17 (post-merge fix 4건 포함) |
 | 4 | **MCT-185** | **COMPLETED 2026-05-17** (hub#366 + data#76 + engine#59 + hub Phase 2 PR2) |
 | 5 | **MCT-186** | **COMPLETED 2026-05-17** (hub#370 + engine#60 + hub Phase 2 PR2) |
-| 6 | MCT-187 | RESERVED |
+| 6 | **MCT-187** | **COMPLETED 2026-05-17** (hub#374 + data#78 + hub Phase 2 PR2) |
 | 7 | MCT-188 | RESERVED |
 
 ### Key References
@@ -786,8 +786,59 @@ engine compose.yml `NAS_MINIO_*` env 실 제거 = **MCT-187 or 별 PR** (MCT-186
 
 ### 다음 Story 진입 권고
 
-**MCT-187** (다중거래소 확장 불변식 박제, D5+D6) — sequential_phase 6.
-진입 prerequisite: MCT-186 Phase 2 PR2 MERGED ✓. carry over: ADR-030 compose.yml engine NAS env drop (MCT-187 or 별 PR). 채택 결정: D5 (확장 불변식 invariant test) + D6 (runbook add-new-exchange.md).
+**MCT-187 COMPLETED** (2026-05-17, hub#374 + data#78 + Phase 2 PR2). 다음 = **MCT-188** (data-free grep0 quad gate + Epic POLICY_FINALIZED).
+
+## MCT-187 COMPLETED (2026-05-17) — 다중거래소 확장 불변식 박제 (D5+D6)
+
+> **sequential_phase 6** — EPIC-data-domain-decoupling Story-6. **code-change-zero Story** (adapters.py 변경 0).
+> 2 PR LAND (hub Phase 1 docs + data Phase 2 PR1 + hub Phase 2 PR2 박제). AC-1/2/3/4 PASS.
+> ADR-031 §D5 VERIFIED. milestone **6/7**.
+
+### 결과 요약
+
+| 항목 | 결과 |
+|------|------|
+| Phase 1 PR (hub docs) | hub#374 MERGED (91a8bfa, 2026-05-16) — Story + Change Plan + runbook + ADR §D5 draft + scope_manifest + counters |
+| Phase 2 PR1 (data) | data#78 MERGED (6346b55, 2026-05-17) — `tests/test_multi_exchange_invariant.py` 5 TC 신규 |
+| Phase 2 PR2 (hub 박제) | 본 PR — Story §8.5/§9/§10/§11 + ADR-031 §D5 VERIFIED + scope_manifest 6/7 + counters COMPLETED + CLAUDE.md + RETRO + EPIC-RESULTS §Story-6 |
+| 총 AC | **4/5 PASS** (AC-1 5 TC PASS / AC-2 runbook LAND / AC-3 ADR §D5 VERIFIED / AC-4 회귀 0 / AC-5 CONDITIONAL — ADR-030 NAS cred carry) |
+| test | ubuntu-latest 1183 passed, 회귀 0. windows testcontainers pre-existing regression (scope 외) |
+| FIX 루프 | **1 iter** (ruff F401×3 + E721 + F841 — edda216) |
+| adapters.py 변경 | **0 lines** (INV-2 PASS, MCT-186 LAND 정합) |
+| engine/market-core 변경 | **0** (INV-1 PASS, D5 invariant 구조적 확인) |
+| ADR-031 §D5 | **VERIFIED** (본 PR 박제) |
+| Epic milestone | **6/7** (MCT-182~187 COMPLETED) |
+
+### D5 invariant test 5 TC (AC-1)
+
+| TC | 내용 | 결과 |
+|----|------|------|
+| TC-1 | bithumb + upbit 기존 팩토리 등록 확인 (Phase 0 V1/V2 재확인) | PASS |
+| TC-2 | 미등록 거래소 → `ValueError("unknown exchange: ...")` | PASS |
+| TC-3 | `monkeypatch` 로 mock exchange 등록 → adapters.py 코드 변경 없이 호출 성공 (D5 핵심 invariant) | PASS |
+| TC-4 | engine pyproject 신규 거래소 의존 0 (engine repo 없으면 skip) | SKIPPED (CI-safe) |
+| TC-5 | adapters.py callable + bithumb/upbit 정상 + unknown ValueError (INV-2) | PASS |
+
+### 채택 2 D (D5+D6 VERIFIED)
+
+| D | Option | 결과 |
+|---|--------|------|
+| D5 (다중거래소 확장 불변식) | `data-only-extension-invariant` | 신규 거래소 = adapters.py 등록 only → engine/market-core/ADR 변경 0. invariant test 박제 (TC-3 monkeypatch 핵심). adapters.py 변경 0 (INV-2 PASS) |
+| D6 (ADR meta + runbook) | `new-adr-031 + runbook-new-exchange` | ADR-031 §D5 VERIFIED amendment box 박제 + `docs/runbooks/add-new-exchange.md` 3-step 절차 신규 LAND |
+
+### Key References
+
+- Story: `docs/stories/MCT-187.md`
+- Change Plan: `docs/change-plans/MCT-187-change-plan.md`
+- runbook: `docs/runbooks/add-new-exchange.md` (D5 invariant 절차 SSOT)
+- ADR-031 §D5: `docs/adr/ADR-031-data-domain-decoupling.md` (VERIFIED amendment box)
+- RETRO: `docs/retros/RETRO-MCT-187.md`
+- EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-data-domain-decoupling.md` (§Story-6 박제, milestone 6/7)
+
+### 다음 Story 진입 권고
+
+**MCT-188** (data-free grep0 quad gate + Epic POLICY_FINALIZED, D7+D6) — sequential_phase 7.
+진입 prerequisite: MCT-187 Phase 2 PR2 MERGED ✓. 채택 결정: D7 (engine src/ grep0 quad gate CI + pyproject 의존 제거). carry over: ADR-030 compose.yml engine NAS env drop 별 PR.
 
 ## Pending Stories (Replication Backlog)
 

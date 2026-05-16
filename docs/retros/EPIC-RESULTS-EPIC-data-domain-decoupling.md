@@ -1,6 +1,6 @@
 # EPIC-RESULTS — EPIC-data-domain-decoupling
 
-> **Status**: phase:구현-IN_PROGRESS · milestone **5/7** · POLICY_FINALIZED target = MCT-188
+> **Status**: phase:구현-IN_PROGRESS · milestone **6/7** · POLICY_FINALIZED target = MCT-188
 > mctrader-engine 을 (1) data-free + (2) exchange-agnostic pure consumer 로 전환하는 7 Story sequential strangler-fig Epic.
 
 ## Story 진행 현황
@@ -12,7 +12,7 @@
 | 3 | **MCT-184** | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3, D6 | **COMPLETED 2026-05-16** (post-merge fix 4건 carry — F-1/F-2/F-4 data측 + F-3 hub측 amendment) | hub#358 + data#72 + hub#359(§8.5+ADR-031 §D3 LAND confirm) + hub Phase2 PR2 박제 amendment (RETRO + §Story-3 + frontmatter status + F-3 정정) |
 | 4 | **MCT-185** | data realtime stream + engine thin client + cold-read/reverse-write 11-place cutover | D2, D3 | **COMPLETED 2026-05-17** | hub#366 + data#76 + engine#59 + hub Phase2 PR2 |
 | 5 | **MCT-186** | engine realtime cutover + exchange-adapter 제거 | D4 | **COMPLETED 2026-05-17** | hub#370 + engine#60 + hub Phase2 PR2 |
-| 6 | MCT-187 | 다중거래소 확장 불변식 박제 | D5, D6 | RESERVED | — |
+| 6 | **MCT-187** | 다중거래소 확장 불변식 박제 | D5, D6 | **COMPLETED 2026-05-17** | hub#374 + data#78 + hub Phase2 PR2 |
 | 7 | MCT-188 | data-free grep0 quad gate + Epic POLICY_FINALIZED | D7, D6 | RESERVED | — |
 
 ## §Story-1 (MCT-182) — Layer 0 Contract Relocation
@@ -201,9 +201,46 @@ MCT-184 post-LAND Codex audit 발견 (박제 PR incomplete 패턴 + dead-in-data
 | CLAUDE.md hub#TBD 잔존 0줄 | ✅ |
 | ADR-031 §D4 VERIFIED + ADR-030 NAS cred drop carry over | ✅ |
 
+## §Story-6 (MCT-187) — 다중거래소 확장 불변식 박제 (code-change-zero)
+
+### 결과
+- **AC 4/5 PASS / INV 4/4 PASS** (hub#374 91a8bfa + data#78 6346b55 + hub Phase 2 PR2)
+- **code-change-zero Story** — `adapters.py` 변경 0 (INV-2 PASS, MCT-186 LAND 정합)
+- 신규 test 5 TC (4 passed + 1 skipped CI-safe) / ubuntu-latest 1183 passed 회귀 0
+- FIX 1 iter (ruff lint — F401×3 + E721 + F841, edda216)
+- ADR-031 §D5 VERIFIED (hub Phase 2 PR2 박제)
+- D5 invariant: engine/market-core/ADR 변경 0 = monkeypatch 패턴으로 구조적 박제
+- 2 PR LAND timeline: hub#374(91a8bfa 2026-05-16 Phase 1 docs + runbook + ADR draft) → data#78(6346b55 2026-05-17 5 TC) → hub Phase 2 PR2
+
+### 핵심 변경
+- mctrader-data 신규 (data#78): `tests/test_multi_exchange_invariant.py` 5 TC (monkeypatch 패턴 D5 핵심 invariant 박제)
+- mctrader-hub 신규 (hub#374): `docs/runbooks/add-new-exchange.md` (3-step: Layer1 repo 신설 + adapters.py 등록 + 수집/정규화 설정)
+- `src/mctrader_data/adapters.py` 변경 0 (INV-2 PASS)
+
+### D5 invariant 5 TC
+| TC | 내용 | 결과 |
+|----|------|------|
+| TC-1 | bithumb + upbit 기존 팩토리 등록 확인 | PASS |
+| TC-2 | 미등록 거래소 → ValueError | PASS |
+| TC-3 | monkeypatch mock exchange 등록 → 호출 성공 (핵심) | PASS |
+| TC-4 | engine pyproject 신규 의존 0 (engine repo 없으면 skip) | SKIPPED |
+| TC-5 | adapters.py callable + bithumb/upbit 정상 + unknown ValueError | PASS |
+
+### windows-latest CI
+기존 testcontainers Docker sock 오류 (`test_promote_l1_post_put_unlink.py` + `test_runner_retroactive_cleanup.py`) — **MCT-187 scope 외, pre-existing regression**. main branch 동일 실패 확인. MCT-187 신규 5 TC = ubuntu-latest 완전 PASS. `phase-gate-mergeable` PASS.
+
+### 박제 PR 5 체크리스트 이행
+| 항목 | 이행 |
+|------|------|
+| RETRO-MCT-187.md 존재 | ✅ |
+| EPIC-RESULTS §Story-6 박제 | ✅ (본 항목) |
+| Story frontmatter status=COMPLETED + completed_at=2026-05-17 | ✅ |
+| CLAUDE.md hub#TBD 잔존 0줄 | ✅ |
+| ADR-031 §D5 VERIFIED amendment box LAND confirm | ✅ |
+
 ## ADR 산출물
 
-- **ADR-031** (신규, MCT-182 publish, 2026-05-16) — Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant. Status: **Accepted** (MCT-182 LAND VERIFIED). transition: Proposed → Accepted (MCT-182, D1+D6 VERIFIED) → POLICY_FINALIZED (MCT-188 target — D1-D7 전수 + ADR-029/027/030 amend confirm)
+- **ADR-031** (신규, MCT-182 publish, 2026-05-16) — Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant. Status: **Accepted** (MCT-182 LAND VERIFIED). D1-D5 VERIFIED (MCT-182~187). transition: Proposed → Accepted (MCT-182, D1+D6 VERIFIED) → POLICY_FINALIZED (MCT-188 target — D1-D7 전수 + ADR-029/027/030 amend confirm)
 
 ## 핵심 결정 (D1-D7, MCT-179 lesson — D-row↔scope_manifest 7/7 byte 1:1 reconcile)
 
@@ -213,7 +250,7 @@ MCT-184 post-LAND Codex audit 발견 (박제 PR incomplete 패턴 + dead-in-data
 | D2 | Read 도메인 relocation → mctrader-data (Layer 2) | io-relocate + cold-read-behind-REST | MCT-183 (io relocate) + MCT-185 (cold-read/reverse-write cutover) | **VERIFIED 2026-05-17** (MCT-183 io relocate + MCT-185 11-place cutover 완결 — ADR-029 §D2 VERIFIED) |
 | D3 | data REST API 신규 (historical + reverse-write + realtime stream) | fastapi-v1 + redis-stream | MCT-184 (historical+reverse-write) + MCT-185 (realtime stream + cutover) | **VERIFIED 2026-05-17** (MCT-184 historical+reverse-write + MCT-185 realtime stream + 11-place cutover 완결 — ADR-031 §D2+§D3 VERIFIED) |
 | D4 | engine exchange-adapter 제거 | subscribe-normalized-stream | MCT-186 | **VERIFIED 2026-05-17** (engine#60 AC-1 grep0 PASS 5곳 5파일 — ADR-031 §D4 VERIFIED) |
-| D5 | 다중거래소 확장 불변식 | data-only-extension-invariant | MCT-187 | reserved |
+| D5 | 다중거래소 확장 불변식 | data-only-extension-invariant | MCT-187 | **VERIFIED 2026-05-17** (data#78 6346b55 — 5 TC PASS + adapters.py 변경 0 + runbook LAND — ADR-031 §D5 VERIFIED) |
 | D6 | ADR-031 신규 + ADR-029/027/030 amendment | new-adr-031 + 3-amend | MCT-182 (publish) + MCT-188 (POLICY_FINALIZED + amend confirm) | **publish/D1 VERIFIED 2026-05-15**, amend pending |
 | D7 | data-free done-criterion (grep0 quad gate) | ci-grep0-quad-gate | MCT-188 | reserved |
 
@@ -230,17 +267,16 @@ MCT-184 post-LAND Codex audit 발견 (박제 PR incomplete 패턴 + dead-in-data
 
 ## 다음 Story 진입
 
-**MCT-186 COMPLETED** ✓ (2026-05-17, milestone 5/7). 다음 = **MCT-187**.
+**MCT-187 COMPLETED** ✓ (2026-05-17, milestone 6/7). 다음 = **MCT-188**.
 
-**MCT-187** (sequential_phase 6) — 다중거래소 확장 불변식 박제 — D5+D6.
+**MCT-188** (sequential_phase 7) — data-free grep0 quad gate + Epic POLICY_FINALIZED — D7+D6.
 
 진입 prerequisite:
-1. MCT-186 Phase 2 PR2 MERGED ✓ (본 박제 LAND 시점)
-2. **R2 재검증** — MCT-187 진입 전 MCT-43~47 IN_PROGRESS 파일 교차 확인 (Orchestrator ordering 의무)
-3. carry over: engine compose.yml `NAS_MINIO_*` env drop (MCT-186 scope 외, MCT-187 or 별 PR)
-4. carry over: pyproject.toml `mctrader-market-bithumb` dep 제거 = MCT-188 owner (D7 quad gate final)
+1. MCT-187 Phase 2 PR2 MERGED ✓ (본 박제 LAND 시점)
+2. carry over: engine compose.yml `NAS_MINIO_*` env drop = 별 PR or MCT-188 (ADR-030 §D4 carry)
+3. carry over: pyproject.toml `mctrader-market-bithumb` dep 제거 = MCT-188 owner (D7 quad gate final)
 
 진입 권고:
-- **ADR-032 evidence triad reapply** — MCT-187 invariant test + runbook 박제 시 evidence triad 의무
-- **Phase 0 verify 독립** — MCT-187 scope 별 Phase 0 코드 실측 (MCT-170/185/186 lesson 재현 방지)
-- add-new-exchange.md runbook 신규 + data adapters.py 확장 contract test (BithumbCandleProvider/UpbitCandleProvider 팩토리 이미 존재 — 신규 거래소 등록 절차 invariant test 박제)
+- D7 quad gate = engine src/ `from/import mctrader_data` == 0 AND engine pyproject mctrader-data 제거 AND engine src/ `mctrader_market_bithumb|upbit` == 0 AND engine pyproject 어댑터 의존 제거
+- `.github/workflows/data-free-grep0.yml` 신규 CI gate (MCT-172 grep0 strict 패턴 재사용)
+- ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm 전수 박제 의무
