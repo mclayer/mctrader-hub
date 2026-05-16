@@ -39,12 +39,12 @@ cold-read cutover pending MCT-185):
 
 ### §D2 + §D3 VERIFIED amendment box (MCT-185 LAND 박제, 2026-05-17, EPIC-data-domain-decoupling Story-4 — cold-read cutover 완결 + realtime stream + reverse-write wiring 완결)
 
-> **MCT-185 amendment (2026-05-17, Phase 1 draft → Phase 2 PR2 VERIFIED)**: EPIC-data-domain-decoupling
-> Story-4 (가장 복잡 Story — 3 repo + production wiring 전환) Phase 1 박제분. **§D2 cold-read
-> cutover 완결 + §D3 realtime stream + reverse-write wiring 완결** 동시 충족 (D2+D3 owner
-> Story 절반 + 절반). 본 amendment box 박제 시점 = Phase 1 draft. 실 LAND confirm = Phase
-> 2 PR2 박제 시점 (data#N LAND + engine#N LAND + AC-6 evidence triad PASS 후 confirm 박제
-> 갱신).
+> **MCT-185 amendment (2026-05-17, Phase 2 PR2 VERIFIED)**: EPIC-data-domain-decoupling
+> Story-4 (가장 복잡 Story — 3 repo + production wiring 전환) **§D2 cold-read cutover 완결 +
+> §D3 realtime stream + reverse-write wiring 완결** 동시 충족 (D2+D3 owner Story 절반 + 절반).
+> 3 PR cross-repo sequential LAND 완결: hub#366 (67bcc1c, 2026-05-16) → data#76 (9473665,
+> 2026-05-16, land_order 1) → engine#59 (1312195, 2026-05-16, land_order 2) → hub Phase 2
+> PR2 박제.
 >
 > **Status `Accepted` 유지 (POLICY_FINALIZED 전이 = MCT-188 owner)** — 본 Story = D2+D3
 > 진전 (VERIFIED amendment box 박제), POLICY_FINALIZED transition 은 MCT-188 (data-free
@@ -52,15 +52,15 @@ cold-read cutover pending MCT-185):
 
 #### §D2 cold-read cutover 완결 박제 (D2 owner 절반 — MCT-183 io-relocate 완결 후 cold-read-behind-REST 절반)
 
-- **engine cold-read 8곳 cutover LAND** (engine#N Phase 2 PR1) — engine src/ `from mctrader_data.(storage|path|orderbook_replay)`
+- **engine cold-read 8곳 cutover LAND** (engine#59, 1312195 Phase 2 PR1) — engine src/ `from mctrader_data.(storage|path|orderbook_replay)`
   import = **0건 grep** 충족 (Phase 0 V2 식별 8곳 4파일: `cli.py:279,280` + `executor/tick_replay.py:26,559`
   + `wfo/evaluator/data_loader.py:43,44` + `wfo/search/data_loader.py:81,82`)
-- **engine `data_client/` 신설** (engine#N Phase 2 PR1) = `src/mctrader_engine/data_client/`
+- **engine `data_client/` 신설** (engine#59, 1312195 Phase 2 PR1) = `src/mctrader_engine/data_client/`
   서브패키지 (`base.py` + `historical.py` + `reverse_write.py` + `exceptions.py` + `__init__.py`
   5 파일). hand-written thin client 채택 (MCT-184 OpenAPI SSOT 단방향 소비 + Pydantic schema
   market-core SSOT 재사용 = SSOT 단일 정합). `httpx>=0.27` 신규 의존 추가 (sync httpx Client
   — engine 기존 동기 호출 패턴 정합)
-- **historical/orderbook endpoint 신설** (data#N Phase 2 PR1) = `/v1/historical/orderbook/snapshots`
+- **historical/orderbook endpoint 신설** (data#76, 9473665 Phase 2 PR1) = `/v1/historical/orderbook/snapshots`
   + `/v1/historical/orderbook/ticks` 2 endpoint 신설 (MCT-184 routes_v1.py 372 lines LAND 후
   본 Story 확장 — executor/tick_replay.py:26,559 cutover 완결 의무). OpenAPI snapshot 갱신 +
   hub `.codeforge/contracts/data-api-v1.openapi.json` 동반 갱신
@@ -71,7 +71,7 @@ cold-read cutover pending MCT-185):
 
 #### §D3 realtime stream + reverse-write wiring 완결 박제 (D3 owner 절반 — MCT-184 historical+reverse-write 완결 후 redis-stream + reverse-write client 절반)
 
-- **data `src/mctrader_data/api/realtime_stream.py` 신설** (data#N Phase 2 PR1) = Redis Stream
+- **data `src/mctrader_data/api/realtime_stream.py` 신설** (data#76, 9473665 Phase 2 PR1) = Redis Stream
   `XADD market:tick:{exchange}:{symbol}` publisher (`REDIS_KEY_PREFIX_MARKET` env 도입, ADR-030
   §D15 prefix 정합). tick.v1.1 정규화 schema = `mctrader_market.schemas.tick.TickRowV1_1`
   SSOT 재사용 (market-core Layer 0 contract). data 기존 `redis[hiredis]>=5` 의존 재사용 (신규
@@ -79,7 +79,7 @@ cold-read cutover pending MCT-185):
 - **ASGI lifespan 통합** = `api/app.py` lifespan hook 에 `RealtimeStreamPublisher.startup()` /
   `.shutdown()` 통합 (uvicorn `--timeout-graceful-shutdown=60` 정합 — XADD in-flight drain
   + Redis connection close)
-- **engine reverse-write 3곳 cutover LAND** (engine#N Phase 2 PR1) = `runtime/paper_runner.py:290,291`
+- **engine reverse-write 3곳 cutover LAND** (engine#59, 1312195 Phase 2 PR1) = `runtime/paper_runner.py:290,291`
   + `backtest/nas_sync.py:36` 3곳 2파일 → `data_client.reverse_write.post_paper_candles` +
   `.post_backtest_artifact` REST 경유 cutover. canonical sha256 client-side 정합 (market-core
   `canonical_jsonl_hash` SSOT 재사용 + MCT-184 post-merge fix `e612296` F-2 정합 — bytes-level
