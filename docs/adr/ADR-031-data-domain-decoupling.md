@@ -136,7 +136,7 @@ ADR-031 신규 publish(본 ADR). amendment **예고 box** 3건 (실 amend = 후�
 | 대상 ADR | amendment 내용 | 실 amend owner | optional |
 |----------|----------------|----------------|----------|
 | ADR-029 (tier-promotion-single-source) | engine NAS 직독 폐기 + io reader relocated + NAS SoT 경로 data REST indirection | **MCT-183** (relocate) + **MCT-185** (cutover confirm) | false |
-| ADR-027 (cold-tier-object-storage-nas-minio) | engine io/ endpoint_router + dr_mode = mctrader-data relocated (Layer2 소유) | **MCT-183** (endpoint_router/dr_mode relocate) | false |
+| ADR-027 (cold-tier-object-storage-nas-minio) | io reader 6 module (endpoint_router/dr_mode/reader_cache/cold_reader/tier_reader/l1_reader) relocated to mctrader-data Layer2 | **MCT-183** (io reader 6 module relocate) | false |
 | ADR-030 (docker-stack-governance) | compose topology — engine NAS cred drop + data api service(FastAPI) 추가 | **MCT-184** (data api service) + **MCT-186** (engine NAS cred drop) | false |
 
 > 위 3 amendment 는 본 ADR-031 publish 시점(MCT-182)에는 **예고 box** 일 뿐 — ADR-029/027/030

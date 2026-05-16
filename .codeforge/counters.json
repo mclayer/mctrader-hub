@@ -208,6 +208,9 @@
     "MCT-183": {
       "title": "Layer 2 read 도메인 relocation → mctrader-data (engine io/ 6 module)",
       "reserved_at": "2026-05-16",
+      "started_at": "2026-05-16",
+      "status": "IN_PROGRESS",
+      "design_review_status": "PASS (post-RESET, gate:design-review-pass) — iter1→3 FIX P0×3→×2 max 3/3 + RESET path (3 trigger 0 충족) + ArchitectPL 수렴 회귀(ADR-031+sibling MCT-182 canonical + §3.6.1 gate v2 self-verify) + Orchestrator 독립 verify PASS",
       "epic": "EPIC-data-domain-decoupling",
       "repo": "mctrader-hub + mctrader-data + mctrader-engine",
       "phase_pair": "phase1_phase2",

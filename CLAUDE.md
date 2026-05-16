@@ -556,7 +556,7 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 | phase | Story | 제목 | D | 상태 |
 |---|-------|------|---|------|
 | 1 | **MCT-182** | Layer0 contract relocation → market (aggregation/records/paper_lineage + engine CandleModel 4곳 재지정) | D1,D6 | **COMPLETED 2026-05-15** (hub#349+market#11+data#68+engine#57+hub#350+data#69 fix1) |
-| 2 | MCT-183 | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | RESERVED |
+| 2 | **MCT-183** | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | **IN_PROGRESS** (설계-리뷰 PASS post-RESET, Phase 1 진행) |
 | 3 | MCT-184 | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | RESERVED |
 | 4 | MCT-185 | data realtime stream + engine thin client + cold-read cutover | D2,D3 | RESERVED |
 | 5 | MCT-186 | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | RESERVED |
