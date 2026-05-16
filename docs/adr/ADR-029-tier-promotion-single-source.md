@@ -44,6 +44,72 @@ Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance s
 - **D1=B VERIFIED** (mctrader-data#59): L1Compactor.compact_segment() 내 _write_parquet_atomic() 직후 DualWriter.put_l1() 호출 확인. compactor 측 timing 정합 (22 tests PASS).
 - **D2=B VERIFIED** (mctrader-data#59): DualWriter.put_l1() → NASUploader.put_streaming() + queued → local_only 경로 확인. retry_queue + local_only 재사용 정합 (INV-5 status enum 3종 exhaustive PASS).
 
+### MCT-183 amendment box (2026-05-16, EPIC-data-domain-decoupling Story-2 — io reader relocated to mctrader-data + engine NAS 직독 폐기 **예고**)
+
+본 amendment box = EPIC-data-domain-decoupling Story-2 (MCT-183, sequential_phase 2) Phase 1 박제분.
+**relocate 박제 + 예고** — io reader 6 module 의 거주 repo 가 `mctrader-engine` → `mctrader-data`
+(Layer2 단독 소유) 로 이전됨. **io reader 6 module 의 동작·invariant 는 무변경** (거주 repo 만
+이전 — relocate ≠ 재구현). 실 NAS 직독 폐기 confirm 은 **MCT-185 (cold-read cutover) owner**.
+
+**io reader 6 module relocated 박제 (D2 io-relocate 절반, ADR-031 §D2)**:
+
+- 본 ADR §D7 (MCT-170 amendment) impl scope 박제 `mctrader_engine/io/tier_reader.py` /
+  `l1_reader.py` / `dr_mode.py` / `reader_cache.py` + §D8 amendment `cold_reader.py` /
+  `endpoint_router.py` = engine `src/mctrader_engine/io/` 6 module 전체 → mctrader-data
+  `src/mctrader_data/io/` 서브패키지로 **물리 이전** (byte-equivalence — 코드 본문 무변경,
+  import path cross-reference 재지정만).
+- 이전 근거: engine `src/` io/ 6 module production 호출자 = **0** (verified-via git grep
+  origin/main HEAD 2026-05-16, 3-modal: `from/import mctrader_engine.io` io/제외 0건 + bare
+  심볼 0건 + io/__init__.py 내부 6 self-import 만). MCT-170 자산이 production 미배선
+  (dead-in-prod) — 삭제 후 engine import 깨짐 0.
+- **io reader 6 module 의 D7=A (reader cache 95% hit + p99 <100ms) / D8=C (DR mode +
+  local fallback) / D1=C / D4=B / D5=C 동작·invariant 는 거주 이전 후에도 무변경 보존**
+  (DR state machine CLOSED/OPEN/HALF_OPEN/UNKNOWN_TIER / endpoint atomic flip / LRU byte
+  budget / ETag verify / mixed layout 호환 전수 byte-equivalence). MCT-170 amendment 박제분
+  (dr_mode.UNKNOWN_TIER 신규 + cutoff enforcement + READER_CACHE_TTL env) = invariant
+  보존 거주 이전.
+- **Phase 0 verify 발견 (MCT-183 설계 lane, R1 가드 — 코드 작업 전 사전 차단. 설계리뷰
+  iter1 P0-3 executable hunk 재실측 정정)**: `mctrader_engine/io/reader_cache.py` `stats()`
+  메서드 본문 내 producer-wiring **블록 line 339-348** (주석 1줄 + `from
+  mctrader_engine.metrics import set_reader_cache_hit_ratio, set_reader_p99_ms` lazy
+  import 6줄 multi-line + 빈줄 + `_set_hit_ratio`/`_set_p99_ms` 호출 2줄. FIX-MCT-180
+  engine#55 P1 producer wiring, MCT-180 LAND 자산) 존재. Story §0 V5 top-level grep 가
+  미포착한 io/ → engine 비-io 의존 1건. byte-equivalence relocate 시 mctrader-data →
+  mctrader-engine 역의존 발생 (Layer2 자족 INV-2 위반 + 순환 위험) → **MCT-183 Change
+  Plan §3.5 채택안 A 확정** = data 측 외부 import 없는 내부 no-op 블록 치환 (Prometheus
+  Gauge producer wiring 의 data 측 처리 — relocate scope 경계, Gauge 실 emit 재배선 =
+  MCT-185 cutover owner). docker-stack Phase 0 verify gap 6회 + MCT-179→180 metric/
+  producer-path desync 동형의 **7회째 사전 차단** (MCT-182 R1 가드 패턴 계승 — 코드
+  영구 영향 전 설계 lane 발견).
+
+**engine NAS 직독 폐기 예고 (실 amend confirm = MCT-185)**:
+
+- engine 실제 cold-read 경로 (`mctrader_data.storage.scan_candles` ×3 /
+  `orderbook_replay` ×2 / `path.resolve_data_root` ×3 직독) = 본 ADR §D9 (MCT-167
+  amendment) "NAS = SoT for ALL tiers" 의 engine read carrier. MCT-185 (cold-read
+  cutover) 이 engine 의 mctrader_data.storage 직독 → data REST API indirection 전환
+  예정 — 이 시점에 본 ADR §D9 의 "engine read-through cache" 모델이 data REST
+  뒤로 indirection 됨. **본 MCT-183 amendment box 는 예고만 박제** — §D9 본문 +
+  cross-ref 의 실 amend confirm 은 **MCT-185 owner** (scope_manifest
+  `§planned_adrs.amendments` ADR-029 owner `MCT-183 (relocate) + MCT-185 (cutover
+  confirm)` 1:1 정합).
+
+**D-row ↔ scope_manifest 1:1 reconcile (MCT-179 lesson reapply — R1 가드)**:
+
+scope_manifest `§design_decisions.D2` (`option_chosen: io-relocate + cold-read-behind-REST`
+/ `owner_story: MCT-183 (io relocate) + MCT-185 (cold-read cutover)`) ↔
+`§planned_adrs.amendments` ADR-029 (`section: engine NAS 직독 폐기 + io reader relocated +
+NAS SoT 경로 data REST indirection` / `owner_story: MCT-183 (relocate) + MCT-185 (cutover
+confirm)`) ↔ `§story_decision_matrix.MCT-183` (`decisions: [D2, D6]`) ↔ 본 amendment box
+**전수 1:1 정합** (MCT-182 D-row 7/7 reconcile 패턴 계승, cross-document SSOT desync
+사전 차단).
+
+cross-ref: `docs/stories/MCT-183.md` §0/§4.3 + `docs/change-plans/MCT-183-change-plan.md`
+§3/§8.0 + `docs/adr/ADR-031-data-domain-decoupling.md` §D2 (io-relocate 절반 진행, §D2
+VERIFIED = MCT-185 cutover 후) + ADR-027 MCT-183 amendment box (io reader 6 module
+(endpoint_router/dr_mode/reader_cache/cold_reader/tier_reader/l1_reader) relocated to
+mctrader-data Layer2).
+
 ### MCT-172 amendment (2026-05-14) — D8 sunset policy finalize + D9 + D10 verify status
 
 본 amendment = EPIC-tier-promotion-single-source Story-6 (MCT-172) Phase 1 박제분. Epic 의 **policy finalize Story**.

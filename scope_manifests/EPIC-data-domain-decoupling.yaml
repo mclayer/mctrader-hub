@@ -58,7 +58,7 @@ design_decisions:
   D6:
     decision: "ADR — ADR-031 신규 + ADR-029/027/030 amendment"
     option_chosen: "new-adr-031 + 3-amend"
-    rationale: "ADR-031 신규 (Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant). amendment: ADR-029 (engine NAS 직독 폐기, io reader relocated, NAS SoT 경로에 data REST indirection) / ADR-027 (endpoint_router/dr_mode relocated) / ADR-030 (compose topology — engine NAS cred drop, data api service 추가). MCT-179 lesson 정합 = ADR-031 Out-of-scope/D-row 전수 reconcile (cross-repo desync 누적 사전 차단)"
+    rationale: "ADR-031 신규 (Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant). amendment: ADR-029 (engine NAS 직독 폐기, io reader relocated, NAS SoT 경로에 data REST indirection) / ADR-027 (io reader 6 module (endpoint_router/dr_mode/reader_cache/cold_reader/tier_reader/l1_reader) relocated to mctrader-data Layer2) / ADR-030 (compose topology — engine NAS cred drop, data api service 추가). MCT-179 lesson 정합 = ADR-031 Out-of-scope/D-row 전수 reconcile (cross-repo desync 누적 사전 차단)"
     owner_story: "MCT-182 (ADR-031 publish) + MCT-188 (POLICY_FINALIZED + amend confirm)"
   D7:
     decision: "data-free done-criterion (grep0 gate)"
@@ -87,7 +87,7 @@ story_decision_matrix:
     phase_pair: phase1_phase2
     decisions: [D2, D6]
     cross_repo:
-      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-029/027 amendment box (io reader relocated, endpoint_router/dr_mode relocated)" }
+      - { repo: mctrader-hub, change: "Story §1-§11 + ADR-029/027 amendment box (ADR-029 io reader relocated + engine NAS 직독 폐기 예고 / ADR-027 io reader 6 module (endpoint_router/dr_mode/reader_cache/cold_reader/tier_reader/l1_reader) relocated to mctrader-data Layer2)" }
       - { repo: mctrader-data, change: "io/ 6 module (tier_reader/reader_cache/endpoint_router/dr_mode/cold_reader/l1_reader) 수령 + tests/io/ 이전. data 측 namespace 배치" }
       - { repo: mctrader-engine, change: "io/ 6 module 삭제 + tests/io/ 삭제 (src caller 0 verified — dead-in-prod 안전 제거). __init__ export 정리" }
     sequential_depends_on: [MCT-182]
@@ -160,9 +160,9 @@ planned_adrs:
       owner_story: "MCT-183 (relocate) + MCT-185 (cutover confirm)"
       optional: false
     - adr: ADR-027-cold-tier-object-storage-nas-minio
-      section: "endpoint_router / dr_mode relocated to mctrader-data"
-      change: "engine io/ 측 endpoint_router + dr_mode = mctrader-data 로 relocated (Layer2 소유)"
-      owner_story: "MCT-183 (endpoint_router/dr_mode relocate)"
+      section: "io reader 6 module (endpoint_router/dr_mode/reader_cache/cold_reader/tier_reader/l1_reader) relocated to mctrader-data Layer2"
+      change: "engine io/ 측 io reader 6 module (endpoint_router + dr_mode + reader_cache + cold_reader + tier_reader + l1_reader) = mctrader-data 로 relocated (Layer2 소유). endpoint_router/dr_mode = ADR-027 §D9 명시 module, 나머지 4 = io/ 묶음 relocate (ADR-027 box 본문 정합)"
+      owner_story: "MCT-183 (io reader 6 module relocate)"
       optional: false
     - adr: ADR-030-docker-stack-governance
       section: "compose topology — engine NAS cred drop + data api service 추가"

@@ -456,6 +456,60 @@ ADR-027 §D9 원안 = "**NAS = Source of Truth (SoT) — L2/L3 cold tier 의 aut
 
 cross-ref: ADR-029 D7 (cache 95% hit) + D8 (forward-only + local fallback) + D10 (ambiguity invariant) + ADR-017 §3 D3 amendment (L1 NAS PUT 의무) + ADR-009 §D12.2 amendment (NAS object SoT 격상).
 
+**MCT-183 amendment box 박제 (2026-05-16, EPIC-data-domain-decoupling Story-2 — io reader 6 module (endpoint_router/dr_mode/reader_cache/cold_reader/tier_reader/l1_reader) relocated to mctrader-data Layer2 소유)** — D9 reader 거주 repo 이전.
+
+ADR-027 §D9 + 본 §D9 의 MCT-156/159/167 amendment 본문은 reader read-through cache 의
+impl carrier 를 `mctrader_engine/io/` (`endpoint_router.py` / `reader_cache.py` /
+`cold_reader.py` + MCT-167 amendment §D9 의 `tier_reader.py` / `l1_reader.py` /
+`dr_mode.py`) 로 박제했다. **본 amendment 박제 후 io reader 6 module 의 거주 repo =
+`mctrader-engine` → `mctrader-data` (`src/mctrader_data/io/` 서브패키지, Layer2 단독
+소유)** 로 이전됨:
+
+- **endpoint_router + dr_mode + reader_cache + cold_reader + tier_reader + l1_reader
+  6 module = mctrader-data relocated** (byte-equivalence — 코드 본문 무변경, import
+  path cross-reference 재지정만). 거주 repo 만 engine → data, **동작·invariant 전수
+  무변경**.
+- **MCT-156 amendment "io/ 3 module 영향 0" = 거주 이전 후에도 동작 영향 0 정합 명시**
+  — MCT-156 amendment 박제분 ("MCT-154 land 의 `endpoint_router.py` / `reader_cache.py`
+  / `cold_reader.py` 모두 본 amendment 영향 0 (변경 0)") 의 mixed layout 호환
+  (ADR-009 §D2.1 `node=DEFAULT` + §D14 `tier=L1` fallback) 은 거주 repo 가
+  mctrader-data 로 이전된 후에도 동일 보존 (engine `scan_*` API partition pruning
+  변경 0 = data 측 io reader 도 동일 fallback 박제 의무 — 동작 byte-equivalence).
+- **이전 근거 (Layer2 read 도메인 단독 소유, ADR-031 §D2)**: read 도메인은 storage
+  지식 (NAS object layout / parquet tier / ETag verify / endpoint resolution) 을
+  내포 → Layer2 (mctrader-data = DATA-STORAGE 영역 단독 소유) 거주가 EPIC-data-
+  domain-decoupling 4-layer 목표 정합. engine io/ src caller 0 (dead-in-prod, MCT-183
+  §0 V3 HEAD 실증) → production 무중단 물리 이전.
+- **endpoint_router atomic flip (immutable swap) + 7d grace mode + dr_mode state
+  machine (CLOSED/OPEN/HALF_OPEN/UNKNOWN_TIER, MCT-170 amendment) + UNKNOWN_TIER
+  30d exemption window enforcement = 거주 이전 후에도 무변경 보존** (Story MCT-183
+  INV-5 — 동작·invariant 무변경 SSOT 격리).
+- **본 amendment scope** = io reader 거주 repo 이전 박제 only. ADR-027 §D9 본문 +
+  MCT-156/159/167 amendment 의 SoT 모델·mixed layout 호환·forward-only invariant
+  자체는 **무변경** (relocate ≠ 정책 변경). engine cold-read 실경로 data REST
+  indirection 은 본 amendment scope 외 — **MCT-185 (cold-read cutover) owner**
+  (ADR-029 MCT-183 amendment box 정합).
+
+**D-row ↔ scope_manifest 1:1 reconcile (MCT-179 lesson reapply)**: scope_manifest
+`§planned_adrs.amendments` ADR-027 (`section: io reader 6 module (endpoint_router/
+dr_mode/reader_cache/cold_reader/tier_reader/l1_reader) relocated to mctrader-data
+Layer2` / `change: engine io/ 측 io reader 6 module (endpoint_router + dr_mode +
+reader_cache + cold_reader + tier_reader + l1_reader) = mctrader-data 로 relocated
+(Layer2 소유). endpoint_router/dr_mode = ADR-027 §D9 명시 module, 나머지 4 = io/
+묶음 relocate (ADR-027 box 본문 정합)` / `owner_story: MCT-183 (io reader 6 module
+relocate)`) ↔ `§design_decisions.D2` (`io-relocate + cold-read-behind-REST`) ↔
+`§story_decision_matrix.MCT-183` (`decisions: [D2, D6]`) ↔ 본 amendment box **전수
+1:1 정합** (MCT-182 D-row 7/7 reconcile 패턴 계승). endpoint_router/dr_mode 는
+ADR-027 §D9 (MCT-156/167 amendment) 명시 module, 나머지 4 (reader_cache/cold_reader/
+tier_reader/l1_reader) 는 io/ 6 module 묶음 relocate — scope_manifest section/change
+↔ ADR-027 box 본문 6-module 전체 동일 (P0-1 reconcile, MCT-179/182 cross-document
+desync 동형 재발 차단).
+
+cross-ref: ADR-029 MCT-183 amendment box (io reader 6 module relocated + engine NAS
+직독 폐기 예고) + ADR-031 §D2 (io-relocate 절반 진행, §D2 VERIFIED = MCT-185 cutover
+후) + `docs/stories/MCT-183.md` §0/§4.3 + `docs/change-plans/MCT-183-change-plan.md`
+§3/§11.
+
 ### D10. 영향 repo — mctrader-data + mctrader-engine + mctrader-hub
 
 본 ADR 의 영향 repo:
