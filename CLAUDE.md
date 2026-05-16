@@ -914,10 +914,10 @@ D1-D11 = 설계결정 검토 범위 (ADR-029 design decision). 8 invariant = 운
 
 WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~ 45G hypothesis ±50% range). production 측정은 별 PR (peak market open 09:00 KST burst). 30G 초과 시 D11 hard_limit amendment 발의 (D8-7=A FAIL gate).
 
-## MCT-189 IN_PROGRESS (2026-05-16) — ADR-029 §D3=C grace-0 로컬삭제 wiring 완결
+## MCT-189 COMPLETED (2026-05-17) — ADR-029 §D3=C grace-0 로컬삭제 wiring 완결
 
-> EPIC-tier-promotion-single-source **carry over** (POLICY_FINALIZED 유지, D3 wiring deferred → MCT-189 해소).
-> 2026-05-16 운영 진단 ("로컬 디스크가 차는데 S3 적재되는가") 중 발견 **cross-document SSOT drift 2호**.
+> EPIC-tier-promotion-single-source **carry over RESOLVED** (POLICY_FINALIZED 유지, D3 wiring deferred → **MCT-189 해소 2026-05-17**).
+> 2026-05-16 운영 진단 ("로컬 디스크가 차는데 S3 적재되는가") 중 발견 **cross-document SSOT drift 2호** 해소.
 > 1호 = `mctrader-data:pilot` 2026-05-13 이미지가 정책 LAND(2026-05-14) 하루 전 빌드 = 본 세션 응급 재배포 (f233952 단일소스 빌드 + backfill stop + capacity_probe/ingest_blocker LAND).
 > 2호 = ADR-029 §D3=C "VERIFIED" 박제 vs `promote_l1()` production caller 0건 = 본 Story 대상.
 
@@ -925,12 +925,16 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 
 | 항목 | 상태 |
 |------|------|
-| Story | RESERVED → IN_PROGRESS (Phase 1 LAND) |
-| 4 PR 다단 | Phase 1 docs (hub) → Phase 2 PR1 wiring (data) → Phase 2 PR2 legacy cleanup (data) → Phase 2 PR3 박제 (hub) |
-| 채택 결정 | D-1 A grace 0 unconditional / D-2 A DualWriter self-delete / D-3 C 단일 Story+다단 PR (사용자) / D-4 C 4중 HEAD verify / D-5 A forward-only 격상 / D-6 A post-LAND 14d 0 violation / D-7 A idempotent / D-8 B pre-delete guard / D-9 A domain-knowledge 신규 / D-10 B ADR-032 별 Story |
-| ADR 산출 | ADR-029 amendment box (§D3 line 246 + §D11 표 + §D10 + Migration §Forward-only) — **POLICY_FINALIZED 유지** |
-| follow-up | ADR-032 별 governance Story (MCT-190 권고) + vendor wheel 갱신 (mctrader_market post-market#11) + engine-paper crash loop (별 ops) |
-| Epic CLOSED prereq | prod-5 신규 — post-LAND 14d production `nas_reader_ambiguity_total` 0 (2026-05-16 LAND → 2026-05-30 verify) |
+| Story | RESERVED → IN_PROGRESS → **COMPLETED 2026-05-17** |
+| 4 PR 다단 LAND | hub #357 (3f138a6) Phase 1 docs / data #73 (de12f43) Phase 2 PR1 wiring / data #75 (a1a8ccf) Phase 2 PR2 legacy cleanup / hub #TBD Phase 2 PR3 박제 |
+| 채택 결정 | D-1 A grace 0 unconditional / D-2 A DualWriter self-delete (`_promote_after_nas_put` helper) / D-3 C 단일 Story+다단 PR (사용자) / D-4 C 4중 HEAD verify / D-5 A forward-only 격상 / D-6 A post-LAND 14d 0 violation / D-7 A idempotent (ENOENT graceful) / D-8 B pre-delete guard / D-9 A domain-knowledge 신규 / D-10 B ADR-032 별 Story |
+| 추가 hardening | fd-consistent sha256+size (`_compute_local_sha256_and_size` SEEK_END, code-quality FIX iter3 TOCTOU 축소) + NASUploader.enqueue_retry() public method (private getattr fragility 제거) + verify-fail → retry_queue + status="local_only" (committed 거짓 신호 제거, spec FIX iter1) + batch_limit=500 cap (PR2 첫 sweep stall 회피) |
+| ADR 산출 | ADR-029 amendment box VERIFIED 박제 (§D3 + §D10 + §D11 + Migration) — **POLICY_FINALIZED 유지 (11/11 D 정상)** |
+| FIX 통계 | design lane iter 0 / code lane iter 4 (spec×2 + code-quality×1 + PR2 combined×1, 자세히는 RETRO §FIX Ledger) |
+| 회귀 | reviewer 가 main worktree 분리 직접 측정 — 0 신규 회귀 (main 21 failed+3 error == branch 동일, MCT-189 touch 파일 연관 0) |
+| **Cross-Story contamination** | mctrader-data 45e501c (MCT-184 PR) 가 partial MCT-189 단위 A/B/C/D squash 포함 → FIX iter 부재 결함 상태로 main 일시 도달 → PR1 `git rebase --strategy-option=theirs` + force-with-lease 로 FIX 적용 버전 덮어쓰기 (de12f43) → production 정합 회복. ADR-032 self-reference 사례. 정직 박제: Story §9 + RETRO §Lessons.3 |
+| follow-up | ADR-032 별 governance Story (MCT-190 권고) + vendor wheel 갱신 + engine-paper crash loop + parallel session data worktree 격리 메모리 amendment (cross-Story PR scope guard) |
+| Epic CLOSED prereq | **prod-5 신규**: 2026-05-17 LAND → **2026-05-31 verify gate** (`nas_reader_ambiguity_total` Counter 14d rolling = 0). legacy 130GB sweep evidence ~52h 점진 회수 모니터링 |
 
 ### Key References (MCT-189)
 
