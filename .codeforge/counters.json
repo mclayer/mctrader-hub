@@ -282,11 +282,12 @@
     "MCT-189": {
       "title": "ADR-029 §D3=C grace-0 로컬삭제 wiring 완결 (promote_l1 + DualWriter post-PUT local delete)",
       "reserved_at": "2026-05-16",
-      "status": "RESERVED",
+      "started_at": "2026-05-16",
+      "status": "IN_PROGRESS",
       "epic": "EPIC-tier-promotion-single-source",
       "repo": "mctrader-hub + mctrader-data",
-      "phase_pair": "phase1_phase2",
-      "decisions": ["ADR-029 §D3=C wiring 완결", "§D10 ambiguity 실적용"],
+      "phase_pair": "phase1_phase2_pr3",
+      "decisions": ["D-1 A", "D-2 A", "D-3 C", "D-4 C", "D-5 A", "D-6 A", "D-7 A", "D-8 B", "D-9 A", "D-10 B"],
       "rationale": "2026-05-16 운영 진단 세션 — production 디스크 압박 진단 중 발견. ADR-029 §D3=C 'NAS HEAD verify → grace-0 local delete' 정책이 MCT-169 D3 VERIFIED + EPIC-tier-promotion-single-source POLICY_FINALIZED 로 박제됐으나, `promote_l1()` 호출 site = 0건 (f233952 + HEAD main 동일 grep). DualWriter / l1.py / l2.py / l3.py 어디서도 NAS PUT commit 후 source local unlink 없음 (`tmp_path` unlink 만 존재). 결과: 130 GB legacy Parquet 영구 누적. 본 Story = wiring 완결 + ADR-029 §D3 amendment box (file:line + commit sha + integration test 박제). cross-document SSOT drift 2호 (1호 = mctrader-data:pilot 이미지 배포 drift = 본 세션 응급 처리)."
     },
     "ADR-031": {

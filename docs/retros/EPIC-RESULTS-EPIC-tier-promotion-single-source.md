@@ -222,3 +222,40 @@ D1-D11 은 설계결정 검토 범위 (ADR-029 design decision). 8 invariant 은
 - ADR-029: `docs/adr/ADR-029-tier-promotion-single-source.md`
 - brainstorm prompt: `docs/superpowers/prompts/EPIC-tier-promotion-single-source-session-prompt.md`
 - plugin reference: codeforge-plugin#620 Fix-1 (production evidence gate)
+
+## Amendment — D3=C wiring deferred (2026-05-16 운영 진단 세션 발견)
+
+> POLICY_FINALIZED 2026-05-14 박제 시점에 D3=C "Local delete = NAS HEAD verify + grace 0"
+> 정책 finalize 와 `promote_l1()` 함수 정의는 완료됐으나, 실 production 호출 site (runner /
+> dual_writer / l1 / l2 / l3) wiring 이 누락됨. 2026-05-16 운영 진단 세션 (사용자 디스크
+> 압박 보고 → systematic-debugging Phase 1~3) 에서 발견.
+
+### evidence (2026-05-16)
+
+- `git grep -nE "promote_l1\(|from mctrader_data\.compactor\.promotion import" -- 'src/**'` = **0건** (f233952 + HEAD main 동일)
+- `dual_writer.py` unlink 호출 = `tmp_path` (atomic temp) 만. L1/L2/L3 source unlink 0
+- `l2.py` / `l3.py` tier promotion 시 source local 삭제 호출 0
+- 결과: production /d/market **130.8 GB** legacy Parquet 누적 (NAS 적재 자체는 정상, 로컬 회수만 부재)
+- production image `mctrader-data:pilot` (2026-05-13T15:51:28Z build, pkg 0.9.0) 가 POLICY_FINALIZED 하루 전 build 본 그대로 2일+ 가동 — 본 세션 응급 재빌드 (f233952 base) + force-recreate 완료
+
+### carry over (Epic CLOSED prerequisite 보강)
+
+- **prod-D3-wiring**: **MCT-189** (ADR-029 §D3=C grace-0 로컬삭제 wiring 완결) — RESERVED 2026-05-16
+- legacy 130 GB cleanup = MCT-189 §3 S6 검토 대상 (compactor scan retroactive vs oneshot vs 사용자 explicit)
+- ADR-029 §D3 amendment box LAND 의무 = MCT-189 AC-6 (file:line + commit sha + integration test PASS evidence)
+
+### 관련 lesson 적용
+
+- **ADR-032** (Proposed, PMO 발의 2026-05-16, `.codeforge/counters.json`) — VERIFIED badge **evidence triad** (file:line + production caller grep ≥1 + integration test PASS) 의무화. 본 사례가 cross-document SSOT forcing function pattern **3번째 재현**
+- 1번째 사례: MCT-179 ADR-030 Out-of-scope D1-D19 전수 reconcile (c8e4b8e)
+- 2번째 사례: MCT-182 PMO-AUDIT (ADR 후보 발의 forcing function 일반화)
+
+### Epic Status 영향
+
+본 amendment box = POLICY_FINALIZED 정직성 보강. **Epic Status 강등 아님** (10/11 D 정상 — D1+D2+D4+D5+D6+D7+D8+D9+D10+D11 VERIFIED, D3 wiring deferred only). POLICY_FINALIZED 의 "정책 finalize only + 실 sunset/wiring 별 Story" 의미와 정합 (D8-3=A 패턴).
+
+### cross-ref
+
+- 본 세션 PMO patterns retro: `docs/retros/PMO-PATTERNS-2026-05-16-ssot-drift-operational-vs-design.md`
+- MCT-189 Story: `docs/stories/MCT-189.md` (RESERVED, §0 Phase 0 evidence 박제 완료)
+- ADR-032 reservation: `.codeforge/counters.json` (Proposed)

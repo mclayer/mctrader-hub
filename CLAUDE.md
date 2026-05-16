@@ -838,6 +838,32 @@ D1-D11 = 설계결정 검토 범위 (ADR-029 design decision). 8 invariant = 운
 
 WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~ 45G hypothesis ±50% range). production 측정은 별 PR (peak market open 09:00 KST burst). 30G 초과 시 D11 hard_limit amendment 발의 (D8-7=A FAIL gate).
 
+## MCT-189 IN_PROGRESS (2026-05-16) — ADR-029 §D3=C grace-0 로컬삭제 wiring 완결
+
+> EPIC-tier-promotion-single-source **carry over** (POLICY_FINALIZED 유지, D3 wiring deferred → MCT-189 해소).
+> 2026-05-16 운영 진단 ("로컬 디스크가 차는데 S3 적재되는가") 중 발견 **cross-document SSOT drift 2호**.
+> 1호 = `mctrader-data:pilot` 2026-05-13 이미지가 정책 LAND(2026-05-14) 하루 전 빌드 = 본 세션 응급 재배포 (f233952 단일소스 빌드 + backfill stop + capacity_probe/ingest_blocker LAND).
+> 2호 = ADR-029 §D3=C "VERIFIED" 박제 vs `promote_l1()` production caller 0건 = 본 Story 대상.
+
+### 결과 요약
+
+| 항목 | 상태 |
+|------|------|
+| Story | RESERVED → IN_PROGRESS (Phase 1 LAND) |
+| 4 PR 다단 | Phase 1 docs (hub) → Phase 2 PR1 wiring (data) → Phase 2 PR2 legacy cleanup (data) → Phase 2 PR3 박제 (hub) |
+| 채택 결정 | D-1 A grace 0 unconditional / D-2 A DualWriter self-delete / D-3 C 단일 Story+다단 PR (사용자) / D-4 C 4중 HEAD verify / D-5 A forward-only 격상 / D-6 A post-LAND 14d 0 violation / D-7 A idempotent / D-8 B pre-delete guard / D-9 A domain-knowledge 신규 / D-10 B ADR-032 별 Story |
+| ADR 산출 | ADR-029 amendment box (§D3 line 246 + §D11 표 + §D10 + Migration §Forward-only) — **POLICY_FINALIZED 유지** |
+| follow-up | ADR-032 별 governance Story (MCT-190 권고) + vendor wheel 갱신 (mctrader_market post-market#11) + engine-paper crash loop (별 ops) |
+| Epic CLOSED prereq | prod-5 신규 — post-LAND 14d production `nas_reader_ambiguity_total` 0 (2026-05-16 LAND → 2026-05-30 verify) |
+
+### Key References (MCT-189)
+
+- Story: `docs/stories/MCT-189.md` / spec: `docs/superpowers/specs/2026-05-16-MCT-189-grace0-wiring-design.md` / plan: `docs/superpowers/plans/2026-05-16-mct-189-grace0-wiring.md`
+- domain-knowledge: `docs/domain-knowledge/domain/tier-promotion/grace-0-local-delete.md` (4 invariant + caller-wired vs decision-defined 분리)
+- PMO retro (SSOT drift 2호): `docs/retros/PMO-PATTERNS-2026-05-16-ssot-drift-operational-vs-design.md`
+- ADR-029 amendment box: `docs/adr/ADR-029-tier-promotion-single-source.md` §MCT-189 amendment box
+- 운영 메모리: mctrader-data 데이터 파이프라인 = `mctrader-data/compose.yml` 별 compose project (hub compose 아님)
+
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`

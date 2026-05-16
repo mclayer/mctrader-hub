@@ -236,6 +236,27 @@ epic_close_gate_remaining:
       desc: "Epic CLOSED 박제 PR or scope_manifest amend"
       transition: "POLICY_FINALIZED → CLOSED"
       author: "별 PR (post-Epic carry over Story or scope_manifest direct amend)"
+    - id: prod-5
+      desc: "MCT-189 D3=C grace-0 wiring post-LAND 14d production 0 violation (cross-document SSOT drift 2호 해소 evidence)"
+      window: "2026-05-16 LAND → 2026-05-30 verify gate"
+      metric: "nas_reader_ambiguity_total Counter 14d rolling rate = 0/min (wiring 후 NAS+local XOR 실증)"
+      owner_story: MCT-189
+
+carry_over_items:
+  - id: D3-wiring
+    title: "ADR-029 §D3=C grace-0 로컬삭제 wiring (promote_l1 + DualWriter post-PUT self-delete)"
+    owner_story: MCT-189
+    status: IN_PROGRESS  # Phase 2 PR3 LAND 시 RESOLVED
+    reserved_at: "2026-05-16"
+    rationale: |
+      MCT-169 D3=C 정의 LAND (promotion.py) 됐으나 promote_l1() production caller = 0건
+      (git grep src/** 0건, f233952 + HEAD main 동일). DualWriter / l1 / l2 / l3 어디서도
+      NAS PUT commit 후 source local unlink 없음 (tmp_path 만 unlink). 결과 130 GB legacy
+      Parquet 영구 누적. = cross-document SSOT drift 2호 (1호 = mctrader-data:pilot 이미지
+      정책 LAND 하루 전 빌드, 본 세션 응급 재배포). MCT-189 = wiring 완결 + 4중 HEAD verify
+      + pre-delete guard + ADR-029 §D3 amendment box (POLICY_FINALIZED 유지, 강등 없음).
+    decisions: [D-1 A, D-2 A, D-3 C, D-4 C, D-5 A, D-6 A, D-7 A, D-8 B, D-9 A, D-10 B]
+    related_adr: "ADR-032 Proposed (VERIFIED badge evidence triad, owner Story 권고 MCT-190)"
 
 prerequisite_session_handoff:
   - story: MCT-161
