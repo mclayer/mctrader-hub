@@ -127,29 +127,56 @@ endpoint 신설 갱신) **전수 1:1 정합** (MCT-179 lesson reapply — MCT-18
 패턴 계승. §3.6.1 gate v2 cross-Story reapply — Change Plan §3.6.1 SSOT, plugin-codeforge#795
 mechanical gate 미가용).
 
-### §D4 amendment box draft (MCT-186 IN_PROGRESS — engine exchange-adapter 제거, 2026-05-17)
+### §D4 VERIFIED amendment box (MCT-186 LAND 박제, 2026-05-17)
 
-> **§D4 VERIFIED draft — MCT-186 Phase 1 진입 박제**. MCT-185 LAND (data realtime_stream.py
-> Redis Stream publisher + engine data_client/) 를 전제로 engine `mctrader_market_bithumb`
-> 직접 import 5곳 5파일 제거 + Redis Stream XREAD 구독 전환 진행 중.
->
-> **§D4 VERIFIED amendment box 확정 = MCT-186 Phase 2 PR2 LAND 후** (engine#TBD LAND + AC-1 grep0
-> + integration test PASS 확인 시점). 본 draft = 설계 lane 박제 (Phase 1 commit 기준).
+> **§D4 VERIFIED** — engine `mctrader_market_bithumb` 직접 import **5곳 5파일 전부 제거**
+> + Redis Stream XREAD 구독 전환 LAND 확정. engine#60 (773b270) MERGED 2026-05-16T21:52:47Z.
+> hub Phase 2 PR2 = 본 amendment box 확정 시점.
 
-#### §D4 설계 확정 사항 (Phase 0 + Change Plan §1 기반)
+#### §D4 LAND 결과 박제 (engine#60 773b270)
 
-- **대상 5곳 5파일** (Phase 0 V3 HEAD 실증치 — engine origin/main `1312195`):
-  `fill/simulated.py:18` + `realtime/stream_consumer.py:8-12` + `runtime/mock_stream.py:19` +
-  `runtime/paper_runner.py:267` (function-local) + `runtime/ws_wrapper.py:30`
-- **subscribe-normalized-stream 채택** (D4 option_chosen): MCT-185 publisher
-  `market:tick:{exchange}:{symbol}` XREAD + `TickRowV1_1.model_validate_json()` 역직렬화
-- **신규 파일**: `realtime/types.py` (engine-local `OrderbookSnapshot`/`_Level` — V7/V8 Phase 0 정정)
-  + `realtime/redis_subscriber.py` (XREAD asyncio subscriber, MarketStream Protocol 준수)
-- **engine-local `OrderbookSnapshot`**: bithumb `_BaseEvent` 미상속 → INV-3 영구 (exchange-agnostic)
-- **R2 ZERO RISK 확인**: MCT-43~47 active branch = 0건 (Phase 0 V2 재재cross-check)
-- **ADR-030 NAS cred drop**: engine compose NAS env drop (MCT-186 owner 확정 — MCT-184 amendment box 예고)
+- **LAND commit**: engine#60 773b270 (2026-05-16T21:52:47Z, squash merge)
+- **AC-1 grep0 PASS**: `grep -rn "mctrader_market_bithumb" src/` → **0건** (5곳 5파일 전부 제거)
+- **5곳 5파일 제거 내역** (Phase 0 V3 HEAD 실증 기준 — engine origin/main `1312195`):
+  - `fill/simulated.py:18` → `mctrader_engine.realtime.types.OrderbookSnapshot` 대체
+  - `realtime/stream_consumer.py:8-12` → `mctrader_market.schemas.tick.TickRowV1_1` 단일 import
+  - `runtime/mock_stream.py:19` → `TickRowV1_1` 기반 `MockMarketStream` (bithumb event type 0)
+  - `runtime/paper_runner.py:267` (function-local) → `RedisStreamSubscriber` wiring
+  - `runtime/ws_wrapper.py` → **파일 자체 삭제** (`WsWrapperStream` + `StreamExhaustedError` 제거)
+- **신규 파일 LAND**:
+  - `src/mctrader_engine/realtime/types.py` — engine-local `OrderbookSnapshot`/`_Level` dataclass
+    (frozen+slots, bithumb `_BaseEvent` 미상속 → INV-3 영구, exchange-agnostic)
+  - `src/mctrader_engine/realtime/redis_subscriber.py` — XREAD asyncio subscriber
+    (`market:tick:{exchange}:{symbol}`, ADR-030 §D15, XREAD BLOCK=1000ms count=100,
+    retry 5× exponential backoff 0.5s base, MarketStream Protocol 준수)
+- **cli.py FIX (§3.2.4b — design review P0 정정)**: `StreamExhaustedError` import (line 442) +
+  catch block (line 597, ~20 lines) 제거 — ws_wrapper.py 삭제 연동 의존 제거
 
-D4-D7 = 후속 Story owner (MCT-187~188) — §D4 VERIFIED 는 MCT-186 LAND 후.
+#### §D4 evidence triad (ADR-032 정합)
+
+| evidence 종류 | 내용 |
+|---|---|
+| file:line | `fill/simulated.py:18` → `from mctrader_engine.realtime.types import OrderbookSnapshot` (LAND) |
+| caller grep | `grep -rn "mctrader_market_bithumb" src/` = **0건** (engine#60 LAND, AC-1 PASS) |
+| integration test | `tests/test_realtime_subscriber.py` 4 test (testcontainers RedisContainer) ALL PASS — `test_redis_subscriber_receives_tick` / `_max_events` / `_malformed_payload_skipped` / `_requires_context_manager` |
+
+#### §D4 D4-1~D4-5 결정 VERIFIED
+
+| D4-N | 결정 | VERIFIED |
+|---|---|---|
+| D4-1 | `subscribe-normalized-stream` (Redis Stream XREAD subscriber) | ✅ engine#60 LAND |
+| D4-2 | `TickRowV1_1` (market-core SSOT) — bithumb event type 완전 제거 | ✅ grep0 AC-1 PASS |
+| D4-3 | engine-local `OrderbookSnapshot` dataclass (types.py) | ✅ INV-3 PASS |
+| D4-4 | `ws_wrapper.py` 완전 삭제 (WsWrapperStream + StreamExhaustedError) | ✅ file deleted |
+| D4-5 | pyproject.toml `mctrader-market-bithumb` 의존 line = MCT-188 owner (D7 quad gate final) | carry over MCT-188 |
+
+#### §D4 ADR-030 NAS cred drop 연계
+
+engine compose.yml NAS_MINIO_* env line 실제 제거 = **별도 carry over** (compose.yml 편집
+MCT-186 Phase 2 PR1 scope 외). Phase 2 PR2 박제 시점 ADR-030 amendment draft 기록 — 실 LAND =
+MCT-187 또는 인프라 별 PR (compose.yml `engine` service NAS_MINIO_* env 제거 + ADR-030 §D4 cred drop VERIFIED).
+
+D5-D7 = 후속 Story owner (MCT-187~188) — §D4 VERIFIED 완결 (본 amendment box).
 
 ### §D3 amendment box (MCT-184 Phase 2 LAND confirm — data#72 MERGED 45e501c, 2026-05-16)
 
