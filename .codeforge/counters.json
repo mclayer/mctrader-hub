@@ -3,7 +3,7 @@
   "prefix": "MCT",
   "counters": {
     "mctrader-hub": {
-      "next": 190
+      "next": 191
     },
     "mctrader-data": {
       "next": 1
@@ -318,11 +318,23 @@
       "title": "VERIFIED badge evidence triad — file:line + production caller grep ≥1 + integration test result 3종 evidence 의무 (cross-document SSOT forcing function 강화)",
       "reserved_at": "2026-05-16",
       "drafted_at": "2026-05-16",
-      "status": "Proposed",
+      "status": "Proposed (MCT-189 LAND 후 사실상 Accepted 후보 충족, MCT-190 author 시 Accepted 전환)",
       "epic": "cross-Epic governance",
       "repo": "mctrader-hub",
-      "owner_story": "(PMO 발의 — owner Story 미정, MCT-189 LAND 시 동시 Accepted 후보)",
-      "rationale": "2026-05-16 운영 진단 세션에서 cross-document SSOT drift 2건 동시 발견 (1번째 = mctrader-data:pilot 이미지 2026-05-13 build 가 POLICY_FINALIZED 2026-05-15 정책 미적용으로 2일 가동 / 2번째 = ADR-029 §D3=C `grace-0 local delete` VERIFIED 박제됐으나 `promote_l1()` production caller = 0건). MCT-179 ADR-030 Out-of-scope reconcile + MCT-182 PMO 발의 cross-document SSOT forcing function pattern 의 3번째 재현 → 일반화 룰 발의. expected_sections = §1 trigger (3 사례 분석) / §2 evidence triad rule (file:line + caller grep ≥1 + integration test PASS) / §3 enforcement layer (scope_manifest verify_evidence schema + Story §11 박제 의무 + PMO audit gate) / §4 Story §8.5 Impl Manifest 와의 통합 / §5 (1회만 적용 면제 — Epic POLICY_FINALIZED 박제 시 prod evidence carry-over 명시 의무)."
+      "owner_story": "MCT-190",
+      "first_application": "MCT-189 §8.5 Impl Manifest (hub#363 ccacdce, 2026-05-17) — file:line (promote_l1 promotion.py:95-180 + caller DualWriter._promote_after_nas_put + runner.scan_and_cleanup_legacy) + production caller grep 3+ + integration test 13 시나리오 PASS",
+      "rationale": "2026-05-16 운영 진단 세션에서 cross-document SSOT drift 2건 동시 발견 (1번째 = mctrader-data:pilot 이미지 2026-05-13 build 가 POLICY_FINALIZED 2026-05-15 정책 미적용으로 2일 가동 / 2번째 = ADR-029 §D3=C `grace-0 local delete` VERIFIED 박제됐으나 `promote_l1()` production caller = 0건). MCT-179 ADR-030 Out-of-scope reconcile + MCT-182 PMO 발의 cross-document SSOT forcing function pattern 의 3번째 재현 → 일반화 룰 발의. expected_sections = §1 trigger (3 사례 분석) / §2 evidence triad rule (file:line + caller grep ≥1 + integration test PASS) / §3 enforcement layer (scope_manifest verify_evidence schema + Story §11 박제 의무 + PMO audit gate) / §4 Story §8.5 Impl Manifest 와의 통합 / §5 (1회만 적용 면제 — Epic POLICY_FINALIZED 박제 시 prod evidence carry-over 명시 의무). MCT-190 owner author 시 §5 보강 추가: caller code 의 spec FIX iter compliance 까지 evidence triad 확장 (MCT-189 cross-Story PR contamination self-reference, PMO-AUDIT-MCT-189 §3 패턴 #3)."
+    },
+    "MCT-190": {
+      "title": "ADR-032 owner Story — VERIFIED badge evidence triad 본문 author + §5 expected_sections 보강 (caller code spec FIX iter compliance + cross-Story PR scope guard) + PMO 메모리 amendment (feedback_parallel_session_branch_race 6 repo 전수 격리 의무 일반화) + 자매 ADR/PR scope guard 발의",
+      "reserved_at": "2026-05-17",
+      "reserved_by": "PMOAgent (PMO-AUDIT-MCT-189 §4.2 직접 author)",
+      "status": "RESERVED",
+      "epic": "cross-Epic governance",
+      "repo": "mctrader-hub",
+      "phase_pair": "phase1_only (doc-only Story, codeforge:story-cutoff-classification fast-path)",
+      "owner_for_adr": "ADR-032",
+      "rationale": "MCT-189 LAND 시 ADR-032 사실상 Accepted 후보 충족 (§8.5 Impl Manifest evidence triad 첫 적용, file:line + production caller grep 3+ + integration test 13 시나리오 PASS). 본문 author 미완 (.codeforge/counters.json 만 Proposed 박제, docs/adr/ADR-032-*.md file 부재) + §5 expected_sections 보강 의무 (MCT-189 cross-Story PR contamination self-reference). MCT-189 RETRO §3 + PMO-AUDIT-MCT-189 §3 패턴 #3 + §4 정합 — 4 deliverable: (1) ADR-032 본문 docs/adr/ADR-032-verified-badge-evidence-triad.md author (Proposed → Accepted 전환). (2) §5 expected_sections 추가 — caller code 의 spec FIX iter compliance 까지 evidence triad 확장 (cross-Story PR scope guard). (3) PMO 메모리 amendment 발의 — feedback_parallel_session_branch_race 6 repo 전수 격리 의무 일반화 (hub + data + engine + market + market-bithumb + market-upbit + web + signal-collector). (4) plugin-codeforge#804 amendment 또는 별 ADR 후보 발의 — PR squash 내용물 cross-Story scope 검증 (cross-Story PR scope guard). 진입 prerequisite = MCT-189 Phase 2 PR3 MERGED ✓ (hub#363 ccacdce 2026-05-17) + PMO-AUDIT-MCT-189 LAND."
     }
   }
 }
