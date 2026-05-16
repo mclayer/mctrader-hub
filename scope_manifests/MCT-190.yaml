@@ -1,0 +1,166 @@
+---
+# scope_manifests/MCT-190.yaml
+# MCT-190 ADR-032 owner Story scope manifest
+# cross-Epic governance singleton, doc-only Story
+# Generated: 2026-05-17
+
+story_key: MCT-190
+title: "ADR-032 owner Story — VERIFIED badge evidence triad 본문 author + §5 expected_sections 보강 + PMO 메모리 amendment (6 repo tier 차등 격리) + 자매 plugin-codeforge#804/#805 consumer 박제"
+epic: cross-Epic governance
+parent_audit: PMO-AUDIT-MCT-189 §4.2
+repo: mctrader-hub
+phase_pair: phase1_only
+classification: doc-only-fast-path  # codeforge:story-cutoff-classification
+status: IN_PROGRESS  # LAND 후 COMPLETED 전환
+land_order: single-pr
+owner_for_adr: ADR-032
+adr_status_transition: "Proposed → Accepted"
+first_application_evidence: "MCT-189 §8.5 Impl Manifest (hub#363 ccacdce 2026-05-17)"
+worktree: "c:\\workspace\\mclayer\\mctrader-hub\\.claude\\worktrees\\mct-190-adr-032-author"
+worktree_branch: worktree-mct-190-adr-032-author
+
+design_decisions:
+  - id: Q1
+    title: "ADR-032 §5 enforcement scope"
+    chosen: "B — self-discipline gate v1 (scope_manifest verify_evidence schema + Story §11 박제 의무 rule). CI mechanical gate = plugin-codeforge#804 amendment 의존 (carry §7)"
+    rationale: "MCT-189 운영 진단 발견 단일 사례 (130GB legacy 누적) + MCT-179/184 누적 3회. CI gate 즉시 도입 시 plugin-codeforge 의존 발생 → consumer-side self-discipline 우선. §3 enforcement layer 3-tier (scope_manifest schema / Story §11 / PMO audit) 충분."
+    codex_recommendation: B
+  - id: Q2
+    title: "PMO 메모리 6 repo amendment 정책"
+    chosen: "B — tier 차등 (tier-1 hub+data+engine 의무 격리 / tier-2 market+market-bithumb+market-upbit 권고)"
+    rationale: "tier-1 3 repo = production runtime + frequent parallel Story. tier-2 3 repo = adapter (변경 빈도 低). web/signal-collector = scope 외 별 분류."
+    codex_recommendation: C
+    claude_deviation: "사용자 prompt verbatim '6 repo 전수' + Researcher unknown #1 over-generalization 위험 균형. 사용자 정정 의무."
+  - id: Q3
+    title: "evidence triad 4번째 게이트 (runtime telemetry counter)"
+    chosen: "B — §7 future-work carry (triad v1 = 3 evidence 유지, quad 확장은 별 Story)"
+    rationale: "triad 3 evidence 만으로도 MCT-189 130GB legacy 누적 detection 충분. 4번째 게이트 = Hyrum's Law 역방향 dead-in-prod false-negative 차단 — 별 Story owner (MCT-NNN 신규 reservation)."
+    codex_recommendation: B
+  - id: Q4
+    title: "plugin-codeforge#804/#805 consumer 박제 형식"
+    chosen: "B — PMO-AUDIT-MCT-190.md 별 retro + consumer comment evidence row 추가"
+    rationale: "MCT-184 PMO-AUDIT pattern 정합. #804 (박제 PR completeness) + #805 (post-merge audit lane) consumer 박제 = upstream feedback loop evidence trail."
+    codex_recommendation: B
+  - id: Q5
+    title: "Domain knowledge page 위치"
+    chosen: "B — docs/domain-knowledge/domain/governance/ dir 신규 생성"
+    rationale: "기존 dir (data-health/parquet-streaming/tier-promotion) 모두 production 영역 domain. governance = 운영 governance domain 신규 분류 (Michael Nygard ADR 정합). evidence-triad-verified-badge.md 첫 entry."
+    codex_recommendation: B
+
+planned_files:
+  - path: "docs/adr/ADR-032-verified-badge-evidence-triad.md"
+    action: create
+    line_estimate: "300-400"
+    rationale: "ADR-032 본문 §0-§8 (frontmatter + Status + Context 3 사례 + Decision + §8.5 통합 + Amendments + Consequences + Future Work + Self-reference Caveat)"
+  - path: "docs/domain-knowledge/domain/governance/evidence-triad-verified-badge.md"
+    action: create
+    line_estimate: "100-150"
+    rationale: "Q5=B governance dir 신규 entry"
+  - path: "docs/retros/PMO-AUDIT-MCT-190.md"
+    action: create
+    line_estimate: "200-300"
+    rationale: "Q4=B PMO retro audit. 7 sections (Story 개요 / 게이트 audit / cross-Story 패턴 5건 / #804/#805 consumer 박제 / future-work carry / 다음 Story / 종합)"
+  - path: "docs/retros/RETRO-MCT-190.md"
+    action: create
+    line_estimate: "150-250"
+    rationale: "Story 표준 RETRO (CFP-138 / ADR-045 mandate 정합). FIX Ledger + lessons + cross-Story patterns + carry over"
+  - path: "docs/stories/MCT-190.md"
+    action: create
+    line_estimate: "250-350"
+    rationale: "Story 표준 file §0-§11"
+  - path: "scope_manifests/MCT-190.yaml"
+    action: create
+    line_estimate: "100-150"
+    rationale: "본 YAML 자체"
+  - path: "memory/feedback_parallel_session_branch_race.md"
+    action: modify
+    line_estimate: "30-50"
+    rationale: "Q2=B tier 차등 rewrite (hub 한정 → 6 repo tier 차등)"
+  - path: "memory/MEMORY.md"
+    action: modify
+    line_estimate: "1-2"
+    rationale: "index line title sync"
+  - path: "CLAUDE.md"
+    action: modify
+    line_estimate: "30-50"
+    rationale: "§MCT-190 COMPLETED section append (after §MCT-189)"
+  - path: ".codeforge/counters.json"
+    action: modify
+    line_estimate: "5-10"
+    rationale: "MCT-190 IN_PROGRESS + ADR-032 Proposed → Accepted"
+
+planned_adrs:
+  - adr_key: ADR-032
+    action: author
+    status_transition: "Proposed → Accepted"
+    first_application: "MCT-189 §8.5 (hub#363 ccacdce 2026-05-17)"
+    expected_sections_count: 9  # §0-§8 (§8 = self-reference Caveat 신규 추가)
+    cross_ref:
+      - "ADR-029 §D3 (evidence triad 첫 적용 대상)"
+      - "ADR-030 (MCT-179 reconcile 5회 사례)"
+      - "ADR-031 (MCT-182 owner, 동일 governance singleton 패턴)"
+      - "plugin-codeforge#804 (박제 PR completeness, §7 carry)"
+      - "plugin-codeforge#805 (post-merge audit lane, §7 carry)"
+      - "MCT-189 §9 (cross-Story PR contamination 첫 박제)"
+
+planned_claude_md_sections:
+  - section_name: "MCT-190 COMPLETED (2026-05-17)"
+    insertion_point: "after §MCT-189 COMPLETED section"
+    rationale: "Epic 누적 박제 패턴 정합 (MCT-175~189 동일 형식)"
+
+planned_upstream_consumer_comments:
+  - upstream: "plugin-codeforge#804"
+    evidence: "ADR-032 §3.1 self-discipline gate v1 + §5.2 cross-Story PR scope guard 박제. CI mechanical gate consumer 적용 carry"
+  - upstream: "plugin-codeforge#805"
+    evidence: "ADR-032 §2 trigger 3 사례 + PMO-AUDIT-MCT-190 §3 자매 consumer 박제. post-merge audit lane consumer 적용 carry"
+
+verify_evidence:
+  - rule: "Evidence Triad Rule v1 정의 박제 (ADR-032 self-reference 첫 적용)"
+    decision_defined_evidence: "docs/adr/ADR-032-verified-badge-evidence-triad.md §3"
+    caller_wired_evidence: "MCT-190 LAND 시점 0건 (governance ADR singleton)"
+    caller_wired_caveat: "self-reference Caveat — governance ADR 의 첫 publication 시점 caller_grep evidence 부재 정상. MCT-191+ Story scope_manifest verify_evidence row 에서 본 ADR-032 §3 rule 인용 시 누적 시작. false-positive fail 차단."
+    integration_test: "N/A (governance ADR, code wiring 0)"
+    forcing_function:
+      - "Story §8.5 Impl Manifest 체크리스트 PR description 박제 (MCT-184 incomplete 패턴 사전 차단)"
+      - "PMO-AUDIT-MCT-190 §lane gate 전수 검증"
+
+risks:
+  - id: R1
+    severity: MEDIUM
+    description: "MCT-184 박제 PR incomplete 패턴 재현 (≈58% carry, hub#359 → hub#360 28분 amendment 동형)"
+    mitigation: "Story §8.5 Impl Manifest 10 file (5 deliverable + 4 부수 + counters) 체크리스트 PR description 박제 의무. pr_completeness_checklist 10 pre-merge + 3 post-merge 박제."
+  - id: R2
+    severity: LOW
+    description: "ADR-032 self-reference Caveat 누락 → caller_grep 0건 시 false-positive fail risk"
+    mitigation: "verify_evidence.caller_wired_caveat 명시 (위 §verify_evidence). MCT-191+ Story scope_manifest template 동일 caveat pattern 반영 carry."
+  - id: R3
+    severity: LOW
+    description: "§5.2 cross-Story PR scope guard CI mechanical gate 부재 (self-discipline gate v1 한계)"
+    mitigation: "ADR-032 §7.2 future-work carry 명시. self-discipline gate v1 = 3-tier 충분 (MCT-189 130GB detection 실증). #804 LAND 후 CI gate consumer 적용 = 별 Story."
+  - id: R4
+    severity: RESOLVED
+    description: "MCT-186 working tree contamination (현 hub branch mct-186-phase2-pr2-hub IN_PROGRESS 와 본 Story 병행 risk)"
+    mitigation: "worktree 격리 완료 (mct-190-adr-032-author, base=origin/main fresh). Phase 0 verify lesson 8회째 사전 차단 = forcing function 효과 실증."
+
+pr_completeness_checklist:
+  pre_merge:
+    - "ADR-032 본문 file 신규 (8/8 expected_sections)"
+    - "governance dir + first entry 신규"
+    - "PMO-AUDIT-MCT-190.md 신규"
+    - "RETRO-MCT-190.md 신규"
+    - "Story file §1-§11 전수"
+    - "scope_manifest MCT-190.yaml"
+    - "memory rewrite + MEMORY.md sync"
+    - "CLAUDE.md §MCT-190 COMPLETED append"
+    - "counters.json MCT-190 IN_PROGRESS + ADR-032 Accepted"
+    - "PR title + body completeness checklist 박제"
+  post_merge:
+    - "counters.json MCT-190 IN_PROGRESS → COMPLETED 전환 (별 commit)"
+    - "Story §11 LAND timeline 실 commit sha + PR# 박제"
+    - "plugin-codeforge#804 consumer comment 추가 (gh issue comment)"
+    - "plugin-codeforge#805 consumer comment 추가 (gh issue comment)"
+    - "gate:retro-complete label add (CFP-138 / ADR-045 forcing function)"
+
+next_story_recommendation:
+  story_key: MCT-191
+  rationale: "ADR-032 §7 future-work 3건 중 1건 owner Story. (1) Evidence triad 4번째 게이트 (telemetry counter) / (2) CI mechanical gate (plugin-codeforge#804/#805 LAND 후 consumer) / (3) process/cross-story-pr-contamination.md governance entry."
