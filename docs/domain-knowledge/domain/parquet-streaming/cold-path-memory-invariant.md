@@ -138,3 +138,4 @@ batch_size=1024: OLAP standard (MCT-160 D3 정합, row_group_size=100,000과 별
 - MCT-163 §4 AC-1/AC-3/INV-3/INV-4/INV-5
 - MCT-160 F3+F6+F7 carry surface (origin)
 - mctrader-data CLAUDE.md §streaming refactor
+- `docs/domain-knowledge/domain/tier-promotion/grace-0-local-delete.md` — MCT-189 LAND wiring invariant (DualWriter self-delete가 본 페이지 INV-3 sha256 SSOT — caller-side single computation, multipart ETag ≠ sha256 — 를 4중 HEAD verify primitive로 활용)

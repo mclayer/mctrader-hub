@@ -44,6 +44,10 @@ Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance s
 - **D1=B VERIFIED** (mctrader-data#59): L1Compactor.compact_segment() 내 _write_parquet_atomic() 직후 DualWriter.put_l1() 호출 확인. compactor 측 timing 정합 (22 tests PASS).
 - **D2=B VERIFIED** (mctrader-data#59): DualWriter.put_l1() → NASUploader.put_streaming() + queued → local_only 경로 확인. retry_queue + local_only 재사용 정합 (INV-5 status enum 3종 exhaustive PASS).
 
+### MCT-189 amendment box (2026-05-16, EPIC-tier-promotion-single-source carry over — §D3=C grace-0 로컬삭제 wiring 완결, Phase 1 draft → Phase 2 PR3 VERIFIED)
+
+> **MCT-189 amendment (2026-05-16, Phase 1 draft → Phase 2 PR3 VERIFIED)**: 2026-05-16 운영 진단에서 `promote_l1()` production caller = 0건 발견 (MCT-169 D3=C 정의만 LAND, caller wiring 부재 = cross-document SSOT drift 2호). 본 Story = wiring 완결: (a) DualWriter `status=committed` branch self-delete (D-2 A) — caller 0건 재발 차단, (b) 4중 HEAD verify primitive (ETag+VersionId+sha256 metadata+ContentLength, D-4 C), (c) pre-delete HEAD guard (D-8 B, race window 차단). §D3 line 246 grace 0 일관 amend (D-1 A unconditional, terminal path "7-day FIFO grace" 표현 제거). §D11 표 L1 local 행 "7-day grace 기본" → "DualWriter status=committed self-delete (grace 0)" 정정. §D10 production evidence gate 강화 (post-LAND 14d 0 violation, ADR-032 evidence triad 형식 차용). Migration §Forward-only invariant 격상 (local fallback 제거, NAS versioning 30d window 의존, D-5 A). **POLICY_FINALIZED 유지** (강등 없음 — 10/11 D 정상 + D3 wiring carry over → resolved). 채택 결정 D-1 A / D-2 A / D-3 C(사용자) / D-4 C / D-5 A / D-6 A / D-7 A / D-8 B / D-9 A / D-10 B. spec `docs/superpowers/specs/2026-05-16-MCT-189-grace0-wiring-design.md` SSOT.
+
 ### MCT-183 amendment box (2026-05-16, EPIC-data-domain-decoupling Story-2 — io reader relocated to mctrader-data + engine NAS 직독 폐기 **예고**)
 
 본 amendment box = EPIC-data-domain-decoupling Story-2 (MCT-183, sequential_phase 2) Phase 1 박제분.
@@ -243,7 +247,7 @@ Tier promotion 후 local file delete 정책 = **NAS HEAD verify + grace 0 (immed
 
 - **L1 → L2 promotion** 시: L2 NAS PUT 완료 + L2 NAS HEAD verify (version/etag exact match + sha256 verify) 후 즉시 local L1 file 삭제.
 - **L2 → L3 promotion** 시: L3 NAS PUT 완료 + L3 NAS HEAD verify 후 즉시 local L2 file 삭제.
-- **L1 local delete (Tier promote 없을 때)**: L1 NAS PUT 완료 + L1 NAS HEAD verify 후 즉시 local L1 file 삭제 (D11 L1 hard limit 20 GiB 도달 시점에만 trigger, 정상 운영 시 7-day FIFO grace).
+- **L1 local delete (Tier promote 없을 때)**: L1 NAS PUT 완료 + L1 NAS HEAD verify (4중: ETag+VersionId+sha256 metadata+ContentLength, D-4 C) + pre-delete HEAD guard (D-8 B) 후 즉시 local L1 file 삭제 — **grace 0 unconditional** (promotion path 와 동일, terminal path 7-day FIFO grace 표현 폐기, MCT-189 amendment 2026-05-16 D-1 A). 20 GiB hard limit 도달 시 추가 graceful drain (`nas_uploader.head_object` retry 강화), unlink trigger 자체는 NAS verify pass 시점 무조건.
 - **verify primitive**: `NASUploader.head_verify(key, expected_etag, expected_sha256)` (MCT-150 primitive 확장). version/etag exact match + sha256 verify 가 false delete risk mitigation.
 - **Rationale (Researcher↔PMO 충돌 해소)**: Researcher 원안 = "24h grace + dry-run" (ADR-027 §D7 답습) 였으나 PMO 측 "ambiguity 즉시 차단" directive 우선. version/etag 검증으로 24h grace 대체 = 강한 invariant 보증 + ambiguity 차단.
 - **Alternative rejected** (A — 24h grace): ambiguity window 24h 잔존 → D10 invariant 약화 → 거부. (B — sha256 verify only without version): version 부재 시 race condition (overwrite 도중 verify) 발생 가능 → 거부.
@@ -337,6 +341,8 @@ NAS+local 동시 존재 ambiguity 차단 = **invariant violation enforcement**:
 
 > **MCT-170 amendment (2026-05-14) — D10 exemption scope footnote**: cutoff 판정 불가 legacy partition (manifest 부재 + filename schema 부적합) 처리 정책 명시. dr_mode.UNKNOWN_TIER 상태 신규 + local fallback 자동 거부 + Prometheus `nas_reader_ambiguity_total` emit. 30d exemption window (2026-05-14 ~ 2026-06-13) 동안 alert + 운영자 검토, window 종료 후 enforcement strict (UNKNOWN_TIER 진입 = invariant violation). 본 ADR Status §"MCT-170 amendment" 박제분 참조.
 
+> **MCT-189 amendment (2026-05-16) — D10 production evidence gate 강화 (D-6 A)**: `promote_l1()` caller wiring LAND 후 production evidence gate = ADR-032 evidence triad 형식 차용 ((1) file:line + (2) production caller `git grep` ≥1 + (3) integration test PASS). post-LAND 14d rolling `nas_reader_ambiguity_total` Counter = 0 의무 (Epic CLOSED prereq prod-5, 2026-05-16 LAND → 2026-05-30 verify gate). Phase 2 PR3 박제 시 Story §8.5 Impl Manifest 에 evidence triad 박제. decision-defined (MCT-169 promote_l1 정의) ≠ caller-wired (MCT-189) — VERIFIED badge 는 3 evidence 모두 충족 시에만.
+
 ### D11. 용량 제한 정책 — 4 layer 임계 (capacity_bounded 채택, 사용자 directive 1)
 
 4 layer capacity 제한:
@@ -344,7 +350,7 @@ NAS+local 동시 존재 ambiguity 차단 = **invariant violation enforcement**:
 | Layer | Hard Limit | Threshold Action | Rationale |
 |---|---|---|---|
 | **WAL local** | 30 GiB | collector ingest block (D5 정합) | NAS 무한 장애 시에만 block, 정상 운영 시 hot path 영향 0 |
-| **L1 local** | 20 GiB | oldest L1 FIFO delete after NAS verify (D3=C 정합, 7-day grace 기본) | raw_json large column 대형 (orderbooksnapshot 9.5 GiB/3day), 7-day rolling cleanup |
+| **L1 local** | 20 GiB | DualWriter `status=committed` branch self-delete (D-2 A, grace 0) — NAS verify 4중 + pre-delete guard 후 즉시 unlink | NAS PUT commit boundary 안 즉시 unlink (D-1 A unconditional, MCT-189 amendment 2026-05-16 — "7-day grace 기본" 표현 폐기). 20 GiB 도달 시 graceful drain 추가 |
 | **NAS bucket** | target 500 GiB / hard 1 TiB | L3 (oldest 30day+) cold archive 이전 (별 Story or 외부 cloud) | L3 daily archive forward 누적, 30day+ archive tier 후보 |
 | **Host disk** | 200 GiB (사용자 환경 — Host C: 476 GiB 의 ~42%) | alert + manual cleanup | host disk pressure mitigation, mctrader 외 다른 영역과 공유 |
 
@@ -361,6 +367,8 @@ NAS+local 동시 존재 ambiguity 차단 = **invariant violation enforcement**:
 ### Forward-only invariant (ADR-009 §D12.2 확장)
 
 Tier promotion 후 local delete = forward-only 위반 0 (D3=C ambiguity 차단). NAS = single source of truth, local = ephemeral cache only. forward-only invariant 의 enforcement layer = local file system → NAS object SoT (versioning 기반, MCT-161 박제) 격상.
+
+> **MCT-189 amendment (2026-05-16, D-5 A)**: local fallback 제거 격상. MCT-170 D8=B local fallback (cutoff 2026-09-01 sunset) 정합 + grace-0 wiring 정합 — local 부재 = NAS-only 정상 상태. NAS bucket versioning Enabled (MCT-161) + NoncurrentVersionExpiration 30d window = PITR/operational recovery 단일 보증 (ADR-027 §D7 7-day local grace motivation 흡수). host 200G hard limit 정합 (ADR-029 §D11). Researcher unknown #2 (backup window 손실) 해소 = versioning 30d 가 backup carrier.
 
 ### Phase 진입 순서 (MCT-167 → MCT-172 sequential)
 
