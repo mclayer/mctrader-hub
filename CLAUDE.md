@@ -1000,6 +1000,55 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 - ADR-029 amendment box: `docs/adr/ADR-029-tier-promotion-single-source.md` §MCT-189 amendment box
 - 운영 메모리: mctrader-data 데이터 파이프라인 = `mctrader-data/compose.yml` 별 compose project (hub compose 아님)
 
+## MCT-190 COMPLETED (2026-05-17) — ADR-032 owner Story (evidence triad governance ADR author + 4 deliverable)
+
+> cross-Epic governance singleton, doc-only Story (phase1_only, classification: doc-only-fast-path).
+> 단일 PR (hub#TBD), FIX 0회, ADR-032 Proposed → Accepted transition.
+> ADR-032 §5 self-reference 첫 실증 (worktree 격리 사전 차단 의도적 활용 — Phase 0 verify lesson 8회째).
+
+### 결과 요약
+
+| 항목 | 결과 |
+|------|------|
+| 4 deliverable + 5 부수 = 9 file author | ALL LAND (hub#TBD) |
+| ADR-032 status | Proposed → Accepted |
+| 5 결정점 | Q1=B / Q2=B / Q3=B / Q4=B / Q5=B (Codex 4건 정합 + Q2 1건 deviation) |
+| FIX 루프 | 0회 (design lane spec review iter1 PASS, code lane 부재) |
+| memory amendment | feedback_parallel_session_branch_race 6 repo tier 차등 (hub+data+engine 의무 / market 3 권고) |
+| upstream consumer 박제 | plugin-codeforge#804 + #805 comment evidence row 추가 (post-merge) |
+
+### 5 결정점 채택
+
+| Q | 결정점 | 채택 |
+|---|--------|------|
+| Q1 | ADR-032 §5 enforcement scope | (B) self-discipline gate v1 (CI gate = #804 carry) |
+| Q2 | PMO 메모리 6 repo amendment | (B) tier 차등 (hub+data+engine 의무 / market 3 권고) |
+| Q3 | evidence triad 4번째 게이트 | (B) §7 future-work carry (triad v1 = 3 evidence 유지) |
+| Q4 | plugin-codeforge#804/#805 consumer 박제 | (B) PMO-AUDIT-MCT-190 별 retro + comment evidence row |
+| Q5 | Domain knowledge governance/ dir | (B) 신규 생성 (evidence-triad-verified-badge.md 첫 entry) |
+
+### ADR-032 본문 (9 sections)
+
+§0 frontmatter / §1 Status / §2 Context (3 trigger 사례) / §3 Decision (Evidence Triad Rule v1) / §4 Story §8.5 Impl Manifest 통합 / §5 Amendments (caller spec FIX + cross-Story PR scope guard) / §6 Consequences / §7 Future Work (triad → quad + CI mechanical gate + process/cross-story-pr-contamination.md) / §8 Self-reference Caveat (INV-1 forcing function)
+
+### Key References
+
+- Story: `docs/stories/MCT-190.md`
+- spec: `docs/superpowers/specs/2026-05-17-MCT-190-adr-032-author-design.md`
+- plan: `docs/superpowers/plans/2026-05-17-mct-190-adr-032-author.md`
+- ADR-032: `docs/adr/ADR-032-verified-badge-evidence-triad.md`
+- domain-knowledge: `docs/domain-knowledge/domain/governance/evidence-triad-verified-badge.md`
+- RETRO: `docs/retros/RETRO-MCT-190.md`
+- PMO-AUDIT: `docs/retros/PMO-AUDIT-MCT-190.md`
+- scope_manifest: `scope_manifests/MCT-190.yaml`
+- memory: `feedback_parallel_session_branch_race` 6 repo tier 차등 amendment
+- upstream cross-ref: plugin-codeforge#804 (박제 PR completeness) + #805 (post-merge audit lane)
+
+### 다음 Story 진입 권고
+
+- **MCT-186 IN_PROGRESS 복귀** (현 hub working tree branch mct-186-phase2-pr2-hub Phase 2 PR2 박제 continuation, ExitWorktree 후 본 working dir 복귀)
+- **MCT-191 reservation 후보** — ADR-032 §7 future-work 1건 owner (triad → quad telemetry counter / CI mechanical gate consumer / process/cross-story-pr-contamination.md governance entry)
+
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
