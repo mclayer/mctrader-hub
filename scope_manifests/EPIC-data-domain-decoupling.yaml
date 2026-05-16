@@ -260,7 +260,7 @@ story_sequence:
   - { story: MCT-183, phase: 2, mode: sequential, rule: "Layer2 io/ relocation — MCT-182 LAND 후 (market-core contract 선행 의존). engine io/ dead-in-prod 삭제 (src caller 0 verified)", status: RESERVED }
   - { story: MCT-184, phase: 3, mode: sequential, rule: "data REST API 신설 — MCT-183 LAND 후 (io relocate 완료 후 REST wrap). OpenAPI SSOT=data + hub contract snapshot", status: COMPLETED }
   - { story: MCT-185, phase: 4, mode: sequential, rule: "realtime stream + engine thin client + cold-read cutover — MCT-184 LAND 후 (REST 신설 전제). engine mctrader_data storage 직독 제거", status: COMPLETED }
-  - { story: MCT-186, phase: 5, mode: sequential, rule: "engine realtime cutover + adapter 제거 — MCT-185 LAND 후. R2 = MCT-41 Phase 0 교차 검증 의무 (Orchestrator ordering 결정)", status: RESERVED }
+  - { story: MCT-186, phase: 5, mode: sequential, rule: "engine realtime cutover + adapter 제거 — MCT-185 LAND 후. R2 = MCT-41 Phase 0 교차 검증 의무 (Orchestrator ordering 결정)", status: IN_PROGRESS }
   - { story: MCT-187, phase: 6, mode: sequential, rule: "다중거래소 확장 불변식 박제 — MCT-186 LAND 후 (adapter-free 완료 후 invariant 화)", status: RESERVED }
   - { story: MCT-188, phase: 7, mode: sequential, rule: "data-free grep0 quad gate + Epic POLICY_FINALIZED — MCT-187 LAND 후 (finalize)", status: RESERVED }
 
@@ -268,12 +268,12 @@ milestone_progress:
   total: 7
   completed: 4
   completed_stories: [MCT-182, MCT-183, MCT-184, MCT-185]
-  in_progress: 0
-  in_progress_stories: []
-  reserved: 3
-  reserved_stories: [MCT-186, MCT-187, MCT-188]
+  in_progress: 1
+  in_progress_stories: [MCT-186]
+  reserved: 2
+  reserved_stories: [MCT-187, MCT-188]
 
-epic_status: phase:구현-IN_PROGRESS  # MCT-185 COMPLETED 2026-05-17 (milestone 4/7)
+epic_status: phase:구현-IN_PROGRESS  # MCT-186 IN_PROGRESS (milestone 4/7 → target 5/7)
 epic_close_gate:
   - "MCT-182 PR MERGED + ADR-031 publish + Layer0 contract (aggregation/records/paper_lineage) market-core 이전 + data/engine shim/경로 재지정"
   - "MCT-183 PR MERGED + io/ 6 module mctrader-data relocated + engine io/ 삭제 (src caller 0) + ADR-029/027 amend"

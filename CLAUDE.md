@@ -559,7 +559,7 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 | 2 | **MCT-183** | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | **COMPLETED 2026-05-16** (hub#353+data#70+engine#58+hub#354+data 6450cfd lint-revert) |
 | 3 | **MCT-184** | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | **COMPLETED 2026-05-16** (hub#358+data#72+hub#359 Phase 2 PR2 부분+data#74 post-merge fix F-1/F-2/F-4+hub#361 amendment F-3 LAND ✅) |
 | 4 | **MCT-185** | data realtime stream + engine thin client + cold-read/reverse-write 11-place cutover | D2,D3 | **COMPLETED 2026-05-17** (hub#366+data#76+engine#59+hub Phase2 PR2) |
-| 5 | MCT-186 | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | RESERVED |
+| 5 | **MCT-186** | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | **IN_PROGRESS 2026-05-17** (Phase 1 hub#TBD — 5곳 5파일 bithumb import 제거 + Redis Stream subscriber + engine-local OrderbookSnapshot) |
 | 6 | MCT-187 | 다중거래소 확장 불변식 박제 | D5,D6 | RESERVED |
 | 7 | MCT-188 | data-free grep0 quad gate + Epic POLICY_FINALIZED | D7,D6 | RESERVED |
 
@@ -706,7 +706,7 @@ hub#359 박제 PR MERGED 그러나 박제 작업의 약 절반만 처리. "Phase
 | 2 | MCT-183 | COMPLETED 2026-05-16 |
 | 3 | MCT-184 | COMPLETED 2026-05-16~17 (post-merge fix 4건 포함) |
 | 4 | **MCT-185** | **COMPLETED 2026-05-17** (hub#366 + data#76 + engine#59 + hub Phase 2 PR2) |
-| 5 | MCT-186 | RESERVED |
+| 5 | **MCT-186** | **IN_PROGRESS 2026-05-17** (Phase 1 docs) |
 | 6 | MCT-187 | RESERVED |
 | 7 | MCT-188 | RESERVED |
 
