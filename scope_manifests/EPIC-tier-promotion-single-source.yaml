@@ -246,7 +246,14 @@ carry_over_items:
   - id: D3-wiring
     title: "ADR-029 §D3=C grace-0 로컬삭제 wiring (promote_l1 + DualWriter post-PUT self-delete)"
     owner_story: MCT-189
-    status: IN_PROGRESS  # Phase 2 PR3 LAND 시 RESOLVED
+    status: RESOLVED  # MCT-189 COMPLETED 2026-05-17
+    started_at: "2026-05-16"
+    completed_at: "2026-05-17"
+    land_prs:
+      - "mctrader-hub#357 (3f138a6 Phase 1 docs)"
+      - "mctrader-data#73 (de12f43 Phase 2 PR1 wiring)"
+      - "mctrader-data#75 (a1a8ccf Phase 2 PR2 legacy cleanup)"
+      - "mctrader-hub#TBD (Phase 2 PR3 박제)"
     reserved_at: "2026-05-16"
     rationale: |
       MCT-169 D3=C 정의 LAND (promotion.py) 됐으나 promote_l1() production caller = 0건

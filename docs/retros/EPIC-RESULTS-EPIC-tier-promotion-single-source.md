@@ -240,9 +240,29 @@ D1-D11 은 설계결정 검토 범위 (ADR-029 design decision). 8 invariant 은
 
 ### carry over (Epic CLOSED prerequisite 보강)
 
-- **prod-D3-wiring**: **MCT-189** (ADR-029 §D3=C grace-0 로컬삭제 wiring 완결) — RESERVED 2026-05-16
-- legacy 130 GB cleanup = MCT-189 §3 S6 검토 대상 (compactor scan retroactive vs oneshot vs 사용자 explicit)
-- ADR-029 §D3 amendment box LAND 의무 = MCT-189 AC-6 (file:line + commit sha + integration test PASS evidence)
+- **prod-D3-wiring**: **MCT-189** (ADR-029 §D3=C grace-0 로컬삭제 wiring 완결) — **RESOLVED 2026-05-17** (hub #357 3f138a6 / data #73 de12f43 / data #75 a1a8ccf / hub #TBD Phase 2 PR3)
+- legacy 130 GB cleanup = MCT-189 §3 S6 D-3 C 채택 (사용자, 2026-05-16) → PR2 `scan_and_cleanup_legacy` + batch_limit=500 cap → 점진 회수 ~52h (post-LAND production sweep evidence carry)
+- ADR-029 §D3 amendment box LAND 의무 = MCT-189 AC-6 → **§MCT-189 amendment box VERIFIED 박제 완료** (file:line + commit sha + 13 integration test PASS evidence triad, ADR-032 형식)
+- **Epic CLOSED prereq prod-5 신규**: post-LAND 14d production 0 violation gate (2026-05-17 → 2026-05-31, `nas_reader_ambiguity_total` Counter 14d rolling = 0)
+
+### MCT-189 LAND 박제 (2026-05-17)
+
+| Phase | PR | LAND commit | 내용 |
+|-------|-----|-------------|------|
+| Phase 1 docs | hub #357 | 3f138a6 (2026-05-16) | ADR-029 §D3 amendment draft + grace-0-local-delete.md 신규 + spec/plan + Story §3.7/§7 + CLAUDE.md/scope_manifest/counters IN_PROGRESS |
+| Phase 2 PR1 wiring | data #73 | de12f43 (2026-05-16) | 4중 HEAD verify + pre-delete guard + DualWriter self-delete + NASUploader.enqueue_retry public + fd-consistent sha256+size + 단위/integration test 30개 |
+| Phase 2 PR2 legacy cleanup | data #75 | a1a8ccf (2026-05-17) | `scan_and_cleanup_legacy` + batch_limit=500 + runner cycle hook + 5 integration test |
+| Phase 2 PR3 박제 | hub #TBD | TBD | Story §8.5/§9/§10/§11 + ADR-029 §D3 VERIFIED + RETRO-MCT-189 + EPIC-RESULTS amendment + CLAUDE.md COMPLETED + scope_manifest RESOLVED |
+
+### Cross-Story Contamination (정직 박제)
+
+Phase 2 PR1 진행 중 발견: mctrader-data origin/main `45e501c feat(MCT-184): data REST API 신규` commit 이 **partial MCT-189 단위 A/B/C/D squash 포함**해 LAND. spec/code-quality FIX iter1-3 (retry_queue enqueue P0 등) 전부 부재 결함 상태로 main 일시 도달. PR1 `git rebase --strategy-option=theirs` + force-with-lease 로 FIX 적용 버전 덮어쓰기 → de12f43 squash merge로 production 정합 회복. 본 사건 = ADR-032 self-reference 사례 (evidence triad 강화 trigger). 상세: RETRO-MCT-189.md §3 + Story §9.
+
+### FIX 통계 (MCT-189)
+
+- design lane FIX: **iter 0** (brainstorm Phase 0 4 agent burst + Codex 일괄 10 D + PMO 2nd pass 가 충분 — spec review iter1 PASS)
+- code lane FIX: **iter 4** — F-1 spec compliance P0×2+P1+P2 (data 72c9aac) / F-2 spec P2 test gap (data 94f1219) / F-3 code-quality P0×2+P1×2 (data 09ef2d0 → rebase a5d5a83) / F-4 PR2 combined P1+P2×3+P3 (data 7029f98)
+- 회귀 측정: reviewer 가 main worktree 분리 직접 측정 — `git worktree add /tmp/mct189-base main` + 동일 범위 pytest 2회 — main 21 failed+3 error == branch 동일, MCT-189 touch 파일 연관 0 failure. **신규 회귀 0 직접 확정** (implementer 1차 "22"/2차 "26" 부정확 보고 P3 hygiene만).
 
 ### 관련 lesson 적용
 
