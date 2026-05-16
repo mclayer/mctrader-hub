@@ -28,14 +28,21 @@ jobs:
           fi
           echo "Gate 1 PASS: engine src/ mctrader_data import == 0"
 
-      - name: "Gate 2 — engine pyproject.toml no mctrader-data dep (ADR-031 §D7 Gate 2)"
+      - name: "Gate 2 — engine pyproject.toml [project.dependencies] no mctrader-data (ADR-031 §D7 Gate 2)"
         run: |
-          if grep -E "mctrader-data" engine/pyproject.toml; then
-            echo "GATE 2 FAIL: engine pyproject.toml contains mctrader-data dependency"
-            echo "engine python dependency graph must be data-free (ADR-031 §D7, MCT-188)"
-            exit 1
-          fi
-          echo "Gate 2 PASS: engine pyproject mctrader-data dep == 0"
+          # Check only [project.dependencies] — dev/test deps may retain mctrader-data for test fixtures (INV-6)
+          python3 - <<'EOF'
+          import tomllib, sys
+          with open("engine/pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          prod_deps = data.get("project", {}).get("dependencies", [])
+          hits = [d for d in prod_deps if "mctrader-data" in d]
+          if hits:
+              print("GATE 2 FAIL: engine [project.dependencies] contains mctrader-data:", hits)
+              print("engine production dependency graph must be data-free (ADR-031 §D7, MCT-188)")
+              sys.exit(1)
+          print("Gate 2 PASS: engine [project.dependencies] mctrader-data dep == 0")
+          EOF
 
       - name: "Gate 3 — engine src/ no mctrader_market_bithumb|upbit import (ADR-031 §D7 Gate 3)"
         run: |

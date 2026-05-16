@@ -1216,7 +1216,7 @@ compose loopback (MCT-175 §D3) 토대 → presigned NAS handoff 가 풀려던 �
   (POLICY_FINALIZED 보존). cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D4 VERIFIED +
   `docs/stories/MCT-186.md` + `docs/change-plans/MCT-186-change-plan.md`
 - **§compose amend confirm — MCT-188 final (2026-05-17, EPIC-data-domain-decoupling Story-7)**:
-  engine pyproject `mctrader-market-bithumb` 의존 제거 (Gate 4 충족, MCT-188 engine#N LAND) +
+  engine pyproject `mctrader-market-bithumb` 의존 제거 (Gate 4 충족, MCT-188 engine#61 07e8ac4 MERGED 2026-05-16T23:22:04Z) +
   engine src/ `mctrader_market_bithumb|upbit` import 0건 영구 (Gate 3, MCT-186 LAND 재확인).
   ADR-031 §D7 quad gate CI workflow `.github/workflows/data-free-grep0.yml` = Gate 3/4 영구 강제.
   **engine compose NAS cred drop** = MCT-186 LAND (engine#60) 이후 engine 은 NAS credential 미사용

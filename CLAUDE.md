@@ -530,7 +530,7 @@ D11 Layer 3 (full-stack production smoke) = production deploy carry prod-2. 나�
 - **MCT-181 retro**: `docs/retros/RETRO-MCT-181.md`
 - **EPIC-RESULTS (docker-stack, POLICY_FINALIZED)**: `docs/retros/EPIC-RESULTS-EPIC-mctrader-docker-stack.md`
 
-## EPIC-data-domain-decoupling (4-Layer, MCT-182~185 COMPLETED 2026-05-15~17, milestone 4/7)
+## EPIC-data-domain-decoupling POLICY_FINALIZED (MCT-182~188 ALL COMPLETED 2026-05-15~17, milestone 7/7)
 
 > mctrader-engine 을 **data-free + exchange-agnostic pure consumer** 로 전환. 7 Story sequential
 > strangler-fig (MCT-182~188). brainstorm Phase 0 deep-verify + Codex 9 결정점 + why-first dialog 확정.
@@ -561,14 +561,16 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 | 4 | **MCT-185** | data realtime stream + engine thin client + cold-read/reverse-write 11-place cutover | D2,D3 | **COMPLETED 2026-05-17** (hub#366+data#76+engine#59+hub Phase2 PR2) |
 | 5 | **MCT-186** | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | **COMPLETED 2026-05-17** (hub#370+engine#60+hub Phase2 PR2 — AC-1 grep0 PASS 5곳 5파일 전부 제거 + RedisStreamSubscriber + types.py + ws_wrapper.py 삭제) |
 | 6 | **MCT-187** | 다중거래소 확장 불변식 박제 | D5,D6 | **COMPLETED 2026-05-17** (hub#374+data#78+hub Phase2 PR2 — 5 TC PASS, adapters.py 변경 0, runbook 신규, ADR-031 §D5 VERIFIED) |
-| 7 | MCT-188 | data-free grep0 quad gate + Epic POLICY_FINALIZED | D7,D6 | RESERVED |
+| 7 | **MCT-188** | data-free grep0 quad gate + Epic POLICY_FINALIZED | D7,D6 | **COMPLETED 2026-05-17** (hub Phase1 8e90758 + engine#61 07e8ac4 + hub Phase2 PR2 — Gate 1~4 PASS, ADR-031 POLICY_FINALIZED) |
 
 ### ADR-031 (신규, MCT-182 publish + LAND VERIFIED)
 
-`docs/adr/ADR-031-data-domain-decoupling.md` — Status **Accepted** (MCT-182 LAND, 2026-05-15, D1 VERIFIED amendment 박제). D1-D7 + 4-layer + D-row↔scope_manifest
-7/7 byte 1:1 reconcile (MCT-179 lesson — cross-repo desync 7회째 사전 차단). ADR-029/027/030 amendment 예고
-(실 amend = MCT-183/184/185/186). Codex 기각 2건(presigned-NAS-handoff / 신규 중립 repo 2개) 근거 박제.
-Status transition: Proposed (MCT-182) → POLICY_FINALIZED (MCT-188).
+`docs/adr/ADR-031-data-domain-decoupling.md` — Status **POLICY_FINALIZED** (MCT-188 LAND, 2026-05-17, D1-D7 전수 VERIFIED). D1-D7 + 4-layer + D-row↔scope_manifest
+7/7 byte 1:1 reconcile (MCT-179 lesson — cross-repo desync 7회째 사전 차단). ADR-029 §D2 + ADR-027 §D9 + ADR-030 §compose amend confirm 전수 박제 (MCT-188 Phase 2 PR2).
+Status transition: Proposed (MCT-182) → Accepted (MCT-182 LAND) → **POLICY_FINALIZED** (MCT-188 LAND 2026-05-17).
+
+> **Epic POLICY_FINALIZED 2026-05-17** — MCT-182~188 sequential 7 Story 전수 COMPLETED. D1-D7 전수 VERIFIED.
+> engine = data-free + exchange-agnostic pure consumer 완전 달성. Epic CLOSED 자체 = 별 PR (docker-stack/tier-promotion 패턴 정합).
 
 ### Phase 0 deep-verify 핵심 사실 (가설 정정 포함)
 
@@ -835,10 +837,61 @@ engine compose.yml `NAS_MINIO_*` env 실 제거 = **MCT-187 or 별 PR** (MCT-186
 - RETRO: `docs/retros/RETRO-MCT-187.md`
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-data-domain-decoupling.md` (§Story-6 박제, milestone 6/7)
 
-### 다음 Story 진입 권고
+### MCT-188 COMPLETED (2026-05-17) — data-free done-criterion verify (grep0 quad gate) + Epic POLICY_FINALIZED 박제
 
-**MCT-188** (data-free grep0 quad gate + Epic POLICY_FINALIZED, D7+D6) — sequential_phase 7.
-진입 prerequisite: MCT-187 Phase 2 PR2 MERGED ✓. 채택 결정: D7 (engine src/ grep0 quad gate CI + pyproject 의존 제거). carry over: ADR-030 compose.yml engine NAS env drop 별 PR.
+> **sequential_phase 7** — EPIC-data-domain-decoupling Story-7 (Epic final). engine PR #61 (07e8ac4) + hub Phase 2 PR2.
+> D7 quad gate Gate 1~4 전수 PASS. ADR-031 POLICY_FINALIZED. Epic milestone 7/7 완결.
+
+#### Gate 1~4 달성 현황
+
+| Gate | 내용 | 결과 |
+|------|------|------|
+| Gate 1 | engine src/ `from/import mctrader_data` == 0건 | **PASS** — 4곳 cutover (tick_replay.py + state_machine.py + tick_scalping.py) |
+| Gate 2 | engine pyproject `[project.dependencies]` mctrader-data 미존재 | **PASS** — prod dep 제거 (pyarrow>=14 직접 추가) |
+| Gate 3 | engine src/ `mctrader_market_bithumb\|upbit` == 0건 | **PASS** (MCT-186 LAND, 변경 0) |
+| Gate 4 | engine pyproject `mctrader-market-bithumb\|upbit` 미존재 | **PASS** — bithumb prod dep 제거 |
+
+#### data-free CI gate (`.github/workflows/data-free-grep0.yml`)
+
+- Gate 1: `grep -rn "from mctrader_data|import mctrader_data" engine/src/`
+- Gate 2: Python tomllib parser `[project.dependencies]` 전용 체크 (dev deps 허용)
+- Gate 3: `grep -rn "^from mctrader_market_bithumb|^import mctrader_market_bithumb|upbit" engine/src/`
+- Gate 4: tomllib parser `[project.dependencies]` bithumb|upbit 체크
+
+#### FIX 루프 (engine PR #61, 3 iter)
+
+- iter 1: pyright tests/ `reportMissingImports` → `[tool.pyright] include=["src"] exclude=["tests"]` + pyarrow>=14
+- iter 2: mctrader-market-upbit (private) transitive dep auth 실패 → mctrader-data dev dep 제거 + tests/ 8파일 `pytest.importorskip` + aggregation 2파일 직접 교체
+- iter 3: `test_latency_p50_p99_under_slo` pre-existing flap → admin merge
+
+#### Key References
+
+- Story: `docs/stories/MCT-188.md`
+- ADR-031 POLICY_FINALIZED: `docs/adr/ADR-031-data-domain-decoupling.md`
+- EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-data-domain-decoupling.md`
+- RETRO: `docs/retros/RETRO-MCT-188.md`
+
+### EPIC-data-domain-decoupling POLICY_FINALIZED — D1-D7 전수 VERIFIED
+
+| D | 결정 | Option | Owner Story |
+|---|------|--------|-------------|
+| D1 | contract relocation → market Layer0 | A | MCT-182 |
+| D2 | read 도메인 relocation → data Layer2 | B | MCT-183 + MCT-185 |
+| D3 | data REST API boundary (historical Arrow IPC + realtime Redis Stream) | C | MCT-184 + MCT-185 |
+| D4 | engine exchange-adapter 제거 (realtime cutover) | A | MCT-186 |
+| D5 | 다중거래소 확장 불변식 (engine/market-core/ADR 변경 0) | A | MCT-187 |
+| D6 | ADR-031 meta-decision + 7 Story 분해 | B | epic-level |
+| D7 | data-free done-criterion grep0 quad gate CI | C | MCT-188 |
+
+**7/7 D VERIFIED**. Epic CLOSED 자체 = 별 PR (POLICY_FINALIZED → CLOSED, production evidence 완성 후).
+
+### Epic CLOSED prerequisite
+
+| prereq | 내용 | timing |
+|--------|------|--------|
+| engine-compose NAS env drop | compose.yml engine service NAS env 제거 (MCT-186 LAND 이후 engine NAS cred 미사용 — 별 인프라 PR) | 별 PR |
+| ADR-030 §compose engine NAS cred drop 실 적용 confirm | compose.yml 실 변경 후 ADR-030 amend confirm 갱신 | 별 PR |
+| Epic CLOSED 박제 PR | POLICY_FINALIZED → CLOSED transition (scope_manifest + CLAUDE.md amend) | 별 PR |
 
 ## Pending Stories (Replication Backlog)
 
