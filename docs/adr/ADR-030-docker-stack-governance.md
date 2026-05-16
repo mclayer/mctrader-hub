@@ -1206,10 +1206,12 @@ compose loopback (MCT-175 §D3) 토대 → presigned NAS handoff 가 풀려던 �
   §D3 / ADR-031). 실 compose wiring + engine NAS cred drop = MCT-186 owner. 본문 19 D 정책 무변경
   (POLICY_FINALIZED 보존). cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D3 +
   `docs/stories/MCT-184.md` + `docs/change-plans/MCT-184-change-plan.md`
-- **Amendment draft (MCT-186, 2026-05-17, Phase 1 IN_PROGRESS)**: engine compose service NAS credential
-  env drop 예고 확정. MCT-185 §D2 VERIFIED (engine src/ NAS 직독 0 grep 확인) → engine compose 에서
-  `NAS_MINIO_ENDPOINT`/`NAS_MINIO_ACCESS_KEY`/`NAS_MINIO_SECRET_KEY` env 제거 (MCT-186 owner 확정).
-  engine 은 `DATA_API_BASE_URL` env (data REST API) + `REDIS_URL` env (realtime stream) 만 접근.
-  **실 compose wiring = MCT-186 Phase 2 PR2 LAND 후 확정 박제 (VERIFIED)**. 본문 19 D 정책 무변경
-  (POLICY_FINALIZED 보존). cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D4 +
+- **Amendment (MCT-186, 2026-05-17, carry over)**: engine exchange-adapter 제거 (engine#60 773b270
+  MERGED, 2026-05-16T21:52:47Z) — `mctrader_market_bithumb` 직접 import 5곳 5파일 전부 제거 VERIFIED.
+  **engine compose.yml NAS credential env drop (실 wiring) = carry over** — MCT-186 Phase 2 PR1
+  scope 외. 실 compose.yml `engine` service `NAS_MINIO_ENDPOINT`/`_ACCESS_KEY`/`_SECRET_KEY` env
+  제거 + ADR-030 이 amendment VERIFIED 확정 = MCT-187 또는 인프라 별 PR owner.
+  engine 은 `DATA_API_BASE_URL` env (data REST API) + `REDIS_URL` env (realtime stream) 만 접근
+  (engine#60 LAND engine src/ NAS 직독 0 — 선행 MCT-185 §D2 VERIFIED 정합). 본문 19 D 정책 무변경
+  (POLICY_FINALIZED 보존). cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D4 VERIFIED +
   `docs/stories/MCT-186.md` + `docs/change-plans/MCT-186-change-plan.md`

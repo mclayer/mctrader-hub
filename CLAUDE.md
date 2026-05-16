@@ -559,7 +559,7 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 | 2 | **MCT-183** | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | **COMPLETED 2026-05-16** (hub#353+data#70+engine#58+hub#354+data 6450cfd lint-revert) |
 | 3 | **MCT-184** | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | **COMPLETED 2026-05-16** (hub#358+data#72+hub#359 Phase 2 PR2 부분+data#74 post-merge fix F-1/F-2/F-4+hub#361 amendment F-3 LAND ✅) |
 | 4 | **MCT-185** | data realtime stream + engine thin client + cold-read/reverse-write 11-place cutover | D2,D3 | **COMPLETED 2026-05-17** (hub#366+data#76+engine#59+hub Phase2 PR2) |
-| 5 | **MCT-186** | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | **IN_PROGRESS 2026-05-17** (Phase 1 hub#TBD — 5곳 5파일 bithumb import 제거 + Redis Stream subscriber + engine-local OrderbookSnapshot) |
+| 5 | **MCT-186** | engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) | D4 | **COMPLETED 2026-05-17** (hub#370+engine#60+hub Phase2 PR2 — AC-1 grep0 PASS 5곳 5파일 전부 제거 + RedisStreamSubscriber + types.py + ws_wrapper.py 삭제) |
 | 6 | MCT-187 | 다중거래소 확장 불변식 박제 | D5,D6 | RESERVED |
 | 7 | MCT-188 | data-free grep0 quad gate + Epic POLICY_FINALIZED | D7,D6 | RESERVED |
 
@@ -706,7 +706,7 @@ hub#359 박제 PR MERGED 그러나 박제 작업의 약 절반만 처리. "Phase
 | 2 | MCT-183 | COMPLETED 2026-05-16 |
 | 3 | MCT-184 | COMPLETED 2026-05-16~17 (post-merge fix 4건 포함) |
 | 4 | **MCT-185** | **COMPLETED 2026-05-17** (hub#366 + data#76 + engine#59 + hub Phase 2 PR2) |
-| 5 | **MCT-186** | **IN_PROGRESS 2026-05-17** (Phase 1 docs) |
+| 5 | **MCT-186** | **COMPLETED 2026-05-17** (hub#370 + engine#60 + hub Phase 2 PR2) |
 | 6 | MCT-187 | RESERVED |
 | 7 | MCT-188 | RESERVED |
 
@@ -721,8 +721,73 @@ hub#359 박제 PR MERGED 그러나 박제 작업의 약 절반만 처리. "Phase
 
 ### 다음 Story 진입 권고
 
-**MCT-186** (sequential_phase 5) — engine realtime cutover + exchange-adapter 제거 (R2 MCT-41 교차검증) — D4.
-진입 prerequisite: MCT-185 Phase 2 PR2 MERGED ✓ + MCT-186 carry over (engine DataClient WS stream subscribe loop + exchange-adapter mctrader_market_bithumb/upbit grep0 확인).
+**MCT-186 COMPLETED** (2026-05-17, hub#370 + engine#60 + Phase 2 PR2). 다음 = **MCT-187** (다중거래소 확장 불변식 박제, D5+D6) — MCT-186 Phase 2 PR2 MERGED ✓ 후 진입.
+
+## MCT-186 COMPLETED (2026-05-17) — engine realtime cutover + exchange-adapter 제거
+
+> **sequential_phase 5** — EPIC-data-domain-decoupling Story-5. 2 PR cross-repo LAND
+> (hub Phase 1 docs + engine Phase 2 PR1 code + hub Phase 2 PR2 박제).
+> AC-1 grep0 PASS: `mctrader_market_bithumb` 직접 import **5곳 5파일 전부 제거**.
+> **engine = exchange-agnostic pure consumer** (TickRowV1_1 market-core SSOT 소비).
+
+### 결과 요약
+
+| 항목 | 결과 |
+|------|------|
+| Phase 1 PR (hub docs) | mctrader-hub#370 MERGED (3fc9c1f, 2026-05-16T17:53:38Z) — Story + Change Plan + ADR-031 §D4 draft + ADR-030 NAS cred drop draft + CLAUDE.md |
+| Phase 2 PR1 (engine code) | mctrader-engine#60 MERGED (773b270, 2026-05-16T21:52:47Z) — 5곳 5파일 bithumb import 제거 + RedisStreamSubscriber + types.py + ws_wrapper.py 삭제 + cli.py StreamExhaustedError 제거 |
+| Phase 2 PR2 (hub 박제) | mctrader-hub#TBD (본 PR) — ADR-031 §D4 VERIFIED + ADR-030 carry over 확정 + scope_manifest 5/7 + CLAUDE.md + RETRO 신규 + EPIC-RESULTS §Story-5 |
+| 총 AC | **7/7 PASS** (AC-1 grep0 / AC-2 RedisStreamSubscriber wiring / AC-3 types.py / AC-4 ws_wrapper.py 삭제 / AC-5 testcontainers 4 test PASS / AC-6 FIX iter1 cli.py / AC-7 R2 ZERO RISK) |
+| FIX 루프 | **1 iter** (design P0 — cli.py StreamExhaustedError §3.2.4b 발견) |
+| ADR-031 §D4 | **VERIFIED** (engine#60 773b270 + grep0 AC-1 + integration test) |
+| ADR-030 NAS cred drop | carry over (compose.yml engine NAS env drop = MCT-187 or 별 PR) |
+| Epic milestone | **5/7** (MCT-182~186 COMPLETED) |
+
+### 5곳 5파일 제거 내역 (AC-1 grep0 PASS)
+
+| 위치 | 제거 대상 | 대체 |
+|------|-----------|------|
+| `fill/simulated.py:18` | `OrderbookSnapshotEvent` | `mctrader_engine.realtime.types.OrderbookSnapshot` |
+| `realtime/stream_consumer.py:8-12` | 4 bithumb event type | `TickRowV1_1` 단일 (market-core SSOT) |
+| `runtime/mock_stream.py:19` | `StreamEvent, TickerEvent, TransactionEvent` | `TickRowV1_1` 기반 `MockMarketStream` |
+| `runtime/paper_runner.py:267` | `BithumbWebSocketStream` (function-local) | `RedisStreamSubscriber` |
+| `runtime/ws_wrapper.py` | 파일 전체 (`WsWrapperStream` + `StreamExhaustedError`) | **파일 삭제** |
+
+### 신규 파일 (engine#60)
+
+- `src/mctrader_engine/realtime/types.py` — engine-local `OrderbookSnapshot`/`_Level` dataclass (frozen+slots, INV-3 영구)
+- `src/mctrader_engine/realtime/redis_subscriber.py` — XREAD asyncio subscriber (ADR-030 §D15 `market:tick:{exchange}:{symbol}`, XREAD BLOCK=1000ms count=100, retry 5× exponential backoff 0.5s base)
+- `tests/test_realtime_subscriber.py` — 4 integration test (testcontainers RedisContainer, MCT-180 패턴)
+
+### FIX iter1 (design P0 — §3.2.4b)
+
+Change Plan 초안 cli.py 수정 미포함 → ws_wrapper.py 삭제 시 `StreamExhaustedError` import (line 442) + catch block (line 597) dangling 발견. 설계 리뷰 P0 정정 → cli.py scope 추가 → CONDITIONAL_PASS iter1 후 code iter1 PASS (FIX 0회).
+
+### ADR-031 §D4 VERIFIED evidence triad (ADR-032 정합)
+
+| evidence | 내용 |
+|---|---|
+| file:line | `fill/simulated.py:18` → `from mctrader_engine.realtime.types import OrderbookSnapshot` |
+| caller grep | `grep -rn "mctrader_market_bithumb" src/` = **0건** (engine#60, AC-1 PASS) |
+| integration test | `tests/test_realtime_subscriber.py` 4 test (testcontainers) ALL PASS |
+
+### ADR-030 NAS cred drop (carry over)
+
+engine compose.yml `NAS_MINIO_*` env 실 제거 = **MCT-187 or 별 PR** (MCT-186 Phase 2 PR1 scope 외). ADR-030 amendment VERIFIED 확정 시점 = 실 compose wiring LAND 후.
+
+### Key References
+
+- Story: `docs/stories/MCT-186.md`
+- Change Plan: `docs/change-plans/MCT-186-change-plan.md`
+- ADR-031 §D4 VERIFIED: `docs/adr/ADR-031-data-domain-decoupling.md`
+- ADR-030 NAS cred drop carry over: `docs/adr/ADR-030-docker-stack-governance.md`
+- RETRO: `docs/retros/RETRO-MCT-186.md`
+- EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-data-domain-decoupling.md` (§Story-5 박제, milestone 5/7)
+
+### 다음 Story 진입 권고
+
+**MCT-187** (다중거래소 확장 불변식 박제, D5+D6) — sequential_phase 6.
+진입 prerequisite: MCT-186 Phase 2 PR2 MERGED ✓. carry over: ADR-030 compose.yml engine NAS env drop (MCT-187 or 별 PR). 채택 결정: D5 (확장 불변식 invariant test) + D6 (runbook add-new-exchange.md).
 
 ## Pending Stories (Replication Backlog)
 
