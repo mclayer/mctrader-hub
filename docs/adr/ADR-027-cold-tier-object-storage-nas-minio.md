@@ -510,6 +510,14 @@ cross-ref: ADR-029 MCT-183 amendment box (io reader 6 module relocated + engine 
 후) + `docs/stories/MCT-183.md` §0/§4.3 + `docs/change-plans/MCT-183-change-plan.md`
 §3/§11.
 
+**§D9 amend confirm — MCT-188 final (2026-05-17, EPIC-data-domain-decoupling Story-7)**:
+MCT-183 LAND (io reader 6 module relocated to mctrader-data) + MCT-185 LAND (engine
+cold-read cutover 완결 + engine NAS 직독 폐기) + MCT-188 (engine pyproject mctrader-data
+의존 제거 + shim import 4곳 최종 제거) 3단계로 ADR-027 §D9 reader 재배치 완결.
+**engine io/ 6 module = mctrader-data Layer2 소유 영구 확정** (engine 측 io/ 전무 — dead-in-prod
+삭제 MCT-183, engine import 전면 제거 MCT-188). ADR-027 본문 무변경 (POLICY_FINALIZED 보존).
+cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D7 VERIFIED (MCT-188 LAND).
+
 ### D10. 영향 repo — mctrader-data + mctrader-engine + mctrader-hub
 
 본 ADR 의 영향 repo:

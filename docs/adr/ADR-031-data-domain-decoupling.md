@@ -228,6 +228,34 @@ D5-D7 = 후속 Story owner (MCT-187~188) — §D4 VERIFIED 완결 (본 amendment
 
 D6/D7 = 후속 Story owner (MCT-188) — §D5 VERIFIED 완결 (본 amendment box).
 
+### §D7 amendment box (MCT-188 IN_PROGRESS — Phase 1 draft, 2026-05-17)
+
+> **§D7 IN_PROGRESS** — data-free done-criterion (grep0 quad gate) + ADR-031 POLICY_FINALIZED.
+> MCT-188 (sequential_phase 7, milestone target 7/7) Phase 1 박제. Phase 2 PR1 (engine
+> 4곳 cutover + pyproject 2 의존 제거) + Phase 2 PR2 LAND 후 §D7 VERIFIED 확정.
+
+#### §D7 현황 (Phase 0 실증, 2026-05-17)
+
+- **Gate 3 PASS** (MCT-186 LAND 완료, 2026-05-17): engine src/ `^(from|import) mctrader_market_(bithumb|upbit)` = **0건** (origin/main HEAD 773b270 실증)
+- **Gate 1 잔존 4곳** (MCT-188 구현 대상): `executor/tick_replay.py:28-29` + `hot/state_machine.py:33` + `strategy/templates/tick_scalping.py:76`
+- **Gate 2 잔존**: `pyproject.toml` line 11 `mctrader-data` 의존 (MCT-188 제거 대상)
+- **Gate 4 잔존**: `pyproject.toml` line 12 `mctrader-market-bithumb` 의존 (MCT-188 제거 대상)
+
+#### §D7 CI gate (Phase 1 LAND — hub Phase 1 PR)
+
+- `.github/workflows/data-free-grep0.yml` 신규 LAND (hub Phase 1 PR) — 4 gate 영구 강제
+- Gate 1~4 CI green = AC-5 carrier (MCT-188 Phase 2 PR1 engine LAND 후 자동 검증)
+
+#### §D7 ↔ D-row reconcile (§3.6.1 gate v2 Phase 1 draft)
+
+| 항목 | scope_manifest SSOT | 본 §D7 draft box | reconcile |
+|---|---|---|---|
+| D7 option_chosen | `ci-grep0-quad-gate` | CI workflow 4 gate 박제 | ✅ 1:1 |
+| D7 owner_story | `MCT-188` | 본 amendment box owner = MCT-188 | ✅ 1:1 |
+| ADR-031 Status | Accepted → POLICY_FINALIZED (MCT-188 LAND) | Phase 1 = draft, Phase 2 PR2 = VERIFIED 확정 | ✅ 1:1 |
+
+**§D7 VERIFIED 확정** = MCT-188 Phase 2 PR2 LAND 후 (engine Gate 1~4 전수 grep0 + ADR-031 Status POLICY_FINALIZED 전이).
+
 ### §D3 amendment box (MCT-184 Phase 2 LAND confirm — data#72 MERGED 45e501c, 2026-05-16)
 
 > **§D3 부분 진행 LAND 확정** — data#72 (45e501c5) Phase 2 PR1 MERGED (2026-05-16).
