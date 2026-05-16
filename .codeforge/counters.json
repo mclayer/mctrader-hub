@@ -248,7 +248,7 @@
         "mctrader-hub#366 (67bcc1c Phase 1 docs, 2026-05-16)",
         "mctrader-data#76 (9473665 Phase 2 PR1 data, land_order 1, 2026-05-16)",
         "mctrader-engine#59 (1312195 Phase 2 PR1 engine, land_order 2, 2026-05-16)",
-        "mctrader-hub#TBD (Phase 2 PR2 박제, 2026-05-17)"
+        "mctrader-hub#367 (334eaef Phase 2 PR2 박제, 2026-05-17)"
       ],
       "epic": "EPIC-data-domain-decoupling",
       "repo": "mctrader-hub + mctrader-data + mctrader-engine",
