@@ -112,8 +112,8 @@ box (MCT-185 LAND 박제, Phase 2 PR2 VERIFIED — hub#366 + data#76 + engine#59
 > cutover) + MCT-188 (shim import 4곳 최종 제거 + pyproject mctrader-data 의존 제거)
 > 3단계 완결. ADR-029 §D2 `io-relocate + cold-read-behind-REST` = **전수 VERIFIED 확정**.
 
-- **Gate 1 final grep0** (MCT-188 engine#N LAND 후): `grep -rn "from mctrader_data|import mctrader_data" engine/src/` = **0건** (4곳 잔존 → cutover 완결: `executor/tick_replay.py:28-29` + `hot/state_machine.py:33` + `strategy/templates/tick_scalping.py:76`)
-- **Gate 2 pyproject 제거** (MCT-188 engine#N LAND 후): `grep "mctrader-data" engine/pyproject.toml` = **0건** (line 11 제거)
+- **Gate 1 final grep0** (MCT-188 engine#61 07e8ac4 MERGED 2026-05-16T23:22:04Z): `grep -rn "from mctrader_data|import mctrader_data" engine/src/` = **0건** (4곳 잔존 → cutover 완결: `executor/tick_replay.py:28-29` + `hot/state_machine.py:33` + `strategy/templates/tick_scalping.py:76`)
+- **Gate 2 pyproject 제거** (MCT-188 engine#61 07e8ac4 MERGED): `grep "mctrader-data" engine/pyproject.toml [project.dependencies]` = **0건** (prod dep 제거, tomllib CI 개선 병행)
 - **engine data-free 완전 달성**: python 의존 그래프에서 `mctrader_data` 제거 완결 — engine = mctrader_data python 의존 0 (D2 `io-relocate + cold-read-behind-REST` 완결 final confirm)
 - **ADR-029 본문 정책 무변경 (POLICY_FINALIZED 보존)** — 11 D 정책 유효. 본 amend confirm = MCT-188 D7 quad gate 충족 evidence 박제만.
 
