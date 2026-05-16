@@ -105,6 +105,20 @@ cross-ref: `docs/stories/MCT-185.md` §0/§4.3/§4.4/§5/§6 + `docs/change-plan
 §3/§7/§8.0/§10/§11 + `docs/adr/ADR-031-data-domain-decoupling.md` §D2+§D3 VERIFIED amendment
 box (MCT-185 LAND 박제, Phase 2 PR2 VERIFIED — hub#366 + data#76 + engine#59 LAND 완결).
 
+### §D2 amend confirm — MCT-188 final (2026-05-17, EPIC-data-domain-decoupling Story-7, Epic final)
+
+> **MCT-188 amend confirm**: engine `mctrader_data.*` 직독 전면 제거 완결 (D7 quad gate
+> Gate 1 + Gate 2 충족). 본 amend confirm = MCT-183 (io-relocate) + MCT-185 (cold-read
+> cutover) + MCT-188 (shim import 4곳 최종 제거 + pyproject mctrader-data 의존 제거)
+> 3단계 완결. ADR-029 §D2 `io-relocate + cold-read-behind-REST` = **전수 VERIFIED 확정**.
+
+- **Gate 1 final grep0** (MCT-188 engine#N LAND 후): `grep -rn "from mctrader_data|import mctrader_data" engine/src/` = **0건** (4곳 잔존 → cutover 완결: `executor/tick_replay.py:28-29` + `hot/state_machine.py:33` + `strategy/templates/tick_scalping.py:76`)
+- **Gate 2 pyproject 제거** (MCT-188 engine#N LAND 후): `grep "mctrader-data" engine/pyproject.toml` = **0건** (line 11 제거)
+- **engine data-free 완전 달성**: python 의존 그래프에서 `mctrader_data` 제거 완결 — engine = mctrader_data python 의존 0 (D2 `io-relocate + cold-read-behind-REST` 완결 final confirm)
+- **ADR-029 본문 정책 무변경 (POLICY_FINALIZED 보존)** — 11 D 정책 유효. 본 amend confirm = MCT-188 D7 quad gate 충족 evidence 박제만.
+
+cross-ref: `docs/stories/MCT-188.md` §0/§4/§5 + `docs/change-plans/MCT-188-change-plan.md` §3.1 + `docs/adr/ADR-031-data-domain-decoupling.md` §D7 VERIFIED + Status POLICY_FINALIZED (MCT-188 LAND).
+
 ### MCT-189 amendment box (2026-05-16, EPIC-tier-promotion-single-source carry over — §D3=C grace-0 로컬삭제 wiring 완결, Phase 1 draft → Phase 2 PR3 VERIFIED)
 
 > **MCT-189 amendment (2026-05-17, Phase 2 PR3 VERIFIED — LANDed)**: 2026-05-16 운영 진단에서 `promote_l1()` production caller = 0건 발견 (MCT-169 D3=C 정의만 LAND, caller wiring 부재 = cross-document SSOT drift 2호). 본 Story = wiring 완결: (a) DualWriter `status=committed` branch self-delete via `_promote_after_nas_put` helper (D-2 A) — caller 0건 재발 차단, (b) 4중 HEAD verify primitive (ETag+VersionId+sha256 metadata+ContentLength, D-4 C), (c) pre-delete HEAD guard (D-8 B, race window 차단), (d) fd-consistent sha256+size 단일 fd 스냅샷 (`_compute_local_sha256_and_size`, code-quality FIX iter3 — TOCTOU 축소), (e) NASUploader.enqueue_retry() public method (private getattr fragility 제거), (f) verify-fail → retry_queue enqueue + status="local_only" (committed 거짓 신호 제거, P0 fix iter1), (g) legacy 130GB retroactive cleanup `scan_and_cleanup_legacy` + batch_limit=500 (PR #75, 첫 sweep stall 회피 점진 회수 ~52h). §D3 line 246 grace 0 일관 amend (D-1 A unconditional). §D11 표 L1 local 행 "DualWriter status=committed self-delete (grace 0)" 정정. §D10 production evidence gate 강화 (post-LAND 14d 0 violation, ADR-032 evidence triad 형식 차용). Migration §Forward-only invariant 격상 (local fallback 제거, NAS versioning 30d window 의존, D-5 A). **POLICY_FINALIZED 유지** (강등 없음 — 11/11 D 정상, D3 wiring carry over → **resolved**). LAND: hub #357 (3f138a6) + data #73 (de12f43) + data #75 (a1a8ccf) + hub #TBD Phase 2 PR3. Phase 2 PR1 진행 중 cross-Story contamination 발견 (data #71 MCT-184 commit 45e501c 가 partial MCT-189 wiring squash 포함 — FIX iter1-3 부재 결함 상태로 main 일시 도달, PR1 rebase --strategy-option=theirs 로 FIX iter 적용 버전 덮어쓰기) — 정직 박제: `docs/stories/MCT-189.md` §9 + RETRO-MCT-189.md.

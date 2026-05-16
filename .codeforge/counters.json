@@ -292,6 +292,8 @@
     "MCT-188": {
       "title": "data-free done-criterion verify (grep0 quad gate) + Epic POLICY_FINALIZED 박제",
       "reserved_at": "2026-05-16",
+      "started_at": "2026-05-17",
+      "status": "IN_PROGRESS",
       "epic": "EPIC-data-domain-decoupling",
       "epic_milestone": "7/7 POLICY_FINALIZED (target)",
       "repo": "mctrader-hub + mctrader-engine",
@@ -299,7 +301,8 @@
       "decisions": ["D7", "D6"],
       "sequential_phase": 7,
       "depends_on": ["MCT-187"],
-      "rationale": "strangler-fig 5단계 (finalize+ADR amend+grep0). D7 quad gate = engine src/ from/import mctrader_data==0 AND engine pyproject mctrader-data 제거 AND engine src/ mctrader_market_bithumb|upbit==0 AND engine pyproject 어댑터 의존 제거. MCT-172 grep0 strict CI 패턴 재사용 (.github/workflows/data-free-grep0.yml). ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm + EPIC-RESULTS + CLAUDE.md POLICY_FINALIZED 박제. Epic CLOSED 자체 = 별 PR (docker-stack/tier-promotion 패턴 정합)."
+      "land_prs": ["mctrader-hub#TBD (Phase 1 docs)", "mctrader-engine#TBD (Phase 2 PR1)", "mctrader-hub#TBD (Phase 2 PR2 박제)"],
+      "rationale": "strangler-fig 5단계 (finalize+ADR amend+grep0). D7 quad gate = engine src/ from/import mctrader_data==0 AND engine pyproject mctrader-data 제거 AND engine src/ mctrader_market_bithumb|upbit==0 AND engine pyproject 어댑터 의존 제거. MCT-172 grep0 strict CI 패턴 재사용 (.github/workflows/data-free-grep0.yml). ADR-031 POLICY_FINALIZED + ADR-029/027/030 amend confirm + EPIC-RESULTS + CLAUDE.md POLICY_FINALIZED 박제. Epic CLOSED 자체 = 별 PR (docker-stack/tier-promotion 패턴 정합). Phase 0 실증: Gate 3 PASS (MCT-186 LAND), Gate 1 잔존 4곳 + Gate 2/4 pyproject 잔존 — 본 Story 구현 대상."
     },
     "MCT-189": {
       "title": "ADR-029 §D3=C grace-0 로컬삭제 wiring 완결 (promote_l1 + DualWriter post-PUT local delete)",

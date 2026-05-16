@@ -262,18 +262,18 @@ story_sequence:
   - { story: MCT-185, phase: 4, mode: sequential, rule: "realtime stream + engine thin client + cold-read cutover — MCT-184 LAND 후 (REST 신설 전제). engine mctrader_data storage 직독 제거", status: COMPLETED }
   - { story: MCT-186, phase: 5, mode: sequential, rule: "engine realtime cutover + adapter 제거 — MCT-185 LAND 후. R2 = MCT-41 Phase 0 교차 검증 의무 (Orchestrator ordering 결정)", status: COMPLETED }
   - { story: MCT-187, phase: 6, mode: sequential, rule: "다중거래소 확장 불변식 박제 — MCT-186 LAND 후 (adapter-free 완료 후 invariant 화)", status: COMPLETED }
-  - { story: MCT-188, phase: 7, mode: sequential, rule: "data-free grep0 quad gate + Epic POLICY_FINALIZED — MCT-187 LAND 후 (finalize)", status: RESERVED }
+  - { story: MCT-188, phase: 7, mode: sequential, rule: "data-free grep0 quad gate + Epic POLICY_FINALIZED — MCT-187 LAND 후 (finalize)", status: IN_PROGRESS }
 
 milestone_progress:
   total: 7
   completed: 6
   completed_stories: [MCT-182, MCT-183, MCT-184, MCT-185, MCT-186, MCT-187]
-  in_progress: 0
-  in_progress_stories: []
-  reserved: 1
-  reserved_stories: [MCT-188]
+  in_progress: 1
+  in_progress_stories: [MCT-188]
+  reserved: 0
+  reserved_stories: []
 
-epic_status: phase:구현-IN_PROGRESS  # MCT-188 RESERVED — milestone 6/7 COMPLETED, target 7/7
+epic_status: phase:구현-IN_PROGRESS  # MCT-188 IN_PROGRESS — milestone 6/7 COMPLETED, target 7/7 POLICY_FINALIZED
 epic_close_gate:
   - "MCT-182 PR MERGED + ADR-031 publish + Layer0 contract (aggregation/records/paper_lineage) market-core 이전 + data/engine shim/경로 재지정"
   - "MCT-183 PR MERGED + io/ 6 module mctrader-data relocated + engine io/ 삭제 (src caller 0) + ADR-029/027 amend"
@@ -291,3 +291,4 @@ epic_status_history:
   - { status: "phase:구현-IN_PROGRESS", date: "2026-05-17", note: "MCT-186 COMPLETED — milestone 5/7. engine realtime cutover + exchange-adapter 제거 LAND (hub#370+engine#60+hub Phase2 PR2). mctrader_market_bithumb 직접 import 5곳 5파일 전부 제거 (AC-1 grep0 PASS). RedisStreamSubscriber 신규 + types.py engine-local OrderbookSnapshot + ws_wrapper.py 삭제. 설계리뷰 CONDITIONAL_PASS (P0 cli.py StreamExhaustedError 발견 — §3.2.4b fix iter1). 구현리뷰 FIX 0회 (admin merge — pre-existing mctrader-market-upbit CI). ADR-031 §D4 VERIFIED amendment box + ADR-030 NAS cred drop carry over (engine compose NAS env drop = MCT-187 or 별 PR). R2 ZERO RISK 확인 (MCT-43~47 active branch 0건). 다음 = MCT-187 (다중거래소 확장 불변식 박제)" }
   - { status: "phase:구현-IN_PROGRESS", date: "2026-05-17", note: "MCT-187 IN_PROGRESS — milestone target 6/7. 다중거래소 확장 불변식 박제 + add-new-exchange.md runbook 신규 + ADR-031 §D5 VERIFIED amendment box + ADR-030 NAS cred drop carry over. Phase 0 실증: adapters.py bithumb/upbit 2-branch 완비(HEAD 22e2ece) + test_adapters.py 6 TC 기존 존재 + engine/market-core 변경 0 INV-1 확인. data Phase 2 PR1 = tests/test_multi_exchange_invariant.py 5 TC 신규 (adapters.py 변경 0)" }
   - { status: "phase:구현-IN_PROGRESS", date: "2026-05-17", note: "MCT-187 COMPLETED — milestone 6/7. 다중거래소 확장 불변식 박제 LAND (hub#374 91a8bfa + data#78 6346b55 + hub Phase 2 PR2). test_multi_exchange_invariant.py 5 TC PASS (4 passed + 1 skipped CI-safe). adapters.py 변경 0 (INV-2 PASS). ADR-031 §D5 VERIFIED amendment box 박제. add-new-exchange.md 3-step runbook LAND. ubuntu-latest 1183 passed 회귀 0. windows testcontainers pre-existing regression (scope 외). 다음 = MCT-188 (data-free grep0 quad gate + Epic POLICY_FINALIZED)" }
+  - { status: "phase:구현-IN_PROGRESS", date: "2026-05-17", note: "MCT-188 IN_PROGRESS — milestone target 7/7 + POLICY_FINALIZED. Phase 0 실증: Gate 3 이미 PASS (MCT-186 LAND 완료). Gate 1 잔존 4곳 (tick_replay.py:28-29 + state_machine.py:33 + tick_scalping.py:76) + Gate 2 pyproject mctrader-data + Gate 4 pyproject mctrader-market-bithumb = 본 Story 구현 대상. .github/workflows/data-free-grep0.yml 신규 + ADR-031 §D7 draft + ADR-029/027/030 amend confirm box Phase 1 박제." }

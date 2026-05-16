@@ -1,0 +1,60 @@
+name: Data-Free Grep0 Quad Gate (ADR-031 §D7)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  quad-gate:
+    name: "D7 Quad Gate — engine data-free + exchange-agnostic"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone mctrader-engine
+        env:
+          GH_TOKEN: ${{ secrets.MCTRADER_CROSS_REPO_TOKEN }}
+        run: gh repo clone mclayer/mctrader-engine engine
+
+      - name: "Gate 1 — engine src/ no mctrader_data import (ADR-031 §D7 Gate 1)"
+        run: |
+          if grep -rnE "^(from|import) mctrader_data" engine/src --include="*.py"; then
+            echo "GATE 1 FAIL: engine src/ contains mctrader_data imports"
+            echo "engine must be data-free (ADR-031 §D7, EPIC-data-domain-decoupling)"
+            exit 1
+          fi
+          echo "Gate 1 PASS: engine src/ mctrader_data import == 0"
+
+      - name: "Gate 2 — engine pyproject.toml no mctrader-data dep (ADR-031 §D7 Gate 2)"
+        run: |
+          if grep -E "mctrader-data" engine/pyproject.toml; then
+            echo "GATE 2 FAIL: engine pyproject.toml contains mctrader-data dependency"
+            echo "engine python dependency graph must be data-free (ADR-031 §D7, MCT-188)"
+            exit 1
+          fi
+          echo "Gate 2 PASS: engine pyproject mctrader-data dep == 0"
+
+      - name: "Gate 3 — engine src/ no mctrader_market_bithumb|upbit import (ADR-031 §D7 Gate 3)"
+        run: |
+          if grep -rnE "^(from|import) mctrader_market_(bithumb|upbit)" engine/src --include="*.py"; then
+            echo "GATE 3 FAIL: engine src/ contains mctrader_market_bithumb/upbit imports"
+            echo "engine must be exchange-agnostic pure consumer (ADR-031 §D4, MCT-186)"
+            exit 1
+          fi
+          echo "Gate 3 PASS: engine src/ mctrader_market_bithumb|upbit import == 0"
+
+      - name: "Gate 4 — engine pyproject.toml no exchange adapter dep (ADR-031 §D7 Gate 4)"
+        run: |
+          if grep -E "mctrader-market-(bithumb|upbit)" engine/pyproject.toml; then
+            echo "GATE 4 FAIL: engine pyproject.toml contains exchange adapter dependency"
+            echo "engine dependency graph must be exchange-agnostic (ADR-031 §D7, MCT-188)"
+            exit 1
+          fi
+          echo "Gate 4 PASS: engine pyproject exchange adapter dep == 0"
+
+      - name: "Quad Gate Summary"
+        run: |
+          echo "All 4 gates PASS"
+          echo "engine = data-free (Gate 1+2) + exchange-agnostic pure consumer (Gate 3+4)"
+          echo "ADR-031 §D7 ci-grep0-quad-gate: VERIFIED"
