@@ -1,6 +1,6 @@
 # EPIC-RESULTS — EPIC-data-domain-decoupling
 
-> **Status**: phase:구현-IN_PROGRESS · milestone **2/7** · POLICY_FINALIZED target = MCT-188
+> **Status**: phase:구현-IN_PROGRESS · milestone **3/7** · POLICY_FINALIZED target = MCT-188
 > mctrader-engine 을 (1) data-free + (2) exchange-agnostic pure consumer 로 전환하는 7 Story sequential strangler-fig Epic.
 
 ## Story 진행 현황
@@ -9,7 +9,7 @@
 |---|-------|------|---|------|------|
 | 1 | **MCT-182** | Layer0 contract relocation → market | D1, D6 | **COMPLETED 2026-05-15** | hub#349 + market#11 + data#68 + engine#57 + hub#350(§8.5) + data#69(fix1) + hub Phase2 PR2 |
 | 2 | **MCT-183** | Layer2 read 도메인 relocation → data | D2, D6 | **COMPLETED 2026-05-16** | hub#353 + data#70 + engine#58 + hub#354(§8.5) + data 6450cfd(lint-revert) + hub Phase2 PR2 |
-| 3 | MCT-184 | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3, D6 | RESERVED | — |
+| 3 | **MCT-184** | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3, D6 | **COMPLETED 2026-05-16** (post-merge fix 4건 carry — F-1/F-2/F-4 data측 + F-3 hub측 amendment) | hub#358 + data#72 + hub#359(§8.5+ADR-031 §D3 LAND confirm) + hub Phase2 PR2 박제 amendment (RETRO + §Story-3 + frontmatter status + F-3 정정) |
 | 4 | MCT-185 | data realtime stream + engine thin client + cold-read cutover | D2, D3 | RESERVED | — |
 | 5 | MCT-186 | engine realtime cutover + exchange-adapter 제거 | D4 | RESERVED | — |
 | 6 | MCT-187 | 다중거래소 확장 불변식 박제 | D5, D6 | RESERVED | — |
@@ -75,6 +75,57 @@
 
 수동 reconcile + 수동 gate 한계 구조적 실증 → codeforge plugin design lane SSOT reconcile **mechanical gate**(glob-scope + 변형포괄 regex + self-verify) 일반화 필요 → **codeforge upstream ADR escalation 결정 발의** (PMO-AUDIT-MCT-183 박제 + codeforge marketplace issue).
 
+## §Story-3 (MCT-184) — Layer 2 data REST API 신규 (FastAPI /v1 historical + reverse-write)
+
+### 결과
+- **AC 6/6 PASS / INV 6/6 PASS** (FastAPI /v1 기동 + OpenAPI · historical Arrow IPC byte 정확 · reverse-write idempotent · OpenAPI SSOT=data + hub contract snapshot · Arrow IPC NAS layout 비노출 · wiring drift 차단 production caller 0 + consumer=MCT-185)
+- 신규 test 21 passed + 2 skipped (TC-4/TC-8 env-specific cross-repo-contract-lock-check.sh CI env 미구성, AC-4 carrier=MCT-185)
+- 회귀 0 (data 1152 passed ubuntu-latest, 신규 실패 0)
+- ADR-031 §D3 partial VERIFIED 박제 (historical+reverse-write Phase, realtime stream + cold-read cutover = MCT-185)
+- ADR-030 amendment box 박제 (data api service compose topology 예고. 실 compose wiring = MCT-186 owner)
+- 3 PR LAND timeline: hub#358(`1e96b47` Phase 1 docs) → data#72(`45e501c5` api/ 6 파일 신규) → hub#359(`4924b16` §8.5 Impl Manifest + ADR-031 §D3 LAND confirm) → **hub Phase2 PR2 박제 amendment** (RETRO + §Story-3 + frontmatter status + F-3 정정, 본 amendment PR)
+
+### 핵심 변경
+- mctrader-data 신규 (data#72): `src/mctrader_data/api/` 6 파일 (FastAPI ASGI app factory + lifespan + CORS internal-only + Arrow IPC helpers + DI deps + Pydantic strict schemas + /v1 historical/reverse-write routes)
+  - `api/app.py` (93 lines) — `create_app()` + lifespan startup `initialize_readers()` + CORS internal
+  - `api/arrow_ipc.py` (59 lines) — `table_to_ipc_bytes()` + `ipc_bytes_to_table()` (INV-2 carrier)
+  - `api/deps.py` (121 lines) — FastAPI DI singleton provider (TierReader/ColdReader/L1Reader)
+  - `api/routes_v1.py` (311 lines) — `/v1/historical/candles` + `/v1/historical/candles/l1` + `/v1/reverse-write/paper-candles` + `/v1/reverse-write/backtest-artifact` (dead-in-data stub, AC-6 evidence triad)
+  - `api/schemas.py` (152 lines) — Pydantic strict (T1 path traversal allowlist + T2 DoS bound max_length=1000 + INV-3 canonical_sha256)
+- tests/api 신규: `test_rest_api.py` (659 lines, TC-1~11 + Perf Baseline, 21 passed + 2 skipped)
+- pyproject.toml: `fastapi>=0.110` + `uvicorn[standard]>=0.27` 신규 의존
+- **dead-in-data 박제** (D3 partial, MCT-185 cutover 전): production caller 0 + consumer=MCT-185 명시 + routes_v1 `_get_writer()` 503 guard + tests/api TC-9 AC-6 wiring evidence triad
+
+### FIX 루프 (pre-LAND PASS FIX 0 + post-LAND iter 1 P0×3 + P1×1)
+
+**pre-LAND**:
+- 설계리뷰 iter 1 **PASS FIX 0회** — P0/P1/P2 = 0/0/0, cross-document SSOT **6회째 §3.6.1 gate v2 사전 차단 성공** (MCT-183 lesson reapply 실효 검증)
+- 구현리뷰 **BYPASS** (dead-in-data, consumer=MCT-185, 구현-리뷰 lane = MCT-185 cutover 전 진입)
+
+**post-LAND (Codex audit 발견)**:
+| # | severity | finding | fix path |
+|---|----------|---------|----------|
+| F-1 | P0 (구현) | invalid ts_utc → `datetime.now()` silent substitute = silent data corruption | data#N post-merge fix (#795 unblock 후) |
+| F-2 | P0 (구현) | canonical_sha256 dead code, sidecar pattern만 검사 = silent data-loss (INV-3 mismatch) | data#N post-merge fix |
+| F-3 | P0 (구현 + 박제) | Story §8.5.1+CLAUDE.md hub#TBD 잔존(실 LAND=hub#359) | **hub amendment PR (본 EPIC-RESULTS 동반)** ✅ |
+| F-4 | P1 (설계 + 구현) | arrow_ipc round-trip INV-2 bytes-level 보장 X (table 동등만, dead-in-data 런타임 0 but MCT-185 cutover 전 정정 의무) | data#N post-merge fix |
+
+§3.6.1 gate v2 post-LAND repo-wide 0줄 PASS (cross-doc SSOT 6회 forcing function 실효). 단 **gate v2 영역(SSOT 정합) ≠ Codex audit 영역(production correctness + bytes-level 정밀도)** — F-1/F-2/F-4 는 Codex post-LAND audit 만이 발견 가능한 영역 실증 → **codeforge upstream ADR escalation 후보 3** (post-merge audit lane 의무 박제 검증) 발의.
+
+### 박제 PR 자체 incomplete 발견 (SSOT drift 3호, MCT-189 PMO-PATTERNS 동형)
+
+hub#359 (Phase 2 PR2 박제) MERGED 그러나 박제 작업의 약 절반만 처리:
+- ❌ RETRO-MCT-184.md 미생성
+- ❌ EPIC-RESULTS §Story-3 (MCT-184) 미작성 + milestone 2/7 → 3/7 미반영
+- ❌ Story frontmatter `status: phase:구현` 잔존, `completed_at: ~` 미입력
+- ❌ F-3 hub#TBD 잔존 (Story §11/§8.5.1 + CLAUDE.md line 560)
+
+**핵심 lesson**: "Phase 2 PR2 박제" PR title 이 박제 작업의 SSOT 가 아님. PR MERGED ≠ 박제 완결. 박제 산출물 체크리스트 (RETRO + EPIC-RESULTS §Story-N + Story frontmatter + CLAUDE.md + ADR amendment confirm) 의 전수 LAND 가 완결 의무. → **codeforge upstream ADR escalation 후보 2** (박제 PR 자체 완결도 mechanical gate — PMO-AUDIT-MCT-184 박제 + marketplace issue 발의).
+
+### dead-in-data 박제 패턴 (ADR-032 evidence triad)
+
+MCT-184 = MCT-185 cutover 전 production caller 0. **AC-6 wiring drift 차단 invariant** + routes_v1 `_get_writer()` 503 guard + tests/api/test_rest_api.py TC-9 의 3종 evidence triad 박제. **MCT-189 wiring drift 동형 사전 차단** ("정책 SSOT VERIFIED but production caller 0" 패턴이 박제 단계부터 dead-in-data 명시화로 해소) — relocation/신규-신설 Story 패턴의 안전 invariant 화 권고 (MCT-185 cutover Story / MCT-186 / MCT-187 reapply).
+
 ## ADR 산출물
 
 - **ADR-031** (신규, MCT-182 publish, 2026-05-16) — Data Domain Decoupling — 4-layer + contract relocation + REST boundary + multi-exchange extensibility invariant. Status: **Accepted** (MCT-182 LAND VERIFIED). transition: Proposed → Accepted (MCT-182, D1+D6 VERIFIED) → POLICY_FINALIZED (MCT-188 target — D1-D7 전수 + ADR-029/027/030 amend confirm)
@@ -85,7 +136,7 @@
 |---|------|--------|-------------|------|
 | D1 | Contract relocation → mctrader-market (Layer 0) | relocate-to-market-core | MCT-182 | **VERIFIED 2026-05-15** |
 | D2 | Read 도메인 relocation → mctrader-data (Layer 2) | io-relocate + cold-read-behind-REST | MCT-183 (io relocate) + MCT-185 (cold-read cutover) | **partial VERIFIED 2026-05-16** (MCT-183 io relocate 완료, cutover pending MCT-185) |
-| D3 | data REST API 신규 (historical + reverse-write + realtime stream) | fastapi-v1 + redis-stream | MCT-184 + MCT-185 | reserved |
+| D3 | data REST API 신규 (historical + reverse-write + realtime stream) | fastapi-v1 + redis-stream | MCT-184 (historical+reverse-write) + MCT-185 (realtime stream + cold-read cutover) | **partial VERIFIED 2026-05-16** (MCT-184 historical+reverse-write LAND, realtime stream + cold-read cutover pending MCT-185, F-1/F-2/F-4 post-merge fix carry) |
 | D4 | engine exchange-adapter 제거 | subscribe-normalized-stream | MCT-186 | reserved |
 | D5 | 다중거래소 확장 불변식 | data-only-extension-invariant | MCT-187 | reserved |
 | D6 | ADR-031 신규 + ADR-029/027/030 amendment | new-adr-031 + 3-amend | MCT-182 (publish) + MCT-188 (POLICY_FINALIZED + amend confirm) | **publish/D1 VERIFIED 2026-05-15**, amend pending |
@@ -104,6 +155,14 @@
 
 ## 다음 Story 진입
 
-**MCT-184** (sequential_phase 3) — Layer 2 data REST API 신규 (FastAPI /v1 historical Arrow IPC + reverse-write POST). MCT-183 LAND prerequisite 충족 (io/ data 측 수령 완료, REST wrap 대상 확정).
+**MCT-185** (sequential_phase 4) — Layer 2 data realtime stream (Redis Stream 정규화 publisher, tick.v1.1 패턴) + engine thin client (`data_client/` 신규, OpenAPI generated) + cold-read 실 호출부 cutover (mctrader_data.storage 직독 제거 + REST 경유). MCT-184 historical+reverse-write LAND prerequisite 충족.
 
-진입 권고: R1 가드 + §3.6.1 gate v2 cross-Story 활용 + Codex pre-LAND audit 활용 + (가능 시) codeforge upstream ADR escalation 결과(mechanical gate plugin) 활용. MCT-183 PMO-AUDIT 박제 cross-document SSOT forcing function 확장 적용 의무.
+**MCT-185 진입 prerequisite (carry over)**:
+- **F-1/F-2/F-4 data측 post-merge fix PR LAND 의무** (#795 unblock 후 진입) — silent data corruption + INV-3 mismatch + bytes-level 검증 정밀도 차단 = cold-read cutover 진입 gate
+- F-3 hub측 = 본 amendment PR LAND 후 해소 ✅
+
+진입 권고:
+- R1 가드 패턴 reapply (MCT-182/183/184 self-discipline + §3.6.1 gate v2 cross-Story 활용 + Codex pre-LAND audit 활용)
+- **AC-6 wiring drift 차단 invariant 의무 carry** — MCT-184 dead-in-data 박제 → MCT-185 production caller 실 연결 시 wiring evidence triad 갱신 (test/runtime/code grep)
+- **post-LAND Codex audit 의무 carry** — F-1/F-2/F-4 production correctness 영역의 박제 lane 의무 검증화 (codeforge upstream escalation 후보 3)
+- (가능 시) codeforge upstream ADR escalation 결과 활용 (cross-document SSOT mechanical gate plugin + 박제 PR 완결도 gate + post-merge audit lane)
