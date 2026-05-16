@@ -226,6 +226,9 @@
     "MCT-184": {
       "title": "Layer 2 data REST API 신규 (FastAPI /v1 historical Arrow IPC + reverse-write POST)",
       "reserved_at": "2026-05-16",
+      "started_at": "2026-05-16",
+      "status": "IN_PROGRESS",
+      "design_review_status": "PASS (iter1, FIX 0회) — cross-document SSOT desync 6회째 §3.6.1 gate v2 cross-Story reapply 사전 차단 (plugin-codeforge-design#44 self-discipline workaround 효과 검증)",
       "epic": "EPIC-data-domain-decoupling",
       "repo": "mctrader-hub + mctrader-data",
       "phase_pair": "phase1_phase2",
