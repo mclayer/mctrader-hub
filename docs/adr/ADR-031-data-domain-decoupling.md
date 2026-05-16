@@ -2,9 +2,24 @@
 
 ## Status
 
-**Proposed** (MCT-182 Phase 1 진입, 2026-05-16)
+**Accepted** (MCT-182 LAND — D1 contract relocation VERIFIED, 2026-05-15)
 
-상태 transition (예정): Proposed (MCT-182 Phase 1) → Accepted (MCT-182 LAND — D1 contract relocation VERIFIED) → POLICY_FINALIZED (MCT-188 LAND — EPIC-data-domain-decoupling 7/7 COMPLETED, D1-D7 전수 VERIFIED + ADR-029/027/030 amend confirm)
+상태 transition: Proposed (MCT-182 Phase 1, 2026-05-16) → **Accepted (MCT-182 LAND, 2026-05-15)** → POLICY_FINALIZED (MCT-188 LAND — EPIC 7/7 COMPLETED, D1-D7 전수 VERIFIED + ADR-029/027/030 amend confirm)
+
+### §D1 VERIFIED amendment box (MCT-182 LAND 박제, 2026-05-15)
+
+D1 (Contract relocation → mctrader-market Layer 0) **VERIFIED**:
+- `mctrader_data.aggregation` PURE 패키지 → `mctrader-market` 이전 (market#11 `4902b53c`, 156/156 PASS)
+- `TickRecord`/`OrderbookEventRecord` 순수 dataclass 추출 → `mctrader_market.records` (pyarrow 비결합 INV-3 충족)
+- `paper_lineage` (PaperLineage/canonical_jsonl_hash) → `mctrader_market.paper_lineage`
+- `CandleModel` engine 4곳(verified, 가설 5곳=docstring 오집계) → `mctrader_market.candle` 재지정 (engine#57 `c6249fa6`, 990/990 PASS)
+- data shim: aggregation/__init__.py + paper_lineage.py = market re-export + DeprecationWarning. tick/orderbook_storage TickRecord/OrderbookEventRecord import 재지정 (writer 무변경 INV-6) — data#68 `4451f28d`, 884/884 PASS
+- INV-1 byte-equivalence + INV-2 market→data 0 영구 + INV-4 SSOT 단일(is-동일성) 전수 충족
+- **FIX iter1 회귀** (data#69 `5f00fc6e`): cold/duckdb_resample.py:53 + cold/polars_fallback.py:36 → mctrader_market.aggregation 직접 재지정 (shim 우회 SSOT 이중화 해소). `test_cold_path_uses_market_sot` 5 신규 test PASS. Change Plan §4.2 동반 정정("MCT-188 D7까지 deprecated 보존")으로 cross-document desync 해소 (4 산출물 §4.2/§6/§2.2/scope_manifest/ADR-031 수렴)
+
+D6 (ADR meta) **VERIFIED**: 본 ADR-031 publish + D-row↔scope_manifest 7/7 byte 1:1 reconcile 정합. ADR-029/027/030 amendment 예고 box 유지 (실 amend = MCT-183/184/185/186 owner).
+
+D2-D5/D7 = 후속 Story owner (MCT-183~188) — 본 LAND 무관.
 
 > **본 ADR scope (D6 = ADR meta-decision)**: ADR-031 은 EPIC-data-domain-decoupling 의 4-Layer
 > 의존 모델 + 7 결정(D1-D7)을 박제한다. MCT-182(본 Story)는 **D1(contract relocation) 실 LAND

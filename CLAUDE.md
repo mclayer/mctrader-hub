@@ -530,7 +530,7 @@ D11 Layer 3 (full-stack production smoke) = production deploy carry prod-2. 나�
 - **MCT-181 retro**: `docs/retros/RETRO-MCT-181.md`
 - **EPIC-RESULTS (docker-stack, POLICY_FINALIZED)**: `docs/retros/EPIC-RESULTS-EPIC-mctrader-docker-stack.md`
 
-## EPIC-data-domain-decoupling (4-Layer, MCT-182 IN_PROGRESS 2026-05-16)
+## EPIC-data-domain-decoupling (4-Layer, MCT-182 COMPLETED 2026-05-15, milestone 1/7)
 
 > mctrader-engine 을 **data-free + exchange-agnostic pure consumer** 로 전환. 7 Story sequential
 > strangler-fig (MCT-182~188). brainstorm Phase 0 deep-verify + Codex 9 결정점 + why-first dialog 확정.
@@ -555,7 +555,7 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 
 | phase | Story | 제목 | D | 상태 |
 |---|-------|------|---|------|
-| 1 | **MCT-182** | Layer0 contract relocation → market (aggregation/records/paper_lineage + engine CandleModel 4곳 재지정) | D1,D6 | **IN_PROGRESS** (설계-리뷰 PASS, Phase 1 진행) |
+| 1 | **MCT-182** | Layer0 contract relocation → market (aggregation/records/paper_lineage + engine CandleModel 4곳 재지정) | D1,D6 | **COMPLETED 2026-05-15** (hub#349+market#11+data#68+engine#57+hub#350+data#69 fix1) |
 | 2 | MCT-183 | Layer2 io/ relocation → data (engine io/ 6 module dead-in-prod) | D2,D6 | RESERVED |
 | 3 | MCT-184 | data REST API 신규 (FastAPI /v1 historical+reverse-write) | D3,D6 | RESERVED |
 | 4 | MCT-185 | data realtime stream + engine thin client + cold-read cutover | D2,D3 | RESERVED |
@@ -563,9 +563,9 @@ Layer 2' mctrader-engine = PURE CONSUMER (mctrader_data 0 + mctrader_market_bith
 | 6 | MCT-187 | 다중거래소 확장 불변식 박제 | D5,D6 | RESERVED |
 | 7 | MCT-188 | data-free grep0 quad gate + Epic POLICY_FINALIZED | D7,D6 | RESERVED |
 
-### ADR-031 (신규, MCT-182 publish)
+### ADR-031 (신규, MCT-182 publish + LAND VERIFIED)
 
-`docs/adr/ADR-031-data-domain-decoupling.md` — Status **Proposed**. D1-D7 + 4-layer + D-row↔scope_manifest
+`docs/adr/ADR-031-data-domain-decoupling.md` — Status **Accepted** (MCT-182 LAND, 2026-05-15, D1 VERIFIED amendment 박제). D1-D7 + 4-layer + D-row↔scope_manifest
 7/7 byte 1:1 reconcile (MCT-179 lesson — cross-repo desync 7회째 사전 차단). ADR-029/027/030 amendment 예고
 (실 amend = MCT-183/184/185/186). Codex 기각 2건(presigned-NAS-handoff / 신규 중립 repo 2개) 근거 박제.
 Status transition: Proposed (MCT-182) → POLICY_FINALIZED (MCT-188).
