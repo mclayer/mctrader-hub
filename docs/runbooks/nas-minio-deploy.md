@@ -52,18 +52,18 @@ ls -ld /volume1/docker/minio/data
 
 ## Step 3. compose 파일 + .env transfer
 
-mctrader-hub repo 의 `docker/minio/` 디렉터리 전체를 NAS 로 이동.
+mctrader-data repo 의 `docker/minio/` 디렉터리 전체를 NAS 로 이동. (2026-05-17 이전: mctrader-hub. data 도메인 운영 산출물로 mctrader-data 로 재배치됨.)
 
 ### Option A: Synology File Station 업로드
 
 1. DSM File Station → `/volume1/docker/minio/` 디렉터리로 이동
-2. mctrader-hub repo 의 `docker/minio/docker-compose.yml` + `.env.example` 두 파일 업로드
+2. mctrader-data repo 의 `docker/minio/docker-compose.yml` + `.env.example` 두 파일 업로드
 
 ### Option B: scp (recommended)
 
 mctrader 호스트에서:
 ```bash
-cd c:/workspace/mclayer/mctrader-hub
+cd c:/workspace/mclayer/mctrader-data
 scp docker/minio/docker-compose.yml admin@<NAS_HOST>:/volume1/docker/minio/
 scp docker/minio/.env.example admin@<NAS_HOST>:/volume1/docker/minio/
 ```

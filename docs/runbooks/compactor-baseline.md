@@ -5,7 +5,7 @@ Phase 0 — A1 stabilize 적용 전 / 후 비교 baseline 확보.
 
 ## 절차 (baseline = A1 적용 전)
 
-1. compactor 컨테이너에 tracemalloc 스크립트 attach:
+1. compactor 컨테이너에 tracemalloc 스크립트 attach (아래 `tools/compactor-tracemalloc.py` 경로는 **mctrader-data** repo 체크아웃 기준 — 2026-05-17 mctrader-hub 에서 재배치):
    ```
    # 중요: 컨테이너 내 파일명을 "tracemalloc.py" 로 하면 stdlib tracemalloc 모듈을
    # 스크립트 자신이 shadow → AttributeError. 반드시 다른 이름으로 cp.
