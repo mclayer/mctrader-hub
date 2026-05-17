@@ -55,3 +55,26 @@ groups:
         annotations:
           summary: "Container memory > 80% limit (D18 OOM 선제 경보)"
           description: "{{ $labels.name }} 컨테이너 메모리 사용률 {{ $value | humanizePercentage }} (> 80% warn threshold). ADR-030 D18 resource limits + MCT-180 D18 cadvisor alert. OOM kill 방지를 위한 선제 경보."
+
+  - name: evidence-quad-enforcement
+    # MCT-193 sub-3 — ADR-033 §6 enforcement timing Q7=C carrier
+    # SSOT = ADR-033 §3.2 per-ADR counter mapping + scope_manifest verify_evidence_telemetry_counter_schema
+    # ADR-031 미등록 (Q1=C dead-in-data caveat — mctrader_data_redis_stream_publish_failures_total publish_tick producer caller=0, engine MCT-186 cutover 후 별 Story enable, rolling gate 영구 fire 차단, MCT-179 §D8 가공 metric 8회째)
+    # Q4=A 14d calendar 단일화 (KRX calendar PromQL 불가, ADR-033 §6.1 R-1 caveat — §4 trading-hot market-open rolling 후속 carry, MCT-179 cross-doc SSOT drift 9회째)
+    rules:
+      - alert: QuadViolationADR029NoDualWrite
+        expr: 'absent(mctrader_dual_write_result_total{status="success"}) or increase(mctrader_dual_write_result_total{status="success"}[14d]) == 0'
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ADR-029 quad violation — dual_write success counter 14d 무증가 (dead-in-prod false-negative 의심)"
+          description: "mctrader_dual_write_result_total{status=success} 14d increase==0 또는 series 부재 (absent, Q2=A trap 차단). ADR-029 production-wired 14d (MCT-189 grace-0 wiring LAND). SSOT=ADR-033 §3.2 / scope_manifest verify_evidence_telemetry_counter_schema.ADR-029. quad 4번째 게이트 (runtime telemetry) 위반 — caller-wired LAND 됐으나 production traffic 0 (Hyrum's Law 역방향)."
+      - alert: QuadViolationADR030NoCollectorTicks
+        expr: 'absent(mctrader_collector_ticks_total) or increase(mctrader_collector_ticks_total[14d]) == 0'
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ADR-030 quad violation — collector ticks counter 14d 무증가"
+          description: "mctrader_collector_ticks_total 14d increase==0 또는 series 부재 (absent, Q2=A). ADR-030 Q4=A 14d calendar 단일화 (ADR-033 §6.1 R-1 caveat — §4 trading-hot market-open rolling 은 KRX calendar PromQL 한계로 후속 carry, MCT-179 9회째). SSOT=ADR-033 §3.2 / scope_manifest. MCT-180/179 collector.py:189 record_collector_tick LAND."

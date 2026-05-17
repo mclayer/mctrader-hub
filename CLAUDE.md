@@ -1218,11 +1218,13 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 - **MCT-186 IN_PROGRESS 복귀** (현 hub working tree branch mct-186-phase2-pr2-hub Phase 2 PR2 박제 continuation, ExitWorktree 후 본 working dir 복귀)
 - **MCT-191 reservation 후보** — ADR-032 §7 future-work 1건 owner (triad → quad telemetry counter / CI mechanical gate consumer / process/cross-story-pr-contamination.md governance entry)
 
-## EPIC-evidence-quad-runtime-telemetry (MCT-191 + MCT-192 COMPLETED 2026-05-17, milestone 2/3)
+## EPIC-evidence-quad-runtime-telemetry POLICY_FINALIZED (MCT-191 + MCT-192 + MCT-193 COMPLETED 2026-05-17, milestone 3/3)
 
 > ADR-032 evidence triad v1 → quad v2 확장 (4번째 게이트 runtime telemetry counter ≥1 over N days,
 > Hyrum's Law 역방향 dead-in-prod false-negative 차단). cross-Epic governance singleton extension.
 > 3 sub-Story sequential (MCT-191 doc-only / MCT-192 cross-repo emit / MCT-193 verify gate).
+> **milestone 3/3 POLICY_FINALIZED** (2026-05-17). ADR-033 **Accepted**. Epic CLOSED = production
+> evidence (alert 실 fire + cron 실 issue) carry 별 PR (docker-stack/tier-promotion 패턴 정합).
 
 ### sub-Story 현황
 
@@ -1230,7 +1232,45 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 |---|-------|------|-------|
 | 1 | **MCT-191** | **COMPLETED 2026-05-17** | governance amendment doc-only (ADR-032 §8.1→§3.2 본문 격상 + ADR-033 신규 + class taxonomy) |
 | 2 | **MCT-192** | **COMPLETED 2026-05-17** | cross-repo telemetry counter emit (ADR-029/030 재사용 + ADR-031 realtime_stream 신규 emit, engine DROP) |
-| 3 | MCT-193 | RESERVED | post-LAND verify gate (Prometheus alert counter==0 over Nd + monthly PMO audit cron) |
+| 3 | **MCT-193** | **COMPLETED 2026-05-17** | post-LAND verify gate 운영 (quad violation alert ADR-029/030 + monthly PMO audit cron repo 최초 + ADR-033 §6 VERIFIED + Accepted + EPIC POLICY_FINALIZED 3/3) |
+
+### MCT-193 결과 (sub-3, COMPLETED 2026-05-17 — EPIC POLICY_FINALIZED 3/3)
+
+single-repo hub 2 PR sequential LAND (mctrader-hub#387 3d79e1e PR-1 docs → mctrader-hub#TBD
+PR-2 alert/cron/박제). **`monitoring/prometheus-alerts.yml` 신규 group `evidence-quad-enforcement`**
+(ADR-029 `QuadViolationADR029NoDualWrite` + ADR-030 `QuadViolationADR030NoCollectorTicks`,
+`absent(<counter>) or increase(<counter>[14d]) == 0` critical for 0m — Q2=A absent() trap 차단.
+기존 `mctrader-docker-stack` group 5 alert 보존) + **`.github/workflows/quad-evidence-audit.yml`
+repo 최초 cron** (Q3=A alertmanager 부재 → GitHub Action Prometheus HTTP API query → `gh issue
+create`, Q5=B schedule monthly + workflow_dispatch hybrid, `PROMETHEUS_URL` 부재 시 graceful
+skip — MCT-179 D17 패턴). **ADR-031 = Q1=C dead-in-data alert 미등록** (`mctrader_data_redis_stream_publish_failures_total`
+publish_tick producer caller=0, rolling gate 영구 fire 차단, MCT-179 §D8 가공 metric 8회째
+차단 정직 박제 — production caller-wired = engine MCT-186 cutover 후 별 Story enable). **R-1
+ADR-033 §4 ↔ Q4=A SSOT drift 9회째 caveat 박제** (Q4=A production-wired 14d calendar 단일화 채택,
+§4 trading-hot market-open rolling = KRX calendar PromQL 구조적 불가 → 후속 carry. Q4=A
+scope_manifest ↔ ADR-033 §6.1 caveat ↔ alert yaml comment 3-source 1:1 reconcile, MCT-179
+c8e4b8e 패턴 reapply). **ADR-033 Proposed → Accepted** (Q6=A 구현 LAND = transition, PR-2 실
+alert/cron LAND 후 frontmatter 전환) + §6.1/§9.2 sub-3 VERIFIED → **EPIC POLICY_FINALIZED 3/3**.
+Codex 8/8 deviation 0 (MCT-191 10/10 + MCT-192 9/9 동형 full alignment 연속 3 Story).
+trust-but-verify lesson reapply 효과 (MCT-192 R1 false premise 동형 재발 0, PMOAgent verify-via
+전수). PMO-AUDIT-MCT-192 §(4)-(a) piggyback = EPIC-RESULTS §3.5/§Story-2 PR-3 #TBD→#385
+(1b4a727) carry 정정 (MCT-192 cleanup #386 누락분 흡수).
+
+### EPIC CLOSED prerequisite registry (POLICY_FINALIZED → CLOSED, production evidence 별 PR)
+
+| prod-N | carry over | timing | gate |
+|--------|-----------|--------|------|
+| prod-1 | quad violation alert 실 fire evidence | production deploy + 14d window 경과 후 | `evidence-quad-enforcement` 실 fire 또는 정상 silent evidence |
+| prod-2 | quad-evidence-audit cron 실 issue 발의 evidence | monthly schedule 1회 이상 (또는 workflow_dispatch) | `gh issue create` 발의 또는 정상 PASS log |
+| prod-3 | `PROMETHEUS_URL` secret 등록 (repo 최초 cron HTTP API, R-4) | EPIC CLOSED prereq | `gh secret list` 등록 (부재 시 graceful skip 정합 유지) |
+| prod-4 | ADR-031 production caller-wired enable | engine MCT-186 cutover 후 별 Story | ADR-031 caller grep ≥1 + alert 등록 (Q1=C caveat resolve) |
+| prod-5 | Epic CLOSED 박제 PR | prod-1~4 완료 후 | POLICY_FINALIZED → CLOSED transition 별 PR (docker-stack/tier-promotion 패턴) |
+
+### 다음 Story 진입 권고 (EPIC 완결)
+
+EPIC-evidence-quad-runtime-telemetry **POLICY_FINALIZED 3/3** — 신규 진입 Story 없음. 후속:
+- **ADR-031 caller-wired** = engine MCT-186 (sequential_phase 5 IN_PROGRESS) cutover 후 별 Story (Q1=C dead-in-data caveat resolve + ADR-031 alert enable)
+- **Epic CLOSED** = production evidence (prod-1~5) 완성 후 별 PR (POLICY_FINALIZED → CLOSED transition)
 
 ### MCT-192 결과 (sub-2, COMPLETED 2026-05-17)
 

@@ -1,0 +1,57 @@
+name: Quad Evidence Audit (monthly)
+# MCT-193 sub-3 — ADR-033 §6 enforcement timing Q7=C carrier (repo 최초 cron workflow)
+# Q3=A: alertmanager 부재 (prometheus.yml alerting: 라우팅 0) → GitHub Action cron 이 Prometheus HTTP API query → quad violation gh issue create
+# Q5=B: schedule(monthly) + workflow_dispatch hybrid (정상 silent / violation·drift 자동 issue, repo 최초 cron 선례 0 risk → 수동 fallback)
+# ADR-029/030 production-wired only. ADR-031 = Q1=C dead-in-data 제외 (rolling gate 영구 fire 차단)
+
+on:
+  schedule:
+    - cron: '0 2 1 * *'   # monthly 1일 02:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  quad-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Quad evidence audit (ADR-029/030 production-wired)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PROMETHEUS_URL:-}" ]; then
+            echo "::warning::PROMETHEUS_URL secret 미설정 — quad evidence audit graceful skip (MCT-179 D17 graceful skip 패턴 정합, hard fail 금지). secret 등록 = EPIC CLOSED prereq carry (R-4)."
+            exit 0
+          fi
+          violations=""
+          for q in \
+            'ADR-029|mctrader_dual_write_result_total{status="success"}|increase(mctrader_dual_write_result_total{status="success"}[14d])' \
+            'ADR-030|mctrader_collector_ticks_total|increase(mctrader_collector_ticks_total[14d])'; do
+            adr="${q%%|*}"; rest="${q#*|}"; counter="${rest%%|*}"; promexpr="${rest##*|}"
+            result=$(curl -sf --get "${PROMETHEUS_URL}/api/v1/query" --data-urlencode "query=${promexpr}" 2>/dev/null || echo '{"data":{"result":[]}}')
+            n=$(echo "$result" | python -c 'import sys,json; d=json.load(sys.stdin); rs=d.get("data",{}).get("result",[]); print("absent" if not rs else rs[0]["value"][1])' 2>/dev/null || echo "absent")
+            if [ "$n" = "absent" ] || [ "$n" = "0" ] || [ "$n" = "0.0" ]; then
+              violations="${violations}"$'\n'"- **${adr}** quad violation: \`${counter}\` 14d increase==0 또는 series 부재 (absent). dead-in-prod false-negative 의심 (Hyrum's Law 역방향, caller-wired LAND 됐으나 production traffic 0)."
+            fi
+          done
+          if [ -n "$violations" ]; then
+            month=$(date -u +%Y-%m)
+            title="[quad-violation] ADR-029/030 evidence quad gate 위반 (${month})"
+            body=""
+            body="${body}## Quad Evidence Audit 위반 (monthly cron, MCT-193 sub-3)"$'\n\n'
+            body="${body}ADR-033 §6 enforcement timing Q7=C — production-wired ADR quad 4번째 게이트 (runtime telemetry counter ≥1 over 14d) 위반 감지."$'\n'
+            body="${body}${violations}"$'\n\n'
+            body="${body}### 처리"$'\n'
+            body="${body}- caller-wired LAND 됐으나 production traffic 0 = MCT-189 130GB (decision-defined ≠ caller-wired) 동형 risk"$'\n'
+            body="${body}- ADR-031 = dead-in-data 제외 (Q1=C, engine MCT-186 cutover 후 별 Story)"$'\n'
+            body="${body}- SSOT: ADR-033 §3.2 / scope_manifest verify_evidence_telemetry_counter_schema"$'\n\n'
+            body="${body}🤖 quad-evidence-audit.yml (MCT-193 sub-3 cron)"
+            gh issue create --title "$title" --body "$body" --label "quad-violation" 2>&1 || echo "::warning::gh issue create 실패 (label quad-violation 부재 가능 — 수동 확인 필요)"
+          else
+            echo "quad evidence audit PASS — ADR-029/030 production-wired counter 14d increase>=1 (위반 0)"
+          fi
