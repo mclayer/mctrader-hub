@@ -386,7 +386,7 @@
       "repo": "mctrader-hub",
       "phase_pair": "phase1_only (doc-only Story, codeforge:story-cutoff-classification fast-path)",
       "owner_for_adr": "ADR-033 (신규 Proposed) + ADR-032 amendment",
-      "land_prs": ["mctrader-hub#TBD"],
+      "land_prs": ["mctrader-hub#382 (6582cc7, squash 1cde1ff, MERGED 2026-05-17T02:29:47Z) Phase 1 단일 PR 12 file", "mctrader-hub#TBD-post-merge (Story §11 LAND timeline + RETRO-MCT-191 + PMO-AUDIT-MCT-191 + EPIC-RESULTS §Story-1)"],
       "rationale": "ADR-032 §8.1 future-work owner (MCT-190 LAND 후). Evidence triad v1 → quad v2 (4번째 게이트 runtime telemetry counter ≥1 over N days, Hyrum's Law 역방향 dead-in-prod false-negative 차단). Q1=C small Epic 3 sub-Story / Q2=C ADR-032 amend + ADR-033 신규 / Q3=C grandfathering production-wired만 / Q5=C meta-recursion 1단 / Q6=B class taxonomy / Q9=A governance/ 신규. F-0a = quad = §8.1 future-work 본문 격상 (신규 발명 아님 → R1 HIGH 선제 완화)."
     },
     "MCT-192": {
