@@ -2,6 +2,7 @@
 adr_key: ADR-032
 title: VERIFIED Badge Evidence Triad
 status: Accepted
+class: governance
 proposed_at: "2026-05-16"
 accepted_at: "2026-05-17"
 owner_story: MCT-190
@@ -93,6 +94,16 @@ ADR-032 evidence triad = **"Implemented" status 의 mechanical 박제 forcing fu
 - 그러나 `promote_l1()` production caller 0건 — caller-wired LAND 부재
 - 결과: 130 GB legacy Parquet 영구 누적 (§2.1 trigger #1)
 - 해소: MCT-189 (2026-05-17) 4 PR sequential LAND — caller-wired LAND 완결 (3+ caller)
+
+### §3.2 Evidence Quad Rule v2 (triad superset)
+
+triad v1 (§3) + 4번째 게이트: **runtime telemetry counter ≥ 1 over N days** (production traffic 실 wiring evidence — Hyrum's Law 역방향 dead-in-prod false-negative 차단). Counter monotonicity wiring proof (Prometheus Counter ≠ Gauge).
+
+quad v2 = `(file:line + production caller git grep ≥1 + integration test PASS) AND (runtime telemetry counter ≥ 1 over N days)`.
+
+quad v2 enforcement layer 운영 = **ADR-033** (forward ref). class taxonomy (governance|production|mixed) + traffic class 차등 N days + grandfathering = ADR-033 §3/§4/§7.
+
+triad v1 (§3) = governance ADR (class:governance) SSOT 유지 (telemetry counter forever 0 정상, §9 telemetry_counter_caveat). quad v2 = production ADR (class:production) 의무 (ADR-033 §7 grandfathering).
 
 ## §4 Enforcement Layer (3-tier, self-discipline gate v1)
 
@@ -190,6 +201,7 @@ PR squash 내 commit message 의 Story key 추출 + PR title mismatch alert (plu
 - **plugin-codeforge#804** (박제 PR completeness CI gate, §4 self-discipline gate v1 의 mechanical 대체)
 - **plugin-codeforge#805** (post-merge audit lane, PMO-AUDIT-MCT-190 §3 consumer 적용)
 - **MCT-189 §9** (cross-Story PR contamination 첫 박제, §6.2 self-reference trigger)
+- **ADR-033** (evidence quad enforcement layer — §8.1 quad future-work 본문 격상 carrier + class taxonomy + grandfathering SSOT)
 
 ## §8 Future Work / Out of Scope (carry)
 
@@ -197,7 +209,7 @@ PR squash 내 commit message 의 Story key 추출 + PR title mismatch alert (plu
 
 Hyrum's Law 역방향 (dead-in-prod false-negative 차단) — caller grep ≥1 만으로 production wiring evidence 충분 아닌 경우 (dead-in-prod caller test-only/deprecated). runtime telemetry counter ≥ 1 over N days = 실 wiring evidence.
 
-**triad v1 = 3 evidence 유지** (MCT-189 130GB legacy detection 실증 충분). **quad 확장 = 별 Story** (MCT-NNN reservation).
+**triad v1 = 3 evidence 유지** (MCT-189 130GB legacy detection 실증 충분). **quad 확장 = ADR-033 §2 본문 격상 완료 (MCT-191 LAND)** — quad enforcement layer (class taxonomy + traffic class N days + grandfathering) = ADR-033 cross-ref. 본 §8.1 future-work → §3.2 본문 rule 격상 transition 완결.
 
 ### §8.2 CI mechanical gate (plugin-codeforge#804/#805 LAND 후 consumer 적용 carry)
 
@@ -224,4 +236,6 @@ verify_evidence:
     integration_test: "N/A (governance ADR, code wiring 0)"
 ```
 
-**INV-1 forcing function**: false-positive fail 차단 의무. 향후 governance ADR 신규 author 시 동일 Caveat pattern reapply.
+- `telemetry_counter_caveat`: governance ADR (class:governance) telemetry counter forever 0 정상 — ADR-033 §7 grandfathering (production-wired ADR만 quad 의무). false-positive fail 차단 INV (governance ADR singleton 의 quad verify gate 면제 = self-reference 첫 적용, MCT-191 본 Story). quad verify gate 가 governance ADR 자체를 telemetry 0 으로 fail 시키지 않음 (governance 시스템 자가붕괴 차단).
+
+**INV-1 forcing function**: false-positive fail 차단 의무. 향후 governance ADR 신규 author 시 동일 Caveat pattern reapply. quad 확장 시에도 governance ADR self-reference Caveat 적용 (telemetry_counter_caveat) — false-positive fail 차단.

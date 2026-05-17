@@ -1,0 +1,79 @@
+# scope_manifests/EPIC-evidence-quad-runtime-telemetry.yaml
+# EPIC-evidence-quad-runtime-telemetry — ADR-032 §8.1 future-work owner (MCT-190 LAND 후)
+# sub-1 MCT-191 (doc-only) / sub-2 MCT-192 (cross-repo emit) / sub-3 MCT-193 (verify gate)
+# Generated: 2026-05-17 (codeforge-brainstorm Phase 2 PMOAgent 2nd pass + Codex 10 결정점)
+epic_key: EPIC-evidence-quad-runtime-telemetry
+epic_status: IN_PROGRESS
+parent_dependency: "ADR-032 §8.1 future-work (MCT-190 LAND 2026-05-17, hub#375 6f19ec0)"
+sequential: true
+owner_adr: "ADR-033 (신규 Proposed) + ADR-032 amendment (§8.1→본문 격상 + §9 quad Caveat)"
+
+sub_stories:
+  - {key: MCT-191, seq: 1, status: IN_PROGRESS, depends_on: [],       phase_pair: phase1_only,   scope: "governance amendment doc-only"}
+  - {key: MCT-192, seq: 2, status: RESERVED,    depends_on: [MCT-191], phase_pair: phase1_phase2, scope: "cross-repo telemetry counter emit (data+engine) + counter-emit triad v1 reapply"}
+  - {key: MCT-193, seq: 3, status: RESERVED,    depends_on: [MCT-192], phase_pair: phase1_phase2, scope: "post-LAND verify gate (Prometheus alert counter==0 over Nd + GitHub issue 자동 발의 + monthly PMO audit cron)"}
+
+design_decisions:
+  Q1:  {chosen: C, decision: "small Epic 3 sub-Story", source: "사용자 confirm"}
+  Q2:  {chosen: C, decision: "hybrid — ADR-032 §8.1→본문 격상 + §9 Caveat 확장 + 신규 ADR-033 enforcement layer"}
+  Q3:  {chosen: C, decision: "grandfathering — production-wired ADR만 quad 의무 + governance ADR triad v1+Caveat"}
+  Q4:  {chosen: C, decision: "N days traffic class 차등 (production-wired=14d / governance=N/A Caveat / trading-hot=market-open rolling)"}
+  Q5:  {chosen: C, decision: "quad 4 evidence flat + counter-emit path triad v1 reapply (meta-recursion 1단 한정)"}
+  Q6:  {chosen: B, decision: "ADR frontmatter class: governance|production|mixed taxonomy"}
+  Q7:  {chosen: C, decision: "Prometheus alert (counter==0 over Nd → critical + GitHub issue) + monthly PMO audit batch"}
+  Q8:  {chosen: C, decision: "per-ADR scope_manifest verify_evidence.telemetry_counter field"}
+  Q9:  {chosen: A, decision: "governance/evidence-quad-runtime-telemetry.md 신규 (triad 페이지 §5 sibling cross-ref)"}
+  Q10: {chosen: C, decision: "market-closed traffic class 차등 (collector=market-open rolling / engine cold=14d / governance=N/A)"}
+
+planned_files:
+  - {path: "docs/adr/ADR-032-verified-badge-evidence-triad.md", action: amend, lines: "~+45", rationale: "§8.1 future-work → 본문 rule 격상 (quad v2 = triad + 4th telemetry) + §9 telemetry_counter_caveat field 추가 + frontmatter class:governance + ADR-033 forward ref"}
+  - {path: "docs/adr/ADR-033-evidence-quad-enforcement-layer.md", action: author, lines: "~+180", rationale: "신규 Proposed. §1 trigger / §2 quad v2 rule (ADR-032 §3 back ref) / §3 class taxonomy / §4 traffic class N days / §5 meta-recursion 1단 / §6 enforcement timing (sub-3 carry) / §7 grandfathering / §8 cross-ref / §9 future-work"}
+  - {path: "docs/domain-knowledge/domain/governance/evidence-quad-runtime-telemetry.md", action: author, lines: "~+130", rationale: "신규. Hyrum's Law 역방향 + runtime fitness function + Counter monotonicity 3 concept + decision-defined/caller-wired/runtime-observed 3-tier invariant. triad 페이지 §5 sibling cross-ref"}
+  - {path: "docs/adr/ADR-029-tier-promotion-single-source.md", action: amend, lines: "~+1", rationale: "frontmatter class: production 추가 (additive, adr_id+category:data 스타일 보존)"}
+  - {path: "docs/adr/ADR-030-docker-stack-governance.md", action: amend, lines: "~+3", rationale: "최소 frontmatter 신규 (--- + class: production + ---) — 기존 # 제목 보존"}
+  - {path: "docs/adr/ADR-031-data-domain-decoupling.md", action: amend, lines: "~+3", rationale: "동형 (최소 frontmatter 신규)"}
+  - {path: "docs/stories/MCT-191.md", action: author, lines: "~+260", rationale: "Story §1-§12 + §8.5 Impl Manifest quad self-reference 첫 적용"}
+  - {path: "scope_manifests/EPIC-evidence-quad-runtime-telemetry.yaml", action: author, lines: "~+200", rationale: "본 Epic + MCT-191 scope_manifest"}
+  - {path: "CLAUDE.md", action: amend, lines: "~+45", rationale: "§EPIC-evidence-quad-runtime-telemetry section 신규"}
+  - {path: ".codeforge/counters.json", action: amend, lines: "~+40", rationale: "Epic 신설 + MCT-191 IN_PROGRESS + MCT-192/193 RESERVED + ADR-033 Proposed (next 191→194)"}
+
+planned_adrs:
+  - {adr_key: ADR-032, action: amend, status: "Accepted (유지)", boundary: "quad v2 rule SSOT (무엇이 evidence)"}
+  - {adr_key: ADR-033, action: author, status: Proposed, boundary: "enforcement layer SSOT (어떻게 강제) + class taxonomy. Accepted=sub-2/3 LAND 후"}
+  - {adr_key: ADR-029, action: "frontmatter class:production", status: "Accepted (유지)"}
+  - {adr_key: ADR-030, action: "frontmatter class:production", status: "POLICY_FINALIZED (유지)"}
+  - {adr_key: ADR-031, action: "frontmatter class:production", status: "POLICY_FINALIZED (유지)"}
+
+verify_evidence:
+  - rule: "Evidence Quad Rule v2 정의 박제 (ADR-032 §8.1→본문 격상 + ADR-033 신규) — ADR-032 self-reference quad 첫 적용"
+    decision_defined_evidence: "docs/adr/ADR-032-*.md §3.2(quad) + docs/adr/ADR-033-*.md §2"
+    caller_wired_evidence: "MCT-191 LAND 시점 0건 (governance ADR singleton, code wiring 0)"
+    caller_wired_caveat: "self-reference Caveat — governance ADR 첫 publication caller_grep 부재 정상 (ADR-032 §9 INV-1 reapply). MCT-192+ 가 ADR-033 §2 quad rule 인용 시 누적 시작"
+    telemetry_counter_caveat: "governance ADR (class:governance) telemetry counter forever 0 정상 — ADR-033 §7 grandfathering (Q3=C production-wired만 quad). false-positive fail 차단 INV (R1 mitigation)"
+    integration_test: "N/A (governance ADR, code wiring 0). doc cross-ref 정합 = ADR-032§8.1↔ADR-033§2 + ADR-033§3↔4 ADR frontmatter class 1:1 reconcile"
+
+risks:
+  - {id: R1, severity: HIGH, description: "ADR-032 §9 Self-reference Caveat quad 호환성 — governance ADR telemetry forever 0 정상 logic 미박제 시 quad verify gate가 governance ADR 자체 영구 fail (자가붕괴)", mitigation: "F-0a 선제 완화 — §9 이미 caller_wired_caveat+INV-1 보유, quad Caveat=telemetry 축 확장. MCT-191이 telemetry_counter_caveat field 박제 self-reference 첫 적용 + Q3=C grandfathering 구조적 면제"}
+  - {id: R2, severity: MEDIUM, description: "ADR-033 신규 ↔ ADR-032 cross-document SSOT drift (MCT-179 8회째 risk)", mitigation: "Q1-Q10 ↔ ADR-033 §1-§9 ↔ scope_manifest 1:1 전수 reconcile (MCT-179 c8e4b8e 패턴) + ADR-032 §8.1→ADR-033 forward + ADR-033 §2→ADR-032 §3 back ref"}
+  - {id: R3, severity: MEDIUM, description: "ADR frontmatter class 4 ADR touch — 3 스타일 비동질 정규화 시 SSOT drift / 분류 오판", mitigation: "additive only invariant — 스타일 보존, class: field만. ADR-030/031 최소 frontmatter 신규. ADR-033 §3 분류표 SSOT"}
+  - {id: R4, severity: LOW, description: "domain knowledge sibling 중복 — triad 페이지 ↔ quad 페이지 desync", mitigation: "quad=4th gate delta만 + triad 페이지 §5 forward ref (DRY)"}
+  - {id: R5, severity: LOW, description: "Phase 0 verify lesson 9회째", mitigation: "doc-only=cross-repo 0 구조적 회피. worktree mct-191-evidence-quad base=origin/main fresh 격리"}
+
+pr_completeness_checklist:
+  pre_merge:
+    - "ADR-032 §8.1→본문 격상 + §9 telemetry_counter_caveat + frontmatter class:governance"
+    - "ADR-033 신규 §1-§9 (Proposed) + ADR-032 §3 back ref"
+    - "ADR-032 §8.1 ↔ ADR-033 §2 양방향 cross-ref 정합"
+    - "ADR-033 §3 class 분류표 ↔ ADR-029/030/031/032 frontmatter class 4건 1:1 reconcile"
+    - "evidence-quad-runtime-telemetry.md 신규 + triad 페이지 §5 sibling cross-ref"
+    - "Q1-Q10 ↔ ADR-033 §1-§9 ↔ scope_manifest 1:1 전수 reconcile (R2)"
+    - "Story MCT-191 §1-§12 + §8.5 Impl Manifest quad self-reference template"
+    - "CLAUDE.md §Epic section + counters.json (Epic+MCT-191/192/193+ADR-033, next 191→194)"
+  post_merge:
+    - "RETRO-MCT-191.md 신규"
+    - "EPIC-RESULTS-EPIC-evidence-quad-runtime-telemetry.md §Story-1 (milestone 1/3)"
+    - "PMO-AUDIT-MCT-191.md §lane gate + verify_evidence quad self-reference verify"
+    - "Story frontmatter COMPLETED + §11 LAND timeline 실 PR sha"
+    - "counters.json MCT-191 COMPLETED + ADR-033 Proposed 유지 (Accepted=sub-2/3 LAND 후)"
+
+next_story: "MCT-192 (sub-2, cross-repo telemetry counter emit) — MCT-191 LAND 후 진입"

@@ -6,6 +6,7 @@ date: 2026-05-14
 related_story: MCT-167
 related_epic: EPIC-tier-promotion-single-source
 category: data
+class: production
 is_transitional: false
 successor_of:
   - ADR-017 (Zero-loss ingestion via WAL + tiered compaction — D3 L1 NAS PUT invariant 확장)

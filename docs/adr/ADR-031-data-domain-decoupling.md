@@ -1,3 +1,7 @@
+---
+class: production
+---
+
 # ADR-031: Data Domain Decoupling — 4-Layer 다중거래소 확장 아키텍처 (engine = data-free + exchange-agnostic pure consumer)
 
 ## Status

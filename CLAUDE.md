@@ -1218,6 +1218,49 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 - **MCT-186 IN_PROGRESS 복귀** (현 hub working tree branch mct-186-phase2-pr2-hub Phase 2 PR2 박제 continuation, ExitWorktree 후 본 working dir 복귀)
 - **MCT-191 reservation 후보** — ADR-032 §7 future-work 1건 owner (triad → quad telemetry counter / CI mechanical gate consumer / process/cross-story-pr-contamination.md governance entry)
 
+## EPIC-evidence-quad-runtime-telemetry (MCT-191 COMPLETED 2026-05-17, milestone 1/3)
+
+> ADR-032 evidence triad v1 → quad v2 확장 (4번째 게이트 runtime telemetry counter ≥1 over N days,
+> Hyrum's Law 역방향 dead-in-prod false-negative 차단). cross-Epic governance singleton extension.
+> 3 sub-Story sequential (MCT-191 doc-only / MCT-192 cross-repo emit / MCT-193 verify gate).
+
+### sub-Story 현황
+
+| seq | Story | 상태 | scope |
+|---|-------|------|-------|
+| 1 | **MCT-191** | **COMPLETED 2026-05-17** | governance amendment doc-only (ADR-032 §8.1→§3.2 본문 격상 + ADR-033 신규 + class taxonomy) |
+| 2 | MCT-192 | RESERVED | cross-repo telemetry counter emit (data+engine) + counter-emit triad v1 reapply |
+| 3 | MCT-193 | RESERVED | post-LAND verify gate (Prometheus alert counter==0 over Nd + monthly PMO audit cron) |
+
+### MCT-191 결과 (10 결정점 Q1-Q10, Codex 일괄 dispatch + Claude 합성 + Q1 사용자 confirm)
+
+Q1=C small Epic 3 sub-Story / Q2=C ADR-032 amend + ADR-033 신규 / Q3=C grandfathering production-wired만 / Q4=C traffic class 차등 N days / Q5=C meta-recursion 1단 / Q6=B class taxonomy / Q7=C alert+PMO audit / Q8=C per-ADR scope_manifest field / Q9=A governance/ 신규 / Q10=C market-closed traffic class 차등.
+
+### ADR 산출
+
+- **ADR-032 amend** — §8.1 future-work → §3.2 Evidence Quad Rule v2 본문 격상 + §9 telemetry_counter_caveat field (governance ADR telemetry forever 0 정상) + frontmatter class:governance (Accepted 유지)
+- **ADR-033 신규** (Proposed, 210 lines §1-§10) — evidence quad enforcement layer. Accepted = sub-2 MCT-192 + sub-3 MCT-193 LAND 후
+- **ADR-029/030/031 frontmatter class:production** additive (R3 — 3 스타일 비동질 보존, 정규화 0)
+
+### Phase 0 verify F-0a 핵심
+
+quad 확장 = ADR-032 §8.1 future-work 본문 격상 (신규 발명 아님) → R1 HIGH (§9 Self-reference Caveat quad 호환성) 선제 완화. §9 이미 caller_wired_caveat + INV-1 forcing function 보유 → quad Caveat = telemetry 축 확장.
+
+### Key References
+
+- Story: `docs/stories/MCT-191.md`
+- spec: `docs/superpowers/specs/2026-05-17-MCT-191-evidence-quad-design.md`
+- plan: `docs/superpowers/plans/2026-05-17-mct-191-evidence-quad.md`
+- ADR-033: `docs/adr/ADR-033-evidence-quad-enforcement-layer.md`
+- ADR-032 §3.2 quad: `docs/adr/ADR-032-verified-badge-evidence-triad.md`
+- domain-knowledge: `docs/domain-knowledge/domain/governance/evidence-quad-runtime-telemetry.md`
+- scope_manifest: `scope_manifests/EPIC-evidence-quad-runtime-telemetry.yaml`
+- parent: ADR-032 §8.1 (MCT-190 LAND hub#375)
+
+### 다음 Story 진입 권고
+
+**MCT-192** (sub-2 cross-repo telemetry counter emit) — MCT-191 Phase 1 PR MERGED ✓ 후 진입.
+
 ## Key References
 
 - ADR-027 §D MCT-161 amendment: `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md`
