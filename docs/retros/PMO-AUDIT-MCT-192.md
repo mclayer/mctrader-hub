@@ -50,7 +50,7 @@ verified_sources:
 | 결정 | ADR-033 §2 quad v2 4번째 게이트 (telemetry_counter ≥1 over N days) 실 cross-repo wiring — ADR-029/030 기존 production-wired counter 재사용 (신규 emit 0) + ADR-031 data realtime_stream.py no-op stub 해소 (신규 emit, dead-in-data 정직 박제) + scope_manifest verify_evidence_telemetry_counter_schema 3 ADR + ADR-033 §본문 per-ADR mapping table |
 | 결과 | COMPLETED 2026-05-17. cross-repo (hub governance docs + data code, **engine DROP**), 3 PR sequential, FIX 1회 (PR-2 ruff SIM105) |
 | 신규/touch 산출물 | **14 file** (PR-1: Story 377 + ADR-033 §본문/§9.1 amend + EPIC scope_manifest sub-2 + counters IN_PROGRESS + spec + plan / PR-2: realtime_stream.py emit + Counter + test 신규 / PR-3: §8.5 + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2 + counters COMPLETED + ADR-033 §9.1 VERIFIED + CLAUDE.md §EPIC 1/3→2/3) |
-| PR | **3 cross-repo sequential** (PR-1 hub#384 c9b9f2c docs → PR-2 data#79 58d99ad squash code + ruff fix fee6186 → PR-3 hub#TBD-post-merge 박제) |
+| PR | **3 cross-repo sequential** (PR-1 hub#384 c9b9f2c docs → PR-2 data#79 58d99ad squash code + ruff fix fee6186 → PR-3 hub#385 (1b4a727 PR-3) 박제) |
 | ADR 산출물 | ADR-033 amendment (§본문 per-ADR counter mapping table + §9.1 sub-2 VERIFIED, Proposed 유지) + ADR-029/030 counter 재사용 (신규 emit 0) + ADR-031 신규 emit (no-op stub 해소) |
 | FIX 루프 | **design lane iter 0** (PR-1 hub docs spec review iter1 PASS — MCT-191 동형 full alignment + R1 false premise 사전 기각) + **code lane iter 1** (PR-2 data#79 ruff SIM105 try/except/pass → contextlib.suppress fee6186) |
 | 9 결정점 채택 | Q1=A / Q2=A / Q3=C / Q4=A / Q5=C / Q6=C / Q7=B / Q8=C / Q9=A — **Codex deviation 0건** (MCT-191 10/10 deviation 0 동형 full alignment 연속 2회) |
@@ -278,6 +278,6 @@ MCT-192 = **quad rule 정의 (MCT-191) → 실 cross-repo telemetry counter wiri
 - spec: `docs/superpowers/specs/2026-05-17-MCT-192-telemetry-emit-design.md` §2 (Q1-Q9 Codex 일괄 dispatch)
 - plan: `docs/superpowers/plans/2026-05-17-mct-192-telemetry-emit.md` (14 file task decomposition, 3 PR sequential)
 - parent audit: `docs/retros/PMO-AUDIT-MCT-191.md` (선례 — PMO Story 완료 감사 패턴 baseline + §7 MCT-192 reservation 발의 근거)
-- 3 PR LAND: hub#384 (c9b9f2c PR-1 docs) + data#79 (58d99ad squash PR-2 code, ruff fix fee6186) + hub#TBD-post-merge (PR-3 박제)
+- 3 PR LAND: hub#384 (c9b9f2c PR-1 docs) + data#79 (58d99ad squash PR-2 code, ruff fix fee6186) + hub#385 (1b4a727 PR-3) (PR-3 박제)
 - upstream escalation: plugin-codeforge#822 (subagent self-report verify gate v1 — escalation evidence row 추가 권고 2건: PMOAgent 2nd pass path verify + implementer 회귀 lint, §4) + #804/#805 (CI mechanical gate consumer carry, ADR-033 §8)
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-evidence-quad-runtime-telemetry.md` §Story-2 (milestone 2/3, post-merge cleanup 산출)
