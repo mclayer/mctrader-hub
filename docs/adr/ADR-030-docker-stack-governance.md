@@ -1,3 +1,7 @@
+---
+class: production
+---
+
 # ADR-030: Docker stack governance — single-host compose + dev/prod profile + image registry + observability
 
 ## Status
