@@ -414,7 +414,9 @@
       "title": "Post-LAND verify gate 운영 method (Prometheus alert counter==0 over Nd + GitHub issue 자동 발의 + monthly PMO audit cron)",
       "reserved_at": "2026-05-17",
       "started_at": "2026-05-17",
-      "status": "IN_PROGRESS",
+      "completed_at": "2026-05-17",
+      "status": "COMPLETED",
+      "epic_milestone": "3/3 POLICY_FINALIZED",
       "worktree": "c:\\workspace\\mclayer\\mctrader-hub\\.claude\\worktrees\\mct-193-verify-gate",
       "worktree_branch": "worktree-mct-193-verify-gate",
       "epic": "EPIC-evidence-quad-runtime-telemetry",
@@ -422,20 +424,26 @@
       "depends_on": ["MCT-192"],
       "repo": "mctrader-hub",
       "phase_pair": "phase1_phase2",
-      "rationale": "EPIC sub-3. quad v2 enforcement timing 실 운영 (Q7=C). Prometheus alert rule (counter==0 over Nd → critical + GitHub issue 자동 발의) + monthly PMO audit batch (classification drift 보정). Q4+Q10=C traffic class 차등 window 운영. 진입 = MCT-192 LAND 후."
+      "decisions": ["Q1-C", "Q2-A", "Q3-A", "Q4-A", "Q5-B", "Q6-A", "Q7-B", "Q8-A"],
+      "land_prs": [
+        "mctrader-hub#387 (3d79e1e PR-1 docs)",
+        "mctrader-hub#TBD (PR-2 alert/cron/박제)"
+      ],
+      "rationale": "EPIC sub-3 (마지막). quad v2 enforcement timing 실 운영 carrier. monitoring/prometheus-alerts.yml 신규 group evidence-quad-enforcement (ADR-029 QuadViolationADR029NoDualWrite + ADR-030 QuadViolationADR030NoCollectorTicks, absent() or increase([14d])==0 critical, Q2=A absent() trap 차단) + .github/workflows/quad-evidence-audit.yml repo 최초 cron (Q3=A alertmanager 부재 → GitHub Action Prometheus HTTP API query → gh issue create, Q5=B schedule monthly + workflow_dispatch hybrid, PROMETHEUS_URL graceful skip MCT-179 D17 패턴). ADR-031 = Q1=C dead-in-data alert 미등록 (rolling gate 영구 fire 차단, MCT-179 §D8 가공 metric 8회째). Q4=A production-wired 14d calendar 단일화 (KRX calendar PromQL 불가, ADR-033 §6.1 R-1 SSOT drift caveat — §4 market-open rolling 후속 carry, MCT-179 cross-doc 9회째). Q6=A 구현 LAND = ADR-033 Proposed→Accepted transition (PR-2 실 LAND 후, false-Accepted 차단). Q7=B EPIC POLICY_FINALIZED 박제 (Epic CLOSED = production evidence carry 별 PR). Q8=A 2 PR (PR-1 docs + PR-2 alert/cron/박제). Codex 8/8 deviation 0 (MCT-191 10/10 + MCT-192 9/9 동형 full alignment 연속 3 Story). reservation rationale Q7=C stale 정정 (실 Q7=B). EPIC milestone 3/3 POLICY_FINALIZED. Epic CLOSED 자체 = production evidence (alert 실 fire + cron 실 issue) carry 별 PR (docker-stack/tier-promotion/data-domain-decoupling 패턴 정합)."
     },
     "ADR-033": {
       "title": "Evidence Quad Enforcement Layer — quad v2 rule + class taxonomy + traffic class N days + meta-recursion 1단 + enforcement timing + grandfathering",
       "reserved_at": "2026-05-17",
       "drafted_at": "2026-05-17",
-      "status": "Proposed (MCT-191 LAND author, Accepted = sub-2 MCT-192 + sub-3 MCT-193 LAND 후)",
+      "accepted_at": "2026-05-17",
+      "status": "Accepted (MCT-191 LAND author → sub-2 MCT-192 LAND → Accepted sub-3 MCT-193 LAND 2026-05-17, alert/cron 운영 carrier VERIFIED → POLICY_FINALIZED EPIC 3/3)",
       "epic": "EPIC-evidence-quad-runtime-telemetry",
       "repo": "mctrader-hub",
       "owner_story": "MCT-191",
       "class": "governance",
       "parent": "ADR-032 §8.1 future-work",
       "expected_sections": "§1 trigger / §2 quad v2 rule (ADR-032 §3 back ref) / §3 class taxonomy (governance|production|mixed) / §4 traffic class N days / §5 meta-recursion 1단 / §6 enforcement timing (sub-3 carry) / §7 grandfathering (production-wired만) / §8 cross-ref / §9 future-work",
-      "rationale": "ADR-032 §8.1 quad future-work 의 enforcement layer SSOT (Q2=C governance vs operational 분리). ADR-032 = quad rule SSOT (무엇이 evidence) / ADR-033 = enforcement layer SSOT (어떻게 강제) + class taxonomy. 양방향 cross-ref 의무 (MCT-179 D-row↔scope_manifest 1:1 reconcile lesson)."
+      "rationale": "ADR-032 §8.1 quad future-work 의 enforcement layer SSOT (Q2=C governance vs operational 분리). ADR-032 = quad rule SSOT (무엇이 evidence) / ADR-033 = enforcement layer SSOT (어떻게 강제) + class taxonomy. 양방향 cross-ref 의무 (MCT-179 D-row↔scope_manifest 1:1 reconcile lesson). status transition: Proposed (MCT-191 LAND) → sub-2 MCT-192 LAND (§9.1 sub-2 VERIFIED telemetry counter emit) → Accepted (sub-3 MCT-193 LAND 2026-05-17, §6 enforcement timing 실 carrier alert/cron VERIFIED, Q6=A 구현 LAND = transition) → POLICY_FINALIZED (EPIC-evidence-quad-runtime-telemetry 3/3 milestone COMPLETED, MCT-193 sub-3 LAND 시점)."
     }
   }
 }
