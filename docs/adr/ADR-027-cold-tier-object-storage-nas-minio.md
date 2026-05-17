@@ -244,6 +244,44 @@ Cross-references: Story `docs/stories/MCT-160.md` §1-§11 + scope_manifest `EPI
 - EPIC-compactor-operations milestone 3/3 closure gate
 - ADR-027 §D5 (hot path 무영향, INV-1 정합)
 
+**INCIDENT-2026-05-17 amendment 박제 (2026-05-18)** — NAS PUT 4xx fail-fast (silent fallback 차단). disk pressure 117GB incident retro (mctrader-data#94) §6 carry-over Action Item 1 + cross-repo PMO audit (mctrader-hub#394) ADR 후보 #1 trigger.
+
+**Background**: INCIDENT-2026-05-17 의 6 가설 디버깅 중 H4 = "NAS PUT 4xx silent fallback" 박제. 운영 실측: `dual_writer.put_l1` / `_dispatch_dual_write` / `put_streaming` 의 4xx (401/403/AccessDenied 등 auth/policy 오류) 와 5xx (5XX/EndpointConnectionError NAS 일시 unreachable) 가 동일 분기 처리 — 양자 모두 `retry_queue.enqueue` 흡수 → `status="queued"` → `DualWriteResult.status="local_only"` → caller (compactor.runner) 가 source delete OK 판단. 결과 = (1) auth/policy 영구 오류 시 retry_queue 가 무한 backlog 누적 (운영자 인지 0, 백오프만 발생), (2) Prometheus alert 부재 (4xx 별 Counter 0), (3) ADR-027 Amendment 1 (MCT-160) `compactor_quarantine_total` + Amendment 2 (MCT-164) `compactor_unsupported_source_total` 와 동형 silent-skip pathology 가 NAS PUT 결과 처리 차원에서 잔존. ADR-027 §D6 7종 invariant 가 검증 path 만 다루고 *upload result path 의 silent-skip 차단* 정책 부재 = 박제 누락.
+
+**4xx vs 5xx 처리 분리 (Decision)**:
+
+1. **NAS PUT 4xx (auth/policy/quota 영구 오류) fail-fast 의무 (D5 amend)**:
+   - boto3 `ClientError` code ∈ {`401`, `403`, `AccessDenied`, `InvalidAccessKeyId`, `SignatureDoesNotMatch`, `NoSuchBucket`, `QuotaExceeded`, `StorageClassNotSupported`} 발견 시 **retry_queue 흡수 금지 + NASOperationalAlert raise 의무**.
+   - caller (`DualWriter.write` / `DualWriter.put_l1` / `_dispatch_dual_write`) 가 4xx 별 분기 + 상위로 propagate. compactor loop 는 본 iteration 차단 (silent skip 금지) + 다음 segment 진행 결정은 caller scope (현행 outer try/except 자연 catch + log 가시화).
+   - **Rationale**: 4xx = 운영자 개입 의무 (key rotation / IAM policy / bucket 재생성). retry_queue 흡수 시 자동 해소 0, 무한 backlog 누적만 발생.
+2. **NAS PUT 5xx (5XX server error) + EndpointConnectionError = 현행 유지** (D5 base 정합):
+   - retry_queue.enqueue → `status="queued"` 흡수 (raise 0, hot path 무영향).
+   - 일시 unreachable 은 backoff drain 으로 자연 회복 가능 — 4xx 와 본질 다름.
+3. **Prometheus emit 의무 (silent-skip 차단 surface)**:
+   - `mctrader_nas_put_operational_alert_total{tier, reason}` Counter +1 (4xx 분기 진입 시).
+   - reason ∈ {`auth_failed`, `policy_denied`, `quota_exceeded`, `bucket_missing`} bounded low cardinality.
+   - Grafana alert 임계 1+ 의무 (Phase 2 후속 ops Story scope).
+4. **D6 7종 invariant 정합**: 본 amendment = upload **result** path 의 silent-skip 차단 (D6 = verify path). 양자 disjoint + 함께 forward-only invariant (ADR-009 §D12.2) 강화. D6 wording 변경 0.
+5. **Out-of-scope (본 amendment 한계)**:
+   - bucket policy / IAM 운영 복원 = ops/infra runbook 영역 (별 인계, MCT-200 EPIC carry-over).
+   - retry_queue drain backoff 전략 변경 0 (5xx 분기 base 그대로).
+   - 4xx 분기 시 local 보존 / unlink 결정 = `caller scope` (compactor.runner 가 promote_l1 verify path 통과 여부로 결정, 본 amendment 무영향).
+
+**검증 의무**:
+
+- AC-1: testcontainers MinIO 4xx mock (403 AccessDenied) 주입 → `_dispatch_dual_write` 가 `NASOperationalAlert` raise + Counter `mctrader_nas_put_operational_alert_total{reason="policy_denied"}` += 1.
+- AC-2: 5xx mock 주입 → 현행 동작 보존 (retry_queue enqueue + `status="queued"` return, raise 0).
+- AC-3: ADR-027 §D6 7종 invariant 회귀 0 (verify path 무관성 입증).
+
+**Cross-ref**:
+
+- INCIDENT-2026-05-17 retro `mctrader-data#94` §6 carry-over Action Item 1
+- mctrader-hub#394 PMO audit ADR 후보 #1
+- ADR-027 Amendment 1 (MCT-160 — cadence path silent-skip) sibling
+- ADR-027 Amendment 2 (MCT-164 — source channel silent-skip) sibling
+- ADR-027 §D6 7종 invariant (verify path) disjoint cross-link
+- ADR-009 §D12.2 forward-only invariant 강화
+
 ### D5. Failure mode — compactor retry queue + alert, hot path 무영향 (MCT-167 amend: L1 NAS dual-write 도입 + capacity-bounded ingest block)
 
 NAS unreachable 시:
@@ -648,3 +686,4 @@ cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D7 VERIFIED (MCT-188 L
 - 2026-05-13 — **D4/D6/D9 amendment** (MCT-159, EPIC-cold-tier-stage-3-wiring sibling — L2/L3 cold tier backlog NAS migration). Stage 3 wiring (MCT-156 LAND) 후 hot pipeline NAS PUT 정상화되었으나 wiring 이전 로컬 누적 L2/L3 backlog (8.85 GiB / 7118 file, orderbooksnapshot + transaction × L2/L3) 의 자연 cadence 적용 외 영역 (orderbookdepth channel NotImplementedError 영구 fail, L2 자연 trigger ETA 9.2h 무효). D4 = backlog migration wiring obligation 박제 (MCT-153 BackfillOrchestrator channel parametrize + hour key 처리 2 amendment 후 재호출). D6 = 7종 invariant ALL PASS gate backlog path 자동 적용 명시 (MCT-151 InvariantHarness inject, wording 변경 0). D9 = mixed layout 재해석 (RETRO-MCT-156 §13.5.2 박제 — legacy NAS 4.2 GiB 손실 확정으로 (a) 사실상 무존재, reader fallback 의존 0, local source 보존 = forward-only invariant 위반 0, MCT-161 reserve 별 Story versioning 활성화 책임).
 - 2026-05-14 — **MCT-164 amendment** (multi-channel exchange silent-skip 차단). ADR-027 Amendment 1 (MCT-160 cadence path) sibling — multi-channel source 영역 확장. L1/L2/L3 compactor 의 미지원 source channel = fail-fast + `compactor_unsupported_source_total{tier,exchange,channel}` Counter emit + channel matrix SSOT dispatch 의무. MCT-165 V2 verify 잔존 YES (upbit L1 partition 0) trigger. ADR-017 Amendment (channel matrix SSOT) sibling.
 - 2026-05-14 — **MCT-161 amendment** (NAS bucket versioning + Object Lock governance 30d + Lifecycle ILM + DR runbook). EPIC-compactor-operations milestone 3/3 closure gate. MCT-153 4.2 GiB 손실 prevention + DR. Decision 8 (versioning Enable / Object Lock 30d / NoncurrentVersionExpiration 30d / DeleteMarker replication OFF / hot path 무영향 INV-1 / DR runbook 5-step / replication 후속 별 backlog Story D2=D / btrfs snapshot runbook 박제만 D6=B). EPIC-tier-promotion-single-source D9 prerequisite (MCT-161+163 sequential, MCT-167 governance prerequisite consumer).
+- 2026-05-18 — **INCIDENT-2026-05-17 amendment** (NAS PUT 4xx fail-fast — silent fallback 차단, §D5 amend). disk pressure 117GB incident retro (`mctrader-data#94`) §6 carry-over Action Item 1 + cross-repo PMO audit (`mctrader-hub#394`) ADR 후보 #1 trigger. 4xx (auth/policy/quota 영구 오류) vs 5xx (5XX server / EndpointConnectionError unreachable) 처리 분리 — 4xx = `NASOperationalAlert` raise + `mctrader_nas_put_operational_alert_total{tier,reason}` Counter emit (retry_queue 흡수 금지), 5xx = 현행 retry_queue queued 흡수 유지. ADR-027 Amendment 1 (MCT-160 cadence path) + Amendment 2 (MCT-164 source channel) sibling — *upload result path* 의 silent-skip 차단 (D6 verify path 와 disjoint). ADR-009 §D12.2 forward-only invariant 강화. 검증 의무 = `mctrader-data` 의 testcontainers MinIO 4xx mock + 5xx 회귀 + D6 7종 invariant 회귀 0.
