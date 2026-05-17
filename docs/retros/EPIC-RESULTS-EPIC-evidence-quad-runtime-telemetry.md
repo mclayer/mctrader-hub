@@ -265,15 +265,15 @@ function 누적 효과 실증 (PMO KPI 입력).
 | Q1 | small Epic 3 sub-Story | C | epic-level | **VERIFIED** (사용자 confirm) |
 | Q2 | hybrid ADR carrier (ADR-032 본문 격상 + ADR-033 신규) | C | MCT-191 | **VERIFIED 2026-05-17** (ADR-033 Proposed + ADR-032 amend LAND) |
 | Q3 | grandfathering (production-wired만 quad) | C | MCT-191 | **VERIFIED 2026-05-17** (ADR-033 §7 박제) |
-| Q4 | N days traffic class 차등 | C | MCT-191 rule + MCT-193 운영 | **partial VERIFIED** (rule 박제, 운영 = MCT-193) |
-| Q5 | quad 4 evidence flat + counter-emit triad v1 reapply | C | MCT-191 rule + MCT-192 적용 | **partial VERIFIED** (rule 박제, 적용 = MCT-192) |
+| Q4 | N days traffic class 차등 | C | MCT-191 rule + MCT-193 운영 | **VERIFIED 2026-05-17** (rule 박제 + MCT-193 운영 LAND — Q4=A 14d calendar 단일화, market-open rolling = R-1 §6.1 caveat 후속 carry) |
+| Q5 | quad 4 evidence flat + counter-emit triad v1 reapply | C | MCT-191 rule + MCT-192 적용 | **VERIFIED 2026-05-17** (rule 박제 + MCT-192 counter-emit triad v1 reapply LAND) |
 | Q6 | ADR frontmatter class taxonomy | B | ADR-033 §3 + MCT-191 reapply | **VERIFIED 2026-05-17** (4 ADR frontmatter LAND) |
-| Q7 | Prometheus alert + monthly PMO audit | C | MCT-193 | RESERVED (sub-3 owner) |
-| Q8 | scope_manifest verify_evidence.telemetry_counter field | C | MCT-191 schema + MCT-192 적용 | **partial VERIFIED** (schema 박제, 적용 = MCT-192) |
+| Q7 | Prometheus alert + monthly PMO audit | C | MCT-193 | **VERIFIED 2026-05-17** (sub-3 MCT-193 LAND — `evidence-quad-enforcement` group 2 alert + `quad-evidence-audit.yml` repo 최초 cron LAND, ADR-033 §6.1/§9.2 VERIFIED) |
+| Q8 | scope_manifest verify_evidence.telemetry_counter field | C | MCT-191 schema + MCT-192 적용 | **VERIFIED 2026-05-17** (schema 박제 + MCT-192 3 ADR verify_evidence_telemetry_counter_schema 적용 LAND) |
 | Q9 | governance/evidence-quad-runtime-telemetry.md 신규 | A | MCT-191 | **VERIFIED 2026-05-17** (126 lines LAND + triad §5 cross-ref) |
-| Q10 | market-closed traffic class 차등 | C | MCT-191 rule + MCT-193 운영 | **partial VERIFIED** (rule 박제, 운영 = MCT-193) |
+| Q10 | market-closed traffic class 차등 | C | MCT-191 rule + MCT-193 운영 | **VERIFIED 2026-05-17** (rule 박제 + MCT-193 운영 LAND — Q4=A 14d 단일화 정합, market-open rolling = R-1 §6.1 caveat 후속 carry) |
 
-→ Codex deviation 0건. R2 mitigation (MCT-179 8회째 cross-document SSOT drift risk) = Q1-Q10
+→ Codex deviation 0건. **EPIC POLICY_FINALIZED 3/3 (2026-05-17) — Q1-Q10 전수 VERIFIED** (sub-Story owner 전수 COMPLETED, partial/RESERVED 잔존 0, PMO-AUDIT-MCT-193 §4.1 EPIC-level 종결 감사 SSOT 정합). R2 mitigation (MCT-179 8회째 cross-document SSOT drift risk) = Q1-Q10
 ↔ ADR-033 §1-§9 ↔ scope_manifest design_decisions 1:1 전수 reconcile + ADR-032 §8.1→ADR-033
 forward + ADR-033 §2→ADR-032 §3 back ref.
 
