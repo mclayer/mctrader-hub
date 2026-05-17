@@ -9,7 +9,7 @@ fix_loop_count: 1
 land_prs:
   - "mctrader-hub#384 (c9b9f2c PR-1 hub Phase 1 docs — Story + ADR-033 §3.2 counter mapping table + scope_manifest sub-2 + counters IN_PROGRESS, MERGED 2026-05-17)"
   - "mctrader-data#79 (58d99ad squash PR-2 Phase 2 PR1 code — realtime_stream.py _emit_failure_counter no-op stub 해소 + metrics.py Counter + test, ruff SIM105 fix fee6186, MERGED 2026-05-17)"
-  - "mctrader-hub#TBD-post-merge (PR-3 hub Phase 2 PR2 박제 — §8.5 Impl Manifest + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2)"
+  - "mctrader-hub#385 (1b4a727 PR-3) (PR-3 hub Phase 2 PR2 박제 — §8.5 Impl Manifest + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2)"
 duration:
   start: "2026-05-17"
   end: "2026-05-17"
@@ -31,7 +31,7 @@ MCT-192 = ADR-033 §2 quad v2 4번째 게이트 (`telemetry_counter ≥1 over N 
 3 PR cross-repo sequential LAND:
 1. **PR-1 hub#384** (c9b9f2c) — Story + ADR-033 §3.2 per-ADR counter mapping table + scope_manifest sub-2 + verify_evidence_telemetry_counter_schema 3 ADR + counters IN_PROGRESS + spec + plan
 2. **PR-2 data#79** (58d99ad squash) — realtime_stream.py `_emit_failure_counter()` no-op → `.inc()` + Counter 정의 + 주석 MCT-186→MCT-192 정정 + test 신규 + **ruff SIM105 fix fee6186** (try/except/pass → contextlib.suppress)
-3. **PR-3 hub#TBD-post-merge** (본 RETRO 산출) — Story §8.5 Impl Manifest + §11 LAND timeline 실 PR# + counters COMPLETED + ADR-033 §9.1 sub-2 VERIFIED + CLAUDE.md §EPIC 1/3→2/3 + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2
+3. **PR-3 hub#385 (1b4a727 PR-3)** (본 RETRO 산출) — Story §8.5 Impl Manifest + §11 LAND timeline 실 PR# + counters COMPLETED + ADR-033 §9.1 sub-2 VERIFIED + CLAUDE.md §EPIC 1/3→2/3 + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2
 
 ### 1.2 9 결정점 (Codex 일괄 dispatch + Claude 합성, deviation 0)
 
@@ -95,7 +95,7 @@ session prompt / PMO-AUDIT-MCT-191 §7 권고 = "cross-repo telemetry counter em
 | MCT-189 | ADR-029 §D3 wiring 완결 + cross-Story PR contamination 첫 박제 | 4 PR sequential | 정직 박제 (lessons 3건) |
 | MCT-190 | ADR-032 본문 author + §5 보강 + memory amendment | 1 PR bundle (hub#375) + post-merge | self-reference Caveat 박제 (Q2 deviation 1건) |
 | MCT-191 | ADR-032 §8.1→§3.2 격상 + ADR-033 신규 + class taxonomy | 1 PR bundle (hub#382) + post-merge | quad self-reference 첫 적용 (deviation 0건) |
-| **MCT-192** | **cross-repo telemetry counter emit (ADR-029/030 재사용 + ADR-031 신규 emit, engine DROP)** | **3 PR cross-repo sequential (hub#384 + data#79 + hub#TBD-post-merge)** | **quad 4th gate 첫 실 wiring + dead-in-data 정직 박제 (deviation 0건)** |
+| **MCT-192** | **cross-repo telemetry counter emit (ADR-029/030 재사용 + ADR-031 신규 emit, engine DROP)** | **3 PR cross-repo sequential (hub#384 + data#79 + hub#385 (1b4a727 PR-3))** | **quad 4th gate 첫 실 wiring + dead-in-data 정직 박제 (deviation 0건)** |
 
 → governance Story 패턴 진화: MCT-184 (incomplete) → MCT-189 (4 PR + 정직 박제) → MCT-190 (1 PR bundle + self-reference Caveat) → MCT-191 (1 PR bundle 안정화 + quad self-reference 첫 적용) → **MCT-192 (quad rule 정의 → 실 cross-repo wiring 전환, ADR-032 evidence triad → quad reapply 실 시점)**. MCT-191 = quad rule SSOT 정의 (caller_wired + telemetry "0건" self-reference Caveat) → **MCT-192 = quad evidence 실 누적 시작 시점** (ADR-029/030 production-wired counter 14d + ADR-031 test-injected only dead-in-data).
 
@@ -171,4 +171,4 @@ self-reference Caveat telemetry 축 reapply:
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-evidence-quad-runtime-telemetry.md` §Story-2 (milestone 2/3, post-merge 산출)
 - 선례 RETRO: `docs/retros/RETRO-MCT-191.md` (Orchestrator self-write SSOT, CFP-138/ADR-045 4-field schema, lesson 4건 + deviation 0)
 - upstream: plugin-codeforge#822 (subagent self-report verify gate v1 — escalation evidence row 추가 후보 2건: PMOAgent 2nd pass path verify + implementer 회귀 lint) + #804/#805 (CI mechanical gate consumer carry, ADR-033 §8)
-- LAND: hub#384 (c9b9f2c PR-1 docs) + data#79 (58d99ad squash PR-2 code + ruff fix fee6186) + hub#TBD-post-merge (PR-3 박제 — counters COMPLETED + Story §11 + 본 RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2)
+- LAND: hub#384 (c9b9f2c PR-1 docs) + data#79 (58d99ad squash PR-2 code + ruff fix fee6186) + hub#385 (1b4a727 PR-3) (PR-3 박제 — counters COMPLETED + Story §11 + 본 RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2)
