@@ -93,6 +93,26 @@ SSOT 분류 기준.
 > ADR-030·031 frontmatter 부재 / ADR-032·033 `adr_key`+`status`) 보존. `class:` field
 > 만 additive 추가 — 정규화 금지 (SSOT drift 차단, F-0b).
 
+### §3.2 per-ADR Telemetry Counter Mapping (Q5=C — governance 중앙 reference)
+
+production-wired ADR 의 quad 4번째 게이트 counter SSOT. drift 시 scope_manifest
+`verify_evidence_telemetry_counter_schema` (per-Epic 실행 SSOT) 우선.
+
+| ADR | counter | labels | quad_query | emit_location | traffic_class |
+|-----|---------|--------|-----------|---------------|---------------|
+| ADR-029 | `mctrader_dual_write_result_total` | {status,tier} | `increase(mctrader_dual_write_result_total{status="success"}[14d]) >= 1` | mctrader-data compactor/runner.py:285 (MCT-189 LAND 재사용, 신규 emit code 0) | production-wired 14d |
+| ADR-030 | `mctrader_collector_ticks_total` | {exchange,symbol} | `increase(mctrader_collector_ticks_total[14d]) >= 1` | mctrader-data collector.py:189 record_collector_tick (MCT-180/179 LAND 재사용, 신규 emit code 0) | trading-hot market-open rolling |
+| ADR-031 | `mctrader_data_redis_stream_publish_failures_total` | (none) | `increase(mctrader_data_redis_stream_publish_failures_total[14d]) >= 0` | mctrader-data api/realtime_stream.py:147-154 (MCT-192 신규 emit, no-op stub 해소) | test-injected only (publish_tick producer caller=0 src grep verified, dead-in-data — Q8=C MCT-192 단발성 실증, production rolling=MCT-193 sub-3) |
+
+**SSOT precedence**: scope_manifest `verify_evidence_telemetry_counter_schema` (per-Epic
+실행 SSOT) > 본 table (governance reference). drift 시 scope_manifest 우선 (Q5=C).
+
+**ADR-031 dead-in-data 정직 박제**: `publish_tick` producer caller = 0건 (src grep
+verified, MCT-185 LAND realtime_stream = dead-in-data). engine subscriber = ADR-031
+consumer (telemetry zero 정상, engine DROP). production caller-wired = MCT-186 engine
+cutover 후 또는 MCT-193 rolling gate prerequisite. MCT-179 §D8 가공 metric 7회째 차단 =
+traffic_class 정직 박제 (test-injected only).
+
 ## §4 Traffic class 차등 N days window (Q4 + Q10 = C)
 
 quad 4번째 게이트 N days window 는 traffic class 별 차등 (single 14d 적용 시
@@ -181,6 +201,12 @@ mctrader-data (collector / api) + mctrader-engine (data_client / realtime / cold
 production code path 에 telemetry counter emit 신규. counter-emit code path = §5
 meta-recursion 1단 triad v1 reapply 의무 (counter 정의 file:line + caller grep ≥1 +
 integration test PASS).
+
+- **§9.1 sub-2 (MCT-192)**: PR-1 docs LAND (본 §본문 counter mapping table + scope_manifest
+  verify_evidence_telemetry_counter_schema). PR-2 mctrader-data realtime_stream.py emit
+  (no-op stub 해소) + PR-3 박제 후 **VERIFIED** (PR-3 amend). ADR-029/030 = 기존 counter
+  재사용 (신규 emit 0, MCT-189/179 triad 재인용), ADR-031 = realtime_stream 신규 emit +
+  counter-emit triad v1 reapply.
 
 ### §9.2 sub-3 MCT-193 — post-LAND verify gate 운영 method
 
