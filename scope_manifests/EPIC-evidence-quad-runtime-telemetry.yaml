@@ -14,7 +14,7 @@ sub_stories:
   - {key: MCT-192, seq: 2, status: IN_PROGRESS, repo: "mctrader-hub + mctrader-data (engine DROP)", depends_on: [MCT-191], phase_pair: phase1_phase2,
      decisions: ["Q1-A","Q2-A","Q3-C","Q4-A","Q5-C","Q6-C","Q7-B","Q8-C","Q9-A"],
      scope: "cross-repo telemetry counter emit (data only, engine DROP) + counter-emit triad v1 reapply (ADR-031 신규 emit)"}
-  - {key: MCT-193, seq: 3, status: RESERVED,    depends_on: [MCT-192], phase_pair: phase1_phase2, scope: "post-LAND verify gate (over-Nd rolling + Prometheus alert counter==0 over Nd + GitHub issue 자동 발의 + monthly PMO audit cron, Q8=C boundary)"}
+  - {key: MCT-193, seq: 3, status: IN_PROGRESS, repo: "mctrader-hub (cross-repo 0)", depends_on: [MCT-192], phase_pair: phase1_phase2, decisions: ["Q1-C","Q2-A","Q3-A","Q4-A","Q5-B","Q6-A","Q7-B","Q8-A"], scope: "post-LAND verify gate — prometheus-alerts.yml quad alert + .github/workflows quad-evidence-audit.yml 신규 cron (repo 최초) + ADR-033 §6 VERIFIED + Accepted + EPIC POLICY_FINALIZED"}
 
 design_decisions:
   Q1:  {chosen: C, decision: "small Epic 3 sub-Story", source: "사용자 confirm"}
@@ -98,6 +98,66 @@ mct_192_pr_completeness_checklist:
   PR-1_hub_docs: ["Story MCT-192.md create", "ADR-033 §본문 mapping table + §9.1 draft amend", "scope_manifest sub-2 + verify_evidence 3 ADR amend", "counters MCT-192 IN_PROGRESS", "DesignReview PASS gate"]
   PR-2_data_code: ["realtime_stream.py _emit_failure_counter no-op → .inc() + Counter 정의", "주석 MCT-186→MCT-192 정정", "counter-emit triad v1 (file:line+caller grep+integration test)", "tests/api/test_realtime_stream_counter.py create", "회귀 0", "CodeReview PASS gate"]
   PR-3_hub_archive: ["Story §8.5 Impl Manifest (3 ADR quad evidence)", "§11 LAND timeline 3 PR sha", "RETRO-MCT-192 (trust-but-verify Lesson)", "PMO-AUDIT-MCT-192 (R1 false premise 기각)", "EPIC-RESULTS §Story-2 milestone 2/3", "counters COMPLETED", "ADR-033 §9.1 VERIFIED", "CLAUDE.md §EPIC 2/3", "gate:retro-complete label"]
+
+# --- MCT-193 (sub-3) post-LAND verify gate — Codex 8 결정점 (Q1-C~Q8-A, 8/8 정합 deviation 0) ---
+mct_193_decisions:
+  Q1: {chosen: C, decision: "ADR-031 alert 미등록 + caveat 박제 (dead-in-data, engine MCT-186 cutover 후 별 Story enable, rolling gate 영구 fire 차단 — MCT-179 §D8 8회째 mitigation). ADR-029/030 만 alert carrier"}
+  Q2: {chosen: A, decision: "alert PromQL = absent(<counter>) or increase(<counter>[14d]) == 0 (never-emitted + emitted-no-inc 양쪽, absent() trap 차단)"}
+  Q3: {chosen: A, decision: "GitHub issue carrier = GitHub Action cron Prometheus HTTP API query → quad violation gh issue create (alertmanager 부재 정합). prometheus-alerts.yml alert = 보조 visibility"}
+  Q4: {chosen: A, decision: "production-wired 14d calendar 단일화 (KRX calendar PromQL 불가 — market-open rolling 후속 carry). R-1: ADR-033 §4 SSOT drift caveat 박제 의무"}
+  Q5: {chosen: B, decision: "PMO audit cron = schedule(monthly) + workflow_dispatch hybrid (정상 silent / drift·violation 자동 issue, repo 최초 cron risk mitigation)"}
+  Q6: {chosen: A, decision: "ADR-033 §6 VERIFIED + Accepted = alert+cron LAND 시 즉시 transition. frontmatter 전환 = PR-2 (실 LAND 후, false-Accepted 차단)"}
+  Q7: {chosen: B, decision: "EPIC POLICY_FINALIZED = MCT-193 sub-3 박제 (3/3 + ADR-033 Accepted). Epic CLOSED = production evidence carry 별 PR (docker-stack/tier-promotion/data-domain-decoupling 패턴)"}
+  Q8: {chosen: A, decision: "2 PR — PR-1 Phase 1 docs / PR-2 alert+cron+박제 통합 (hub 단독 cross-repo 0)"}
+
+mct_193_quad_alert_spec:
+  alert_group: "evidence-quad-enforcement (monitoring/prometheus-alerts.yml 신규 group, mctrader-docker-stack sibling, MCT-179 헤더 주석 패턴)"
+  ADR-029: {alert: "QuadViolationADR029NoDualWrite", expr: 'absent(mctrader_dual_write_result_total{status="success"}) or increase(mctrader_dual_write_result_total{status="success"}[14d]) == 0', severity: critical, for: "0m", annotation: "ADR-029 quad violation — dual_write success 14d 무증가 (dead-in-prod 의심). production-wired 14d. SSOT=ADR-033 §3.2 / scope_manifest verify_evidence_telemetry_counter_schema.ADR-029"}
+  ADR-030: {alert: "QuadViolationADR030NoCollectorTicks", expr: 'absent(mctrader_collector_ticks_total) or increase(mctrader_collector_ticks_total[14d]) == 0', severity: critical, for: "0m", annotation: "ADR-030 quad violation — collector ticks 14d 무증가. Q4=A 14d 단일화 (ADR-033 §4 trading-hot market-open rolling SSOT drift caveat R-1, market-open rolling 후속 carry)"}
+  ADR-031: {alert: "(미등록 — Q1=C caveat)", rationale: "dead-in-data (publish_tick caller=0, MCT-192 caller_wired_evidence_caveat). engine MCT-186 cutover 후 별 Story enable. rolling gate 영구 fire 차단 (MCT-179 §D8 8회째). ADR-033 §3.2 traffic_class='test-injected only' 정합"}
+
+mct_193_cron_workflow_spec:
+  path: ".github/workflows/quad-evidence-audit.yml"
+  precedent: "repo 최초 cron (12 workflow schedule: 0건 — git ls verify)"
+  trigger: "on.schedule(cron monthly) + on.workflow_dispatch (Q5=B hybrid, 선례 0 risk → 수동 fallback)"
+  logic: "Prometheus HTTP API query (PROMETHEUS_URL env/secret) → ADR-029/030 quad_query 평가 → violation 시 gh issue create (Q3=A) + class taxonomy drift audit row"
+  secret_dependency: "PROMETHEUS_URL (미검증 가정 — Phase 2 verify 의무 R-4). 부재 시 graceful skip + warning (hard fail 금지 — MCT-179 D17 graceful skip 패턴)"
+  permissions: "issues: write (gh issue create GITHUB_TOKEN 기본 권한)"
+
+mct_193_planned_files:
+  PR-1_hub_docs:
+    - {path: "docs/stories/MCT-193.md", action: create}
+    - {path: "docs/adr/ADR-033-evidence-quad-enforcement-layer.md", action: amend, detail: "§6 VERIFIED amendment box draft + §4 SSOT drift caveat (R-1) + §9.2 sub-3 draft. frontmatter Proposed 유지 (PR-1)"}
+    - {path: "scope_manifests/EPIC-evidence-quad-runtime-telemetry.yaml", action: amend, detail: "sub-3 정밀화 + mct_193_* 6 블록"}
+    - {path: ".codeforge/counters.json", action: amend, detail: "MCT-193 RESERVED → IN_PROGRESS"}
+    - {path: "docs/superpowers/specs/2026-05-17-MCT-193-verify-gate-design.md", action: create}
+    - {path: "docs/superpowers/plans/2026-05-17-mct-193-verify-gate.md", action: create}
+  PR-2_hub_alert_cron_archive:
+    - {path: "monitoring/prometheus-alerts.yml", action: amend, detail: "신규 group evidence-quad-enforcement + ADR-029/030 2 alert (absent() or increase()==0). ADR-031 미등록 caveat 주석"}
+    - {path: ".github/workflows/quad-evidence-audit.yml", action: create, detail: "repo 최초 cron — schedule+workflow_dispatch + Prometheus HTTP API + gh issue + drift audit + PROMETHEUS_URL graceful skip"}
+    - {path: "docs/adr/ADR-033-evidence-quad-enforcement-layer.md", action: amend, detail: "§6 VERIFIED 확정 + §4 caveat 확정 + frontmatter Proposed → Accepted (Q6=A) + §9.2 VERIFIED 2026-05-17"}
+    - {path: "docs/stories/MCT-193.md", action: amend, detail: "§8.5 Impl Manifest + §11 LAND timeline 2 PR sha + frontmatter COMPLETED"}
+    - {path: ".codeforge/counters.json", action: amend, detail: "MCT-193 IN_PROGRESS → COMPLETED + ADR-033 Proposed → Accepted + EPIC POLICY_FINALIZED + decisions Q1-Q8 정정 (reservation Q7=C stale)"}
+    - {path: "docs/retros/RETRO-MCT-193.md", action: create, detail: "FIX Ledger + repo 최초 cron lesson + absent() trap mitigation lesson"}
+    - {path: "docs/retros/PMO-AUDIT-MCT-193.md", action: create, detail: "§lane gate + EPIC POLICY_FINALIZED 감사 + KPI 갱신 + EPIC CLOSED prereq registry"}
+    - {path: "docs/retros/EPIC-RESULTS-EPIC-evidence-quad-runtime-telemetry.md", action: amend, detail: "§Story-3 + milestone 3/3 + POLICY_FINALIZED + §3.5 PR-3 #TBD→#385 carry 정정 (PMO-AUDIT-MCT-192 §(4)-(a))"}
+    - {path: "CLAUDE.md", action: amend, detail: "§EPIC 2/3 → 3/3 POLICY_FINALIZED + EPIC CLOSED prereq registry"}
+
+mct_193_land_order: "PR-1 hub docs (ADR-033 §6 + counter SSOT 선행) → PR-2 alert/cron/박제 (Accepted + POLICY_FINALIZED). single-repo sequential 2 PR"
+
+mct_193_risks:
+  - {id: R-1, severity: HIGH, desc: "ADR-033 §3.2 line 104 + §4 line 125 (ADR-030 trading-hot market-open rolling KRX 75h) ↔ Q4=A 14d 단일화 SSOT drift (MCT-179 cross-doc 9회째)", mitigation: "Q4=A = KRX calendar PromQL 구조적 불가. ADR-033 §6 VERIFIED amendment box 에 'Q4=A 14d 단일화 채택, §4 market-open rolling = KRX calendar PromQL 한계 후속 carry' caveat 명시 박제. Q4=A ↔ ADR-033 §4 amendment ↔ alert yaml comment 3-source 1:1 reconcile (PR-1 DesignReview 핵심 gate, MCT-179 c8e4b8e 패턴)"}
+  - {id: R-2, severity: HIGH, desc: "ADR-031 dead-in-data alert 영구 fire (MCT-179 §D8 가공 metric 8회째)", mitigation: "Q1=C ADR-031 alert 미등록 + caveat. ADR-033 §3.2 traffic_class='test-injected only' + caller_wired_evidence_caveat 정합. engine MCT-186 cutover 후 별 Story enable"}
+  - {id: R-3, severity: MEDIUM, desc: "absent() trap — production counter 배포 직후 series 미존재 false-positive", mitigation: "Q2=A absent() never-emitted 의도. Q3=A cron primary carrier → false-positive 영향 = cron issue 한정 (alert page 아님). 배포 grace caveat 박제 (RETRO lesson)"}
+  - {id: R-4, severity: MEDIUM, desc: "PROMETHEUS_URL secret 미검증 (repo 최초 cron HTTP API 접근성)", mitigation: "Phase 2 verify 의무 (gh secret list). 부재 시 graceful skip (MCT-179 D17 패턴). Q5=B workflow_dispatch fallback. secret 등록 = EPIC CLOSED prereq carry"}
+  - {id: R-5, severity: MEDIUM, desc: "repo 최초 cron 선례 0 (12 workflow schedule: 0건)", mitigation: "Q5=B schedule+workflow_dispatch 병행 수동 검증 path. permissions issues:write 명시. Phase 2 workflow_dispatch dry-run 의무"}
+  - {id: R-6, severity: LOW, desc: "박제 PR incomplete (MCT-184 3호)", mitigation: "pr_completeness_checklist PR-2 9 항목 전수. EPIC-RESULTS §3.5 #TBD→#385 carry 정정 = MCT-192 carry 흡수"}
+
+mct_193_pr_completeness_checklist:
+  PR-1: ["Story MCT-193.md §1-§12 + §8 Test Contract", "ADR-033 §6 VERIFIED draft + §4 R-1 caveat amend (status Proposed 유지)", "scope_manifest sub-3 + mct_193_* 6 블록", "counters MCT-193 IN_PROGRESS", "spec + plan", "DesignReview PASS (R-1 3-source 1:1 reconcile gate)"]
+  PR-2: ["prometheus-alerts.yml 신규 group + ADR-029/030 2 alert (absent() or increase()==0)", "quad-evidence-audit.yml 신규 cron (repo 최초)", "ADR-033 §6 VERIFIED 확정 + §4 caveat + frontmatter Accepted + §9.2 VERIFIED", "Story §8.5 + §11 2 PR sha + COMPLETED", "counters COMPLETED + ADR-033 Accepted + EPIC POLICY_FINALIZED + decisions Q1-Q8 정정", "RETRO + PMO-AUDIT + EPIC-RESULTS §Story-3 milestone 3/3", "EPIC-RESULTS §3.5 PR-3 #TBD→#385 carry 정정", "CLAUDE.md §EPIC 3/3 POLICY_FINALIZED + CLOSED prereq", "yaml lint + workflow syntax CodeReview PASS", "gate:retro-complete label"]
+
+mct_193_next: "MCT-193 LAND → EPIC POLICY_FINALIZED (3/3). EPIC CLOSED = production evidence (alert 실 fire + cron 실 issue) carry 별 PR. ADR-031 production caller-wired = engine MCT-186 cutover 후 별 Story (caveat resolve)"
 
 planned_files:
   - {path: "docs/adr/ADR-032-verified-badge-evidence-triad.md", action: amend, lines: "~+45", rationale: "§8.1 future-work → 본문 rule 격상 (quad v2 = triad + 4th telemetry) + §9 telemetry_counter_caveat field 추가 + frontmatter class:governance + ADR-033 forward ref"}
