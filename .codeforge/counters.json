@@ -393,7 +393,9 @@
       "title": "Cross-repo telemetry counter emit (data collector/api + engine data_client/realtime/cold reader) + counter-emit triad v1 reapply",
       "reserved_at": "2026-05-17",
       "started_at": "2026-05-17",
-      "status": "IN_PROGRESS",
+      "completed_at": "2026-05-17",
+      "status": "COMPLETED",
+      "epic_milestone": "2/3",
       "worktree": "c:\\workspace\\mclayer\\mctrader-hub\\.claude\\worktrees\\mct-192-telemetry-emit",
       "worktree_branch": "worktree-mct-192-telemetry-emit",
       "epic": "EPIC-evidence-quad-runtime-telemetry",
@@ -401,7 +403,12 @@
       "depends_on": ["MCT-191"],
       "repo": "mctrader-hub + mctrader-data + mctrader-engine",
       "phase_pair": "phase1_phase2",
-      "rationale": "EPIC sub-2. quad v2 4번째 게이트 telemetry counter 실 emit. mctrader-data collector/api routes + mctrader-engine data_client/realtime subscriber/cold reader. Q5=C counter-emit code path 자체 triad v1 reapply (meta-recursion 1단). Q8=C per-ADR scope_manifest verify_evidence.telemetry_counter field 적용. 진입 = MCT-191 LAND 후."
+      "land_prs": [
+        "mctrader-hub#384 (c9b9f2c PR-1 docs)",
+        "mctrader-data#79 (58d99ad PR-2 code)",
+        "mctrader-hub#TBD (PR-3 박제)"
+      ],
+      "rationale": "EPIC sub-2. quad v2 4번째 게이트 telemetry counter 실 emit. ADR-029/030 = 기존 counter 재사용 (신규 emit 0, MCT-189/179 triad 재인용) / ADR-031 = data realtime_stream.py `_emit_failure_counter()` no-op stub 해소 + metrics.py `mctrader_data_redis_stream_publish_failures_total` Counter 신규 emit + counter-emit triad v1 reapply (meta-recursion 1단 Q5=C). engine DROP (pure consumer telemetry zero 정상, ED verified — cross-repo 축소 hub+data 2-repo). Q8=C per-ADR scope_manifest verify_evidence.telemetry_counter field 적용. dead-in-data 정직 박제 (publish_tick producer caller=0, R2 MCT-179 §D8 7회째 차단). trust-but-verify 동형 재발 3회째 (PMOAgent 2nd pass R1 false premise → Orchestrator 직접 verify 기각). Codex 9/9 deviation 0. 3 PR cross-repo sequential LAND (hub#384 → data#79 → hub#TBD 박제)."
     },
     "MCT-193": {
       "title": "Post-LAND verify gate 운영 method (Prometheus alert counter==0 over Nd + GitHub issue 자동 발의 + monthly PMO audit cron)",
