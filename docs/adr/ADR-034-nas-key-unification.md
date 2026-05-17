@@ -35,6 +35,7 @@ prerequisite_stories:
 amendment_history:
   - date: 2026-05-17
     author: ArchitectAgent (U2-HELPER chief author, mctrader-data#88)
+    amended_adr: ADR-034 (mctrader-hub:docs/adr/ADR-034-nas-key-unification.md, Accepted PR #393 sha 8dbae415)
     scope:
       - "§결정 2 caller 표 4 rows → 6 rows (SSOT-5 + SSOT-6 흡수)"
       - "§결정 2 Public API 2+1 → 3+2 (build_nas_prefix 일반화 + build_legacy_l1_prefix §11.2-A Option A carrier)"
@@ -42,6 +43,7 @@ amendment_history:
       - "§결정 3 wording 정정 (reader fallback 실질 영역 = L2 compactor SSOT-4 GET 측 dual-prefix list union)"
       - "전 caller 표 line number 정정 (WS-A #85 sha f2e2bc9 post-merge)"
       - "§Monitoring cardinality 갱신 (4 → 6 caller, active 10 / max 18)"
+      - "(FIX iteration 1) Amendment 3 verification 표에 MCT-159 Issue 2 (l2.py:44 unchanged) row 추가 — F-codex-5 박제"
     reason: |
       U2-HELPER Story 진행 중 Orchestrator + chief author Verify-via 발견:
       (1) SSOT-5 (runner.py:448 _historical_dual_write WS-A historical promotion path)
@@ -54,11 +56,15 @@ amendment_history:
           list union (§11.2-A Option A). data REST io/ reader 변경 0 박제.
       (4) Line number 정정 — WS-A #85 (sha f2e2bc9, merged 2026-05-14) 가 ADR-034 publish
           (2026-05-17) 직전 ~25 lines 삽입.
+      (FIX iteration 1) DesignReview Codex F-codex-5 + F-codex-7 박제 — Amendment 3
+      verification 표에 MCT-159 Issue 2 (forbidden l2.py:44) line-level disjoint pledge row
+      추가 + amendment_history entry 에 amended_adr field 추가.
       Codex consult result: codex_check_no_findings (P0/P1 0). 4 deputy 만장일치.
     related_story: U2-HELPER (mctrader-data#88)
     related_change_plan: mctrader-data:docs/change-plans/U2-HELPER.md
     convergence: "4 deputy unanimous (CodebaseMapper + Refactor + SecurityArch + OpRiskArch + TestContractArch + DataMigrationArch) + chief author Verify-via (l3.py production active runner.py:54+521, minio_uploader deprecated 활성 caller 0) + Codex consult no_findings"
     phase_3_verdict: "PASS — mechanical/boundary/dimensional 3 boolean self-check 모두 PASS, findings=[]"
+    design_review_verdict: "PASS (FIX iteration 1 RESOLVED, 14 of 14 findings inline 해소, DesignReviewPL lighter re-verify confirmed)"
 ---
 
 # ADR-034: NAS Object Key Unification — 4-way split SSOT → single flat layout collapse
@@ -385,6 +391,7 @@ Grafana alert 임계: `partial_state_count > 0` (P0) + `dual_read_fallback_hit >
 
 > U2-HELPER (mctrader-data#88) Phase 2 chief author synthesis 결과 박제. 본문 §결정 2 / §결정 3 / §Monitoring 의 현행 운영 wording = 본 섹션 우선 인용.
 > Convergence: 4 deputy 만장일치 (CodebaseMapper + Refactor + SecurityArch + OpRiskArch + TestContractArch + DataMigrationArch) + chief author Verify-via (l3.py production active runner.py:54+521 + minio_uploader deprecated 활성 caller 0) + Codex consult `codex_check_no_findings` (debate-protocol-v1 v1.2 Round 0 미발동).
+> FIX iteration 1 (2026-05-18): DesignReview lane Claude+Codex peer review — 14 findings (0 P0 / 4 P1 / 9 P2 / 1 NIT) inline 해소. Amendment 3 verification row 추가 + amended_adr field 추가 (F-codex-5 + F-codex-7 박제). DesignReviewPL re-verify PASS (14 of 14 RESOLVED).
 
 ### Amendment 1 — §결정 2 caller 표 (4 rows → 6 rows + Public API 3 → 5)
 
@@ -456,6 +463,7 @@ def build_legacy_l1_prefix(*, channel: str, schema_ver: str, exchange: str, symb
 | SSOT-3 helper 호출 | 350-351 | **370-371** | WS-A 가 호출 site 위 20 lines 삽입 |
 | SSOT-3 helper 정의 | (미수재) | 304-321 (WS-B #84 도입) | WS-B PR #84 |
 | SSOT-2 / SSOT-4 / SSOT-5 / SSOT-6 | 265 / 157-160 / 448 / 153-156 | 동일 | 변경 0 |
+| **MCT-159 Issue 2 (forbidden)** (F-codex-5 FIX iteration 1) | `l2.py:44` | **변경 0** (line-level disjoint pledge 박제) | Refactor §7 MCT-159 Issue 2 (orderbookdepth/pyarrow line) pledge — 본 amendment 가 SSOT-4 (l2.py:157-160) 만 touch, line 44 영역 disjoint |
 
 ### Amendment 4 — Monitoring 표 cardinality 갱신
 
@@ -498,7 +506,7 @@ def build_legacy_l1_prefix(*, channel: str, schema_ver: str, exchange: str, symb
 ### Story SSOT
 
 - U1-ADR `mctrader-data#87` — 본 ADR 본문 publish
-- U2-HELPER `mctrader-data#88` — 단일 helper SSOT impl + Amendment 1-4 carrier (chief author)
+- U2-HELPER `mctrader-data#88` — 단일 helper SSOT impl + Amendment 1-4 carrier (chief author) + FIX iteration 1 RESOLVED
 - U3-MIGRATE `mctrader-data#89` — 1회성 멱등 re-key 마이그레이션
 - U4-XREPO `mctrader-data#90` — close (§결정 5)
 - U5-VERIFY `mctrader-data#91` — 통합 검증 + Phase 1 helper 회수
@@ -507,7 +515,7 @@ def build_legacy_l1_prefix(*, channel: str, schema_ver: str, exchange: str, symb
 ### Spec
 
 - `mctrader-data:docs/superpowers/specs/2026-05-17-nas-key-unification-design.md` — brainstorm-complete spec, 본 ADR 의 출처 (§1-§7 verbatim 인용)
-- `mctrader-data:docs/change-plans/U2-HELPER.md` — Amendment 1-4 evidence trail (chief author author)
+- `mctrader-data:docs/change-plans/U2-HELPER.md` — Amendment 1-4 evidence trail + FIX iteration 1 박제 (chief author author)
 
 ### 기존 ADR cross-ref (본 ADR 박제 후 추가 의무 — 별 amendment scope)
 
