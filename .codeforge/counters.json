@@ -408,7 +408,7 @@
         "mctrader-data#79 (58d99ad PR-2 code)",
         "mctrader-hub#385 (1b4a727 PR-3 박제, MERGED 2026-05-17)"
       ],
-      "rationale": "EPIC sub-2. quad v2 4번째 게이트 telemetry counter 실 emit. ADR-029/030 = 기존 counter 재사용 (신규 emit 0, MCT-189/179 triad 재인용) / ADR-031 = data realtime_stream.py `_emit_failure_counter()` no-op stub 해소 + metrics.py `mctrader_data_redis_stream_publish_failures_total` Counter 신규 emit + counter-emit triad v1 reapply (meta-recursion 1단 Q5=C). engine DROP (pure consumer telemetry zero 정상, ED verified — cross-repo 축소 hub+data 2-repo). Q8=C per-ADR scope_manifest verify_evidence.telemetry_counter field 적용. dead-in-data 정직 박제 (publish_tick producer caller=0, R2 MCT-179 §D8 7회째 차단). trust-but-verify 동형 재발 3회째 (PMOAgent 2nd pass R1 false premise → Orchestrator 직접 verify 기각). Codex 9/9 deviation 0. 3 PR cross-repo sequential LAND (hub#384 → data#79 → hub#TBD 박제)."
+      "rationale": "EPIC sub-2. quad v2 4번째 게이트 telemetry counter 실 emit. ADR-029/030 = 기존 counter 재사용 (신규 emit 0, MCT-189/179 triad 재인용) / ADR-031 = data realtime_stream.py `_emit_failure_counter()` no-op stub 해소 + metrics.py `mctrader_data_redis_stream_publish_failures_total` Counter 신규 emit + counter-emit triad v1 reapply (meta-recursion 1단 Q5=C). engine DROP (pure consumer telemetry zero 정상, ED verified — cross-repo 축소 hub+data 2-repo). Q8=C per-ADR scope_manifest verify_evidence.telemetry_counter field 적용. dead-in-data 정직 박제 (publish_tick producer caller=0, R2 MCT-179 §D8 7회째 차단). trust-but-verify 동형 재발 3회째 (PMOAgent 2nd pass R1 false premise → Orchestrator 직접 verify 기각). Codex 9/9 deviation 0. 3 PR cross-repo sequential LAND (hub#384 → data#79 → hub#385 1b4a727 박제, post-merge cleanup #386 0649782)."
     },
     "MCT-193": {
       "title": "Post-LAND verify gate 운영 method (Prometheus alert counter==0 over Nd + GitHub issue 자동 발의 + monthly PMO audit cron)",
@@ -427,7 +427,7 @@
       "decisions": ["Q1-C", "Q2-A", "Q3-A", "Q4-A", "Q5-B", "Q6-A", "Q7-B", "Q8-A"],
       "land_prs": [
         "mctrader-hub#387 (3d79e1e PR-1 docs)",
-        "mctrader-hub#TBD (PR-2 alert/cron/박제)"
+        "mctrader-hub#389 (bc7f317 PR-2 alert/cron/박제)"
       ],
       "rationale": "EPIC sub-3 (마지막). quad v2 enforcement timing 실 운영 carrier. monitoring/prometheus-alerts.yml 신규 group evidence-quad-enforcement (ADR-029 QuadViolationADR029NoDualWrite + ADR-030 QuadViolationADR030NoCollectorTicks, absent() or increase([14d])==0 critical, Q2=A absent() trap 차단) + .github/workflows/quad-evidence-audit.yml repo 최초 cron (Q3=A alertmanager 부재 → GitHub Action Prometheus HTTP API query → gh issue create, Q5=B schedule monthly + workflow_dispatch hybrid, PROMETHEUS_URL graceful skip MCT-179 D17 패턴). ADR-031 = Q1=C dead-in-data alert 미등록 (rolling gate 영구 fire 차단, MCT-179 §D8 가공 metric 8회째). Q4=A production-wired 14d calendar 단일화 (KRX calendar PromQL 불가, ADR-033 §6.1 R-1 SSOT drift caveat — §4 market-open rolling 후속 carry, MCT-179 cross-doc 9회째). Q6=A 구현 LAND = ADR-033 Proposed→Accepted transition (PR-2 실 LAND 후, false-Accepted 차단). Q7=B EPIC POLICY_FINALIZED 박제 (Epic CLOSED = production evidence carry 별 PR). Q8=A 2 PR (PR-1 docs + PR-2 alert/cron/박제). Codex 8/8 deviation 0 (MCT-191 10/10 + MCT-192 9/9 동형 full alignment 연속 3 Story). reservation rationale Q7=C stale 정정 (실 Q7=B). EPIC milestone 3/3 POLICY_FINALIZED. Epic CLOSED 자체 = production evidence (alert 실 fire + cron 실 issue) carry 별 PR (docker-stack/tier-promotion/data-domain-decoupling 패턴 정합)."
     },
