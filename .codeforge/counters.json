@@ -392,7 +392,10 @@
     "MCT-192": {
       "title": "Cross-repo telemetry counter emit (data collector/api + engine data_client/realtime/cold reader) + counter-emit triad v1 reapply",
       "reserved_at": "2026-05-17",
-      "status": "RESERVED",
+      "started_at": "2026-05-17",
+      "status": "IN_PROGRESS",
+      "worktree": "c:\\workspace\\mclayer\\mctrader-hub\\.claude\\worktrees\\mct-192-telemetry-emit",
+      "worktree_branch": "worktree-mct-192-telemetry-emit",
       "epic": "EPIC-evidence-quad-runtime-telemetry",
       "sequential_phase": 2,
       "depends_on": ["MCT-191"],

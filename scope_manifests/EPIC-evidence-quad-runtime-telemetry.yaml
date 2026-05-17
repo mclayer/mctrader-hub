@@ -4,14 +4,17 @@
 # Generated: 2026-05-17 (codeforge-brainstorm Phase 2 PMOAgent 2nd pass + Codex 10 결정점)
 epic_key: EPIC-evidence-quad-runtime-telemetry
 epic_status: IN_PROGRESS
+milestone: "2/3 (MCT-192 LAND 후, post-merge)"
 parent_dependency: "ADR-032 §8.1 future-work (MCT-190 LAND 2026-05-17, hub#375 6f19ec0)"
 sequential: true
 owner_adr: "ADR-033 (신규 Proposed) + ADR-032 amendment (§8.1→본문 격상 + §9 quad Caveat)"
 
 sub_stories:
-  - {key: MCT-191, seq: 1, status: IN_PROGRESS, depends_on: [],       phase_pair: phase1_only,   scope: "governance amendment doc-only"}
-  - {key: MCT-192, seq: 2, status: RESERVED,    depends_on: [MCT-191], phase_pair: phase1_phase2, scope: "cross-repo telemetry counter emit (data+engine) + counter-emit triad v1 reapply"}
-  - {key: MCT-193, seq: 3, status: RESERVED,    depends_on: [MCT-192], phase_pair: phase1_phase2, scope: "post-LAND verify gate (Prometheus alert counter==0 over Nd + GitHub issue 자동 발의 + monthly PMO audit cron)"}
+  - {key: MCT-191, seq: 1, status: COMPLETED, land: "hub#382/#383", depends_on: [],       phase_pair: phase1_only,   scope: "governance amendment doc-only"}
+  - {key: MCT-192, seq: 2, status: IN_PROGRESS, repo: "mctrader-hub + mctrader-data (engine DROP)", depends_on: [MCT-191], phase_pair: phase1_phase2,
+     decisions: ["Q1-A","Q2-A","Q3-C","Q4-A","Q5-C","Q6-C","Q7-B","Q8-C","Q9-A"],
+     scope: "cross-repo telemetry counter emit (data only, engine DROP) + counter-emit triad v1 reapply (ADR-031 신규 emit)"}
+  - {key: MCT-193, seq: 3, status: RESERVED,    depends_on: [MCT-192], phase_pair: phase1_phase2, scope: "post-LAND verify gate (over-Nd rolling + Prometheus alert counter==0 over Nd + GitHub issue 자동 발의 + monthly PMO audit cron, Q8=C boundary)"}
 
 design_decisions:
   Q1:  {chosen: C, decision: "small Epic 3 sub-Story", source: "사용자 confirm"}
@@ -24,6 +27,77 @@ design_decisions:
   Q8:  {chosen: C, decision: "per-ADR scope_manifest verify_evidence.telemetry_counter field"}
   Q9:  {chosen: A, decision: "governance/evidence-quad-runtime-telemetry.md 신규 (triad 페이지 §5 sibling cross-ref)"}
   Q10: {chosen: C, decision: "market-closed traffic class 차등 (collector=market-open rolling / engine cold=14d / governance=N/A)"}
+
+# --- MCT-192 (sub-2) cross-repo telemetry counter emit — Codex 9 결정점 (Q1-A~Q9-A, 9/9 정합) ---
+mct_192_decisions:
+  Q1: {chosen: A, decision: "ADR-029 counter = 기존 mctrader_dual_write_result_total{status,tier} 재사용 (runner.py:285 MCT-189 LAND, 신규 emit code 0)"}
+  Q2: {chosen: A, decision: "counter granularity — ADR 전체 1 counter (ADR-029=1 / ADR-030=1 / ADR-031=1)"}
+  Q3: {chosen: C, decision: "ADR-031 engine scope — engine telemetry zero 정상 (pure consumer). ADR-031 quad = data realtime_stream producer counter. engine 변경 0"}
+  Q4: {chosen: A, decision: "land_order — hub Phase1 docs (counter name SSOT) → data Phase2 PR1 emit → hub Phase2 PR2 박제 (MCT-185 류 2-repo, engine drop)"}
+  Q5: {chosen: C, decision: "mapping SSOT — scope_manifest verify_evidence.telemetry_counter field (실행 SSOT) + ADR-033 §본문 mapping table (governance reference, drift 시 scope_manifest 우선)"}
+  Q6: {chosen: C, decision: "ADR-029 cardinality — 기존 counter 유지 + quad query filter (status=success). emit code 0 변경, bounded label {status,tier}"}
+  Q7: {chosen: B, decision: "triad reapply 범위 — 기존 재사용 (ADR-029/030) MCT-189/179 evidence 재인용. 신규 emit (ADR-031 realtime_stream) 만 새 triad v1"}
+  Q8: {chosen: C, decision: "MCT-192↔193 boundary — MCT-192 = emit + 단발성 integration test (counter ≥1 1회) / MCT-193 = over N days rolling + alert rule + monthly PMO audit (sub-3)"}
+  Q9: {chosen: A, decision: "realtime_stream TODO — MCT-192 가 realtime_stream.py:147-154 _emit_failure_counter() no-op stub 해소 (실 .inc(), ADR-031 anchor) + 코드 주석 MCT-186→MCT-192 정정"}
+
+verify_evidence_telemetry_counter_schema:
+  ADR-029:
+    counter: "mctrader_dual_write_result_total"
+    labels: "{status, tier}"
+    quad_query: 'increase(mctrader_dual_write_result_total{status="success"}[14d]) >= 1'
+    definition_location: "mctrader-data src/mctrader_data/nas_metrics/prometheus_exporters.py:45-46"
+    emit_location: "mctrader-data src/mctrader_data/compactor/runner.py:285 (MCT-189 LAND 재사용, 신규 emit code 0)"
+    traffic_class: "production-wired 14d (MCT-189 grace-0 wiring LAND, 실 caller-wired)"
+    triad_v1_evidence: "MCT-189 evidence 재인용 (Q7=B — 기존 counter, 신규 triad 미발급)"
+  ADR-030:
+    counter: "mctrader_collector_ticks_total"
+    labels: "{exchange, symbol}"
+    quad_query: 'increase(mctrader_collector_ticks_total[14d]) >= 1'
+    definition_location: "mctrader-data src/mctrader_data/metrics.py:9-13"
+    emit_location: "mctrader-data src/mctrader_data/collector.py:189 record_collector_tick() (MCT-180/179 LAND 재사용, 신규 emit code 0)"
+    traffic_class: "trading-hot market-open rolling (collector daemon production-wired)"
+    triad_v1_evidence: "MCT-180/179 evidence 재인용 (Q7=B)"
+  ADR-031:
+    counter: "mctrader_data_redis_stream_publish_failures_total"
+    labels: "[]"
+    quad_query: 'increase(mctrader_data_redis_stream_publish_failures_total[14d]) >= 0'
+    definition_location: "mctrader-data src/mctrader_data/api/realtime_stream.py (MCT-192 PR-2 신규 Counter 정의)"
+    emit_location: "mctrader-data src/mctrader_data/api/realtime_stream.py:147-154 _emit_failure_counter() (MCT-192 신규 emit, no-op stub 해소)"
+    traffic_class: "test-injected only (publish_tick producer caller=0 src/ grep verified, dead-in-data — Q8=C MCT-192 단발성 실증, production rolling=MCT-193 sub-3)"
+    triad_v1_evidence: "MCT-192 신규 triad v1 (Q7=B — file:line + caller grep ≥1 + integration test PASS)"
+    caller_wired_evidence_caveat: "dead-in-data — publish_tick producer caller=0 (src grep verified). engine subscriber=ADR-031 consumer (telemetry zero 정상). production caller-wired = MCT-186 engine cutover 후 또는 MCT-193 rolling gate prerequisite"
+
+# --- MCT-192 (sub-2) planned files (cross-repo: mctrader-hub + mctrader-data, engine DROP) ---
+mct_192_planned_files:
+  mctrader-hub:
+    - {path: "docs/stories/MCT-192.md", action: create}
+    - {path: "docs/adr/ADR-033-evidence-quad-enforcement-layer.md", action: amend, detail: "§본문 per-ADR counter mapping table 추가 (Q5=C) + §9.1 sub-2 LAND confirm draft"}
+    - {path: "scope_manifests/EPIC-evidence-quad-runtime-telemetry.yaml", action: amend, detail: "sub-2 MCT-192 정밀화 + verify_evidence_telemetry_counter_schema 3 ADR"}
+    - {path: ".codeforge/counters.json", action: amend, detail: "MCT-192 RESERVED → IN_PROGRESS → COMPLETED"}
+    - {path: "docs/retros/RETRO-MCT-192.md", action: create, detail: "PR-3, trust-but-verify 동형 재발 Lesson 박제"}
+    - {path: "docs/retros/PMO-AUDIT-MCT-192.md", action: create, detail: "PR-3, §lane gate + R1 false premise 기각 박제"}
+    - {path: "docs/retros/EPIC-RESULTS-EPIC-evidence-quad-runtime-telemetry.md", action: amend, detail: "§Story-2 milestone 2/3"}
+    - {path: "CLAUDE.md", action: amend, detail: "§EPIC milestone 1/3 → 2/3 (PR-3 post-merge)"}
+  mctrader-data:
+    - {path: "src/mctrader_data/api/realtime_stream.py", action: modify, detail: "PR-2: _emit_failure_counter() no-op(line 147-154) → 실 Counter .inc() + Counter 정의 + 주석 MCT-186→MCT-192 정정"}
+    - {path: "tests/api/test_realtime_stream_counter.py", action: create, detail: "PR-2 신규: XADD fail inject → counter ≥1 단발성 (Q8=C boundary)"}
+
+mct_192_planned_adrs:
+  - {adr: ADR-033, action: amend, detail: "§본문 mapping table + §9.1 sub-2 VERIFIED"}
+
+mct_192_land_order: "PR-1 hub docs → PR-2 data emit → PR-3 hub 박제 (MCT-185 류 2-repo sequential, engine drop)"
+
+mct_192_risks:
+  - {id: R1, severity: RESOLVED, desc: "PMOAgent 2nd pass 'ADR-033/scope_manifest 부재 BLOCKER'", mitigation: "Orchestrator 직접 ls/grep verify = false premise 기각 (worktree V2 전부 존재). MCT-191 sub-1 LAND 완료, MCT-192 = sub-2 정상 진입. trust-but-verify 동형 재발 = RETRO Lesson 박제"}
+  - {id: R2, severity: HIGH, desc: "MCT-179 §D8 가공 metric 7회째 — ADR-031 realtime_stream publish_tick caller=0 dead-in-data", mitigation: "Q1/Q7 기존 counter 재사용 (신규 emit ADR-031 1곳만) + scope_manifest traffic_class 'test-injected only' + caller_wired_evidence_caveat 정직 박제. PR-2 Phase 0 verify (producer caller grep) gate 의무"}
+  - {id: R3, severity: LOW, desc: "realtime_stream 코드 주석 MCT-186 owner vs MCT-192 Q9=A", mitigation: "git log = MCT-185 단일 commit (MCT-186 미변경) → carry 정합 확정 (충돌 아님). PR-2가 주석 MCT-186→MCT-192 정정"}
+  - {id: R4, severity: MEDIUM, desc: "cross-document SSOT (ADR-033 mapping ↔ scope_manifest ↔ Q1-Q9) drift (MCT-179 lesson)", mitigation: "Q5=C drift 시 scope_manifest 우선. PR-1 DesignReview 1:1 byte reconcile gate"}
+  - {id: R5, severity: MEDIUM, desc: "박제 PR incomplete (MCT-184 SSOT drift 3호)", mitigation: "pr_completeness_checklist 전수 LAND. PMO-AUDIT-MCT-192 §lane gate"}
+
+mct_192_pr_completeness_checklist:
+  PR-1_hub_docs: ["Story MCT-192.md create", "ADR-033 §본문 mapping table + §9.1 draft amend", "scope_manifest sub-2 + verify_evidence 3 ADR amend", "counters MCT-192 IN_PROGRESS", "DesignReview PASS gate"]
+  PR-2_data_code: ["realtime_stream.py _emit_failure_counter no-op → .inc() + Counter 정의", "주석 MCT-186→MCT-192 정정", "counter-emit triad v1 (file:line+caller grep+integration test)", "tests/api/test_realtime_stream_counter.py create", "회귀 0", "CodeReview PASS gate"]
+  PR-3_hub_archive: ["Story §8.5 Impl Manifest (3 ADR quad evidence)", "§11 LAND timeline 3 PR sha", "RETRO-MCT-192 (trust-but-verify Lesson)", "PMO-AUDIT-MCT-192 (R1 false premise 기각)", "EPIC-RESULTS §Story-2 milestone 2/3", "counters COMPLETED", "ADR-033 §9.1 VERIFIED", "CLAUDE.md §EPIC 2/3", "gate:retro-complete label"]
 
 planned_files:
   - {path: "docs/adr/ADR-032-verified-badge-evidence-triad.md", action: amend, lines: "~+45", rationale: "§8.1 future-work → 본문 rule 격상 (quad v2 = triad + 4th telemetry) + §9 telemetry_counter_caveat field 추가 + frontmatter class:governance + ADR-033 forward ref"}
@@ -76,4 +150,4 @@ pr_completeness_checklist:
     - "Story frontmatter COMPLETED + §11 LAND timeline 실 PR sha"
     - "counters.json MCT-191 COMPLETED + ADR-033 Proposed 유지 (Accepted=sub-2/3 LAND 후)"
 
-next_story: "MCT-192 (sub-2, cross-repo telemetry counter emit) — MCT-191 LAND 후 진입"
+next_story: "MCT-193 (sub-3 over-Nd rolling + alert rule + monthly PMO audit) — MCT-192 LAND 후"
