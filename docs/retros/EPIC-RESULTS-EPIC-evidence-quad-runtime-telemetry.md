@@ -304,7 +304,7 @@ forward + ADR-033 §2→ADR-032 §3 back ref.
 | prod-1 | quad violation **alert 실 fire** evidence (Prometheus rule eval) | production deploy + ADR-029/030 counter 14d window 경과 후 (또는 dead-in-prod 실 위반 시) | `evidence-quad-enforcement` group `QuadViolationADR029NoDualWrite`/`QuadViolationADR030NoCollectorTicks` 실 fire 또는 정상 silent evidence |
 | prod-2 | quad-evidence-audit cron **실 issue 발의** evidence | monthly schedule 1회 이상 실행 (또는 workflow_dispatch 수동) + `PROMETHEUS_URL` secret 등록 후 | quad violation `gh issue create` 발의 또는 정상 PASS log evidence (graceful skip 미발생 = secret 등록 confirm) |
 | prod-3 | `PROMETHEUS_URL` secret 등록 (repo 최초 cron HTTP API 접근성, R-4) | EPIC CLOSED prereq | `gh secret list` PROMETHEUS_URL 등록 (부재 시 graceful skip 정합 유지) |
-| prod-4 | ADR-031 production caller-wired enable | engine MCT-186 cutover 후 별 Story (publish_tick producer caller-wired → ADR-031 alert 등록 + caveat resolve) | ADR-031 production caller grep ≥1 + `evidence-quad-enforcement` group ADR-031 alert 추가 별 Story |
+| prod-4 | ADR-031 production caller-wired enable | data측 `publish_tick` **producer** wiring 별 feature Story (미존재·로드맵 외). **MCT-186 ≠ unlock** — engine *consumer* cutover COMPLETED 이나 data *producer* caller 0 (Phase 0 verify 2026-05-17: `git grep publish_tick origin/main -- src/` = 0, test-injected only, `realtime_stream.py:153`/`metrics.py:233` self-박제) | ADR-031 production caller grep ≥1 (실 producer XADD 경로 LAND) → `evidence-quad-enforcement` group ADR-031 alert 추가 별 Story. **producer 부재 시 alert 등록 금지 = 영구 fire R-2 realize (Q1=C caveat 유지)** |
 | prod-5 | Epic CLOSED 박제 PR | prod-1~4 완료 후 | POLICY_FINALIZED → CLOSED transition (scope_manifest + CLAUDE.md + EPIC-RESULTS amend). 별 PR (docker-stack prod-4 / tier-promotion prod-4 / data-domain-decoupling 패턴 정합) |
 
 ## §8 Key References + 다음 Story 진입 권고
@@ -329,9 +329,13 @@ forward + ADR-033 §2→ADR-032 §3 back ref.
 COMPLETED 2026-05-17). ADR-033 Accepted. 신규 진입 Story 없음 (Epic 완결).
 
 후속 carry:
-- **ADR-031 caller-wired enable** = engine MCT-186 cutover 후 별 Story (publish_tick producer
-  caller-wired → ADR-031 `evidence-quad-enforcement` alert 등록 + Q1=C dead-in-data caveat
-  resolve). engine MCT-186 (sequential_phase 5 IN_PROGRESS) LAND 후 진입.
+- **ADR-031 caller-wired enable** = data측 `publish_tick` **producer** wiring 별 feature Story
+  (미존재·로드맵 외). engine MCT-186 = *consumer* cutover **COMPLETED** 이나 data *producer*
+  caller 0 → **MCT-186 은 unlock 불충분** (Phase 0 verify 2026-05-17: `git grep publish_tick
+  origin/main -- src/` = 0, test-injected only). producer wiring LAND 후에야 ADR-031
+  `evidence-quad-enforcement` alert 등록 + Q1=C dead-in-data caveat resolve. **producer 부재 시
+  alert 등록 = 영구 fire R-2 realize** (PMOAgent 최종 감사 "MCT-186 COMPLETED → 진입 가능"
+  추론 = consumer/producer 혼동 false-premise — Phase 0 verify 로 정정, trust-but-verify lesson 재현).
 - **Epic CLOSED** = production evidence (§7.2 prod-1~5: alert 실 fire + cron 실 issue 발의 +
   PROMETHEUS_URL secret + ADR-031 caller-wired + Epic CLOSED 박제 PR) 완성 후 별 PR
   (POLICY_FINALIZED → CLOSED transition, docker-stack/tier-promotion/data-domain-decoupling 패턴).

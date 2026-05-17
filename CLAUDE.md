@@ -1277,13 +1277,13 @@ trust-but-verify lesson reapply 효과 (MCT-192 R1 false premise 동형 재발 0
 | prod-1 | quad violation alert 실 fire evidence | production deploy + 14d window 경과 후 | `evidence-quad-enforcement` 실 fire 또는 정상 silent evidence |
 | prod-2 | quad-evidence-audit cron 실 issue 발의 evidence | monthly schedule 1회 이상 (또는 workflow_dispatch) | `gh issue create` 발의 또는 정상 PASS log |
 | prod-3 | `PROMETHEUS_URL` secret 등록 (repo 최초 cron HTTP API, R-4) | EPIC CLOSED prereq | `gh secret list` 등록 (부재 시 graceful skip 정합 유지) |
-| prod-4 | ADR-031 production caller-wired enable | engine MCT-186 cutover 후 별 Story | ADR-031 caller grep ≥1 + alert 등록 (Q1=C caveat resolve) |
+| prod-4 | ADR-031 production caller-wired enable | data측 `publish_tick` **producer** wiring 별 feature Story (미존재·로드맵 외). **MCT-186 ≠ unlock**: engine *consumer* cutover (COMPLETED) 이나 data *producer* caller 0 — Phase 0 verify 2026-05-17 `git grep publish_tick origin/main -- src/` = 0 (test-injected only, `realtime_stream.py:153`/`metrics.py:233` self-박제) | ADR-031 production caller grep ≥1 (실 producer XADD 경로) → `evidence-quad-enforcement` group ADR-031 alert 추가 + Q1=C dead-in-data caveat resolve. **producer 부재 시 alert 등록 금지 (영구 fire = R-2 realize)** |
 | prod-5 | Epic CLOSED 박제 PR | prod-1~4 완료 후 | POLICY_FINALIZED → CLOSED transition 별 PR (docker-stack/tier-promotion 패턴) |
 
 ### 다음 Story 진입 권고 (EPIC 완결)
 
 EPIC-evidence-quad-runtime-telemetry **POLICY_FINALIZED 3/3** — 신규 진입 Story 없음. 후속:
-- **ADR-031 caller-wired** = engine MCT-186 (sequential_phase 5 IN_PROGRESS) cutover 후 별 Story (Q1=C dead-in-data caveat resolve + ADR-031 alert enable)
+- **ADR-031 caller-wired** = data측 `publish_tick` **producer** wiring 별 feature Story (미존재). engine MCT-186 = *consumer* cutover **COMPLETED** 이나 producer caller 0 → MCT-186 은 unlock 불충분 (Phase 0 verify 2026-05-17 confirm). producer wiring LAND 후에야 Q1=C dead-in-data caveat resolve + ADR-031 alert enable (producer 부재 시 alert 등록 = 영구 fire R-2 realize)
 - **Epic CLOSED** = production evidence (prod-1~5) 완성 후 별 PR (POLICY_FINALIZED → CLOSED transition)
 
 ### MCT-192 결과 (sub-2, COMPLETED 2026-05-17)
