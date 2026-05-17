@@ -15,7 +15,7 @@ status: Active
 - Phase 1 PR (`mctrader-hub#279`) MERGED — ADR-027 D4/D5/D9 amendment land
 - Phase 2 PR (`mctrader-data#47` + `mctrader-hub#280`) MERGED — code + Story §11 + RETRO
 - NAS host (mcnas01.internal.mclayer.it) 가용 + DNS 정상 해석
-- MinIO root credential 박제 위치 확인 (`mctrader-hub/docker/minio/.env`)
+- MinIO root credential 박제 위치 확인 (`mctrader-data/docker/minio/.env` — 2026-05-17 mctrader-hub 에서 재배치)
 
 ## Phase 1. NAS endpoint 정합 검증
 
@@ -41,7 +41,7 @@ MINIO_SECRET_KEY=changeme_minio
 # MCT-156 신규 추가 (compactor service):
 NAS_MINIO_ENDPOINT=http://mcnas01.internal.mclayer.it:9000
 NAS_MINIO_ACCESS_KEY=mctrader-admin
-NAS_MINIO_SECRET_KEY=<NAS MinIO root password — mctrader-hub/docker/minio/.env 참조>
+NAS_MINIO_SECRET_KEY=<NAS MinIO root password — mctrader-data/docker/minio/.env 참조>
 NAS_MINIO_BUCKET=mctrader-market
 ```
 
