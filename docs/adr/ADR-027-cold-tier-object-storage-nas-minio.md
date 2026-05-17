@@ -36,6 +36,9 @@ Accepted — 2026-05-12. MCT-149 (EPIC-cold-tier-nas-minio Stage 1 종료 govern
   - **§D5 amendment** — L1 NAS upload 금지 invariant **폐기** (ADR-029 D1=B 채택). L1 ParquetWriter atomic 직후 compactor 측 DualWriter 호출 의무 박제. capacity-bounded ingest block 도입 (WAL 30 GiB + L1 20 GiB hard limit).
   - **§D7 amendment** — L1 tier grace 정책 = **grace 0** (ADR-029 D3=C). L1 NAS PUT 완료 + version/etag exact match + sha256 verify 후 즉시 local L1 file 삭제. L2/L3 = 7일 grace 유지.
   - **§D9 amendment** — SoT scope = **all-tier (L1 + L2 + L3) 격상**. NAS = SoT for ALL tiers, local = ephemeral cache only. ambiguity 차단 invariant (ADR-029 D10) 박제.
+- 2026-05-17 — **§D1 amendment box (U1-ADR, EPIC-nas-key-unification Phase 2, ADR-034 publish)**:
+  - **§D1 cross-ref 박제** — ADR-034 §결정 1 채택. NAS object key 의 `l1/` sub-namespace 제거 (전 tier 단일 평면 layout). 단일 bucket `mctrader-market` + Hive prefix layout 정책 자체 무변경 — `l1/` prefix sub-namespace 만 제거 (tier 구분 = Hive partition `tier=L{1,2,3}/` 컴포넌트로 충분). ADR-027 §D1 의 Hive prefix layout (`schema_version/exchange/node/tier/date/`) invariant 보존.
+  - **상세**: 본 amendment 는 ADR-034 § Context "Ground Truth — 4 SSOT 분산점" 표 + § Decision §결정 1 verbatim 박제. Phase 2 cutover sequence = U2-HELPER (단일 helper SSOT) → U3-MIGRATE (1회성 멱등 re-key 마이그레이션) → U5-VERIFY (Phase 1 helper 회수 + forward-only invariant 박제). dual-read 윈도우 = U2 land ~ U5 land. carrier ADR: `docs/adr/ADR-034-nas-key-unification.md`.
 
 ## 해소 기준
 

@@ -45,6 +45,32 @@ Accepted — 2026-05-14. MCT-167 (EPIC-tier-promotion-single-source governance s
 - **D1=B VERIFIED** (mctrader-data#59): L1Compactor.compact_segment() 내 _write_parquet_atomic() 직후 DualWriter.put_l1() 호출 확인. compactor 측 timing 정합 (22 tests PASS).
 - **D2=B VERIFIED** (mctrader-data#59): DualWriter.put_l1() → NASUploader.put_streaming() + queued → local_only 경로 확인. retry_queue + local_only 재사용 정합 (INV-5 status enum 3종 exhaustive PASS).
 
+### §D9 amendment box (U1-ADR LAND 박제, 2026-05-17, EPIC-nas-key-unification Phase 2 — ADR-034 publish)
+
+> **U1-ADR amendment (2026-05-17, Phase 2 EPIC-nas-key-unification 진입 게이트)**: ADR-034
+> (NAS Object Key Unification — 4-way split SSOT → single flat layout collapse) Accepted
+> 박제. ADR-029 §D9 "NAS = SoT for ALL tiers" 의 namespace 영역 정합 확장 — L1 NAS object
+> key 의 `l1/` sub-namespace 제거, L1 ↔ L2/L3 key namespace 균질화 (모두 평면 `market/<channel>/schema_version=*/tier=L{1,2,3}/...`).
+> ADR-029 **본문 11 D 정책 무변경 (POLICY_FINALIZED 보존)** — D1 (L1 NAS DualWriter) /
+> D3 (L1 grace 0) / D9 (NAS = SoT for ALL tiers) 의 invariant 모두 유지. 본 amendment 가
+> 박제하는 변경 = nas_key 산출 helper 의 단일화 + dual-read 윈도우 + Phase 1 helper 회수.
+>
+> **§D9 namespace 정합 확장 박제 (ADR-034 §결정 1 verbatim)**:
+>
+> - **L1 ↔ L2/L3 key namespace 균질화**: 현재 `put_l1()` 의 `nas_key = "l1/" + rel.as_posix()`
+>   → ADR-034 채택 후 평면 `market/<channel>/schema_version=*/tier=L1/...` (`l1/` 제거).
+>   L1 이 L2/L3 와 "완전히 동일한 형식" (사용자 Q2 confirm).
+> - **§D9 NAS SoT 정책 invariant 영향 0**: NAS PUT 의무 (§D5) + grace 0 (§D7) + SoT scope
+>   all-tier (§D9) 정책 모두 무변경. 변경 = nas_key 산출 분산점 (4곳 → 1 helper) 통합 +
+>   `l1/` sub-namespace 제거. cross-repo isolation 박제 (ADR-034 §결정 5) — engine = candles
+>   only, market data L1 namespace 미참조 (verified-via engine `historical.py:42,65,87` —
+>   `tier=L1/exchange=*/symbol=*/timeframe=*/date=*/part-00.parquet` candles namespace,
+>   market data `market/<channel>/schema_version=*/...` namespace 와 disjoint).
+> - **Cutover sequence (ADR-034 §결정 3)**: U2-HELPER (단일 helper + reader dual-read fallback)
+>   → U3-MIGRATE (1회성 멱등 re-key 마이그레이션) → U5-VERIFY (Phase 1 helper 회수 + forward-only
+>   invariant 박제). dual-read 윈도우 = U2 land ~ U5 land (약 2-4주 SLO).
+> - **carrier ADR**: `docs/adr/ADR-034-nas-key-unification.md` (본 amendment 가 cross-ref)
+
 ### §D2 VERIFIED amendment box (MCT-185 LAND 박제, 2026-05-17, EPIC-data-domain-decoupling Story-4 — engine NAS 직독 폐기 LAND confirm)
 
 > **MCT-185 amendment (2026-05-17, Phase 2 PR2 VERIFIED)**: MCT-183
