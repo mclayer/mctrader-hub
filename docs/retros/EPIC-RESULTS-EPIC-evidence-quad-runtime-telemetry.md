@@ -36,7 +36,7 @@ governance singleton extension — ADR-032 quad rule SSOT / ADR-033 enforcement 
 |-----|-------|------|-------|------|
 | 1 | **MCT-191** | **COMPLETED 2026-05-17** | governance amendment doc-only (ADR-032 §8.1→§3.2 본문 격상 + ADR-033 신규 + class taxonomy) | hub#382 (6582cc7, squash 1cde1ff, MERGED 2026-05-17T02:29:47Z) + hub post-merge cleanup PR |
 | 2 | **MCT-192** | **COMPLETED 2026-05-17** | cross-repo telemetry counter emit — ADR-029/030 기존 counter 재사용 (신규 emit 0) + ADR-031 data realtime_stream 신규 emit + counter-emit triad v1 reapply (Q5=C meta-recursion 1단) + Q8=C scope_manifest verify_evidence.telemetry_counter field 적용. engine DROP (pure consumer, hub+data 2-repo) | hub#384 (c9b9f2c PR-1 docs) + data#79 (58d99ad PR-2 code) + hub#385 (1b4a727 PR-3 박제) |
-| 3 | **MCT-193** | **COMPLETED 2026-05-17** | post-LAND verify gate 운영 (Prometheus alert `absent() or increase([14d])==0` → critical + GitHub issue 자동 발의 + monthly PMO audit cron, Q7=B EPIC POLICY_FINALIZED) + Q4=A 14d calendar 단일화 + ADR-031 dead-in-data 제외 (Q1=C) | hub#387 (3d79e1e PR-1 docs) + hub#TBD (PR-2 alert/cron/박제) |
+| 3 | **MCT-193** | **COMPLETED 2026-05-17** | post-LAND verify gate 운영 (Prometheus alert `absent() or increase([14d])==0` → critical + GitHub issue 자동 발의 + monthly PMO audit cron, Q7=B EPIC POLICY_FINALIZED) + Q4=A 14d calendar 단일화 + ADR-031 dead-in-data 제외 (Q1=C) | hub#387 (3d79e1e PR-1 docs) + hub#389 (bc7f317) (PR-2 alert/cron/박제) |
 
 ## §3 §Story-1 (MCT-191) — Evidence quad governance amendment (doc-only)
 
@@ -188,7 +188,7 @@ forcing function. 단 D3/D4/D5/D6 + engine drop 은 valid (실 code 실측 기�
   VERIFIED → POLICY_FINALIZED (EPIC 3/3 milestone COMPLETED)
 - **2 PR LAND timeline** (single-repo hub sequential): hub#387 (`3d79e1e` PR-1 docs — Story
   421L + ADR-033 §6.1 VERIFIED draft + §4 R-1 SSOT drift caveat + scope_manifest sub-3 +
-  counters IN_PROGRESS) + hub#TBD (PR-2 alert/cron/박제 — Task 5 prometheus-alerts.yml +
+  counters IN_PROGRESS) + hub#389 (bc7f317) (PR-2 alert/cron/박제 — Task 5 prometheus-alerts.yml +
   Task 6 cron workflow + Task 7 ADR-033 Accepted/Story/counters/EPIC-RESULTS/CLAUDE.md +
   Task 8 RETRO/PMO-AUDIT)
 
@@ -294,7 +294,7 @@ forward + ADR-033 §2→ADR-032 §3 back ref.
 | prereq | 내용 | 상태 |
 |--------|------|------|
 | sub-2 MCT-192 LAND | cross-repo telemetry counter emit (data realtime_stream 신규 emit + ADR-029/030 재사용) + counter-emit triad v1 reapply + scope_manifest verify_evidence.telemetry_counter field 적용 | **DONE 2026-05-17** (hub#384 + data#79 + hub#385) |
-| sub-3 MCT-193 LAND | post-LAND verify gate 운영 (Prometheus alert `absent() or increase([14d])==0` → critical + GitHub issue 자동 발의 + monthly PMO audit cron) + Q4=A 14d 단일화 | **DONE 2026-05-17** (hub#387 PR-1 + hub#TBD PR-2) |
+| sub-3 MCT-193 LAND | post-LAND verify gate 운영 (Prometheus alert `absent() or increase([14d])==0` → critical + GitHub issue 자동 발의 + monthly PMO audit cron) + Q4=A 14d 단일화 | **DONE 2026-05-17** (hub#387 PR-1 + hub#389 (bc7f317) PR-2) |
 | ADR-033 Proposed → Accepted | sub-3 LAND 후 (enforcement layer 실 운영 alert/cron VERIFIED) → POLICY_FINALIZED (Epic 3/3 milestone COMPLETED) | **DONE 2026-05-17** (Accepted + EPIC POLICY_FINALIZED 3/3) |
 
 ### §7.2 EPIC CLOSED prerequisite registry (POLICY_FINALIZED → CLOSED, production evidence carry 별 PR)

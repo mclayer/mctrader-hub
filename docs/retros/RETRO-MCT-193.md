@@ -8,7 +8,7 @@ author: Orchestrator (self-write SSOT)
 fix_loop_count: 0
 land_prs:
   - "mctrader-hub#387 (3d79e1e PR-1 hub Phase 1 docs — Story + ADR-033 §6.1 VERIFIED draft + §4 R-1 SSOT drift caveat + scope_manifest sub-3 + counters IN_PROGRESS, MERGED 2026-05-17)"
-  - "mctrader-hub#TBD (PR-2 hub alert/cron/박제 — prometheus-alerts.yml evidence-quad-enforcement group + quad-evidence-audit.yml repo 최초 cron + ADR-033 Proposed→Accepted + §8.5/§11 + counters COMPLETED + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-3 + EPIC POLICY_FINALIZED 3/3)"
+  - "mctrader-hub#389 (bc7f317) (PR-2 hub alert/cron/박제 — prometheus-alerts.yml evidence-quad-enforcement group + quad-evidence-audit.yml repo 최초 cron + ADR-033 Proposed→Accepted + §8.5/§11 + counters COMPLETED + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-3 + EPIC POLICY_FINALIZED 3/3)"
 duration:
   start: "2026-05-17"
   end: "2026-05-17"
@@ -29,7 +29,7 @@ MCT-193 = ADR-033 §6 enforcement timing (Q7=C) 의 실 운영 carrier Story. MC
 
 2 PR single-repo sequential LAND:
 1. **PR-1 hub#387** (3d79e1e) — Story §1-§12 + §8 Test Contract + ADR-033 §6.1 VERIFIED draft + §4 R-1 SSOT drift caveat + §9.2 sub-3 draft (frontmatter Proposed 유지) + scope_manifest sub-3 + mct_193_* 6 블록 + counters IN_PROGRESS + spec + plan
-2. **PR-2 hub#TBD** (본 RETRO 산출) — prometheus-alerts.yml `evidence-quad-enforcement` group (ADR-029/030 2 alert) + quad-evidence-audit.yml repo 최초 cron + ADR-033 §6 VERIFIED 확정 + frontmatter Proposed → Accepted + §9.2 VERIFIED + Story §8.5/§11 실 PR#/sha + COMPLETED + counters COMPLETED + EPIC POLICY_FINALIZED + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-3 (milestone 3/3) + §3.5 PR-3 #TBD→#385 carry 정정 + CLAUDE.md §EPIC 2/3→3/3
+2. **PR-2 hub#389 (bc7f317)** (본 RETRO 산출) — prometheus-alerts.yml `evidence-quad-enforcement` group (ADR-029/030 2 alert) + quad-evidence-audit.yml repo 최초 cron + ADR-033 §6 VERIFIED 확정 + frontmatter Proposed → Accepted + §9.2 VERIFIED + Story §8.5/§11 실 PR#/sha + COMPLETED + counters COMPLETED + EPIC POLICY_FINALIZED + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-3 (milestone 3/3) + §3.5 PR-3 #TBD→#385 carry 정정 + CLAUDE.md §EPIC 2/3→3/3
 
 ### 1.2 8 결정점 (Codex 일괄 dispatch + Claude 합성, deviation 0)
 
@@ -99,7 +99,7 @@ EPIC-evidence-quad-runtime-telemetry 3 sub-Story sequential 완결 = sub-1 MCT-1
 | MCT-190 | ADR-032 본문 author + §5 보강 + memory amendment | 1 PR bundle (hub#375) + post-merge | self-reference Caveat 박제 (Q2 deviation 1건) |
 | MCT-191 | ADR-032 §8.1→§3.2 격상 + ADR-033 신규 + class taxonomy | 1 PR bundle (hub#382) + post-merge | quad self-reference 첫 적용 (deviation 0건) |
 | MCT-192 | cross-repo telemetry counter emit (ADR-029/030 재사용 + ADR-031 신규 emit, engine DROP) | 3 PR cross-repo sequential (hub#384 + data#79 + hub#385) | quad 4th gate 첫 실 wiring + dead-in-data 정직 박제 (deviation 0건) |
-| **MCT-193** | **post-LAND verify gate 운영 (quad violation alert + repo 최초 cron + ADR-033 Accepted + EPIC POLICY_FINALIZED 3/3)** | **2 PR single-repo sequential (hub#387 + hub#TBD)** | **quad enforcement 실 운영 carrier + ADR-031 dead-in-data alert 제외 정직 박제 + trust-but-verify N=3 종결 (deviation 0건)** |
+| **MCT-193** | **post-LAND verify gate 운영 (quad violation alert + repo 최초 cron + ADR-033 Accepted + EPIC POLICY_FINALIZED 3/3)** | **2 PR single-repo sequential (hub#387 + hub#389 (bc7f317))** | **quad enforcement 실 운영 carrier + ADR-031 dead-in-data alert 제외 정직 박제 + trust-but-verify N=3 종결 (deviation 0건)** |
 
 → governance Story 패턴 진화: MCT-184 (incomplete) → MCT-189 (4 PR 정직 박제) → MCT-190 (1 PR bundle self-reference Caveat) → MCT-191 (quad rule 정의, doc-only) → MCT-192 (quad 4th gate 실 wiring, cross-repo, 정의→wiring 전환) → **MCT-193 (quad enforcement 실 운영 gate, single-repo, wiring→운영 전환 + EPIC POLICY_FINALIZED)**. 3-stage 완결: MCT-191 정의 → MCT-192 wiring → MCT-193 운영 = quad evidence governance full lifecycle.
 
@@ -172,4 +172,4 @@ ADR-032 evidence triad v1 → quad v2 (4번째 게이트 `telemetry_counter ≥1
 - EPIC-RESULTS: `docs/retros/EPIC-RESULTS-EPIC-evidence-quad-runtime-telemetry.md` §Story-3 (milestone 3/3 POLICY_FINALIZED, post-merge 산출)
 - 선례 RETRO: `docs/retros/RETRO-MCT-192.md` + `docs/retros/RETRO-MCT-191.md` (Orchestrator self-write SSOT, CFP-138/ADR-045 4-field schema)
 - upstream: plugin-codeforge#822 (subagent self-report verify gate v1 — verify-via 전수 N=3 종결 효과 escalate evidence row) + #804/#805 (CI mechanical gate consumer carry, ADR-033 §8)
-- LAND: hub#387 (3d79e1e PR-1 docs) + hub#TBD (PR-2 alert/cron/박제 — counters COMPLETED + Story §11 + 본 RETRO + PMO-AUDIT + EPIC-RESULTS §Story-3 + EPIC POLICY_FINALIZED 3/3)
+- LAND: hub#387 (3d79e1e PR-1 docs) + hub#389 (bc7f317) (PR-2 alert/cron/박제 — counters COMPLETED + Story §11 + 본 RETRO + PMO-AUDIT + EPIC-RESULTS §Story-3 + EPIC POLICY_FINALIZED 3/3)

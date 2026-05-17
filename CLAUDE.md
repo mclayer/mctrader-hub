@@ -1250,8 +1250,8 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 
 ### MCT-193 결과 (sub-3, COMPLETED 2026-05-17 — EPIC POLICY_FINALIZED 3/3)
 
-single-repo hub 2 PR sequential LAND (mctrader-hub#387 3d79e1e PR-1 docs → mctrader-hub#TBD
-PR-2 alert/cron/박제). **`monitoring/prometheus-alerts.yml` 신규 group `evidence-quad-enforcement`**
+single-repo hub 2 PR sequential LAND (mctrader-hub#387 3d79e1e PR-1 docs → mctrader-hub#389
+(bc7f317) PR-2 alert/cron/박제). **`monitoring/prometheus-alerts.yml` 신규 group `evidence-quad-enforcement`**
 (ADR-029 `QuadViolationADR029NoDualWrite` + ADR-030 `QuadViolationADR030NoCollectorTicks`,
 `absent(<counter>) or increase(<counter>[14d]) == 0` critical for 0m — Q2=A absent() trap 차단.
 기존 `mctrader-docker-stack` group 5 alert 보존) + **`.github/workflows/quad-evidence-audit.yml`
@@ -1289,7 +1289,7 @@ EPIC-evidence-quad-runtime-telemetry **POLICY_FINALIZED 3/3** — 신규 진입 
 ### MCT-192 결과 (sub-2, COMPLETED 2026-05-17)
 
 cross-repo 3 PR sequential LAND (mctrader-hub#384 c9b9f2c PR-1 docs → mctrader-data#79 58d99ad
-PR-2 code → mctrader-hub#TBD PR-3 박제). **ADR-029/030 = 기존 counter 재사용** (신규 emit code
+PR-2 code → mctrader-hub#385 (1b4a727) PR-3 박제, post-merge cleanup #386 0649782). **ADR-029/030 = 기존 counter 재사용** (신규 emit code
 0, MCT-189/179 triad 재인용) / **ADR-031 = data realtime_stream.py 신규 emit** (`_emit_failure_counter()`
 no-op stub 해소 + metrics.py `mctrader_data_redis_stream_publish_failures_total` Counter +
 counter-emit triad v1 reapply). **engine DROP** (pure consumer telemetry zero 정상 — cross-repo
