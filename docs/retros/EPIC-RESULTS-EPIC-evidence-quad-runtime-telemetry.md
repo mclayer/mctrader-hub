@@ -3,7 +3,7 @@ type: epic-results
 epic_key: EPIC-evidence-quad-runtime-telemetry
 epic_title: "Evidence Quad — runtime telemetry counter 4번째 게이트 (triad v1 → quad v2)"
 epic_status: IN_PROGRESS
-milestone: "1/3 (MCT-191 COMPLETED)"
+milestone: "2/3 (MCT-191 + MCT-192 COMPLETED)"
 parent: "ADR-032 §8.1 future-work (MCT-190 LAND hub#375 6f19ec0)"
 created_at: "2026-05-17"
 author: Orchestrator (self-write SSOT)
@@ -11,7 +11,7 @@ author: Orchestrator (self-write SSOT)
 
 # EPIC-RESULTS — EPIC-evidence-quad-runtime-telemetry
 
-> **Status**: **IN_PROGRESS** · milestone **1/3** · MCT-191 COMPLETED (2026-05-17)
+> **Status**: **IN_PROGRESS** · milestone **2/3** · MCT-191 + MCT-192 COMPLETED (2026-05-17)
 > ADR-032 evidence triad v1 → quad v2 확장. 4번째 게이트 = runtime telemetry counter ≥1
 > over N days. cross-Epic governance singleton extension. 3 sub-Story sequential.
 
@@ -35,7 +35,7 @@ governance singleton extension — ADR-032 quad rule SSOT / ADR-033 enforcement 
 | seq | Story | 상태 | scope | LAND |
 |-----|-------|------|-------|------|
 | 1 | **MCT-191** | **COMPLETED 2026-05-17** | governance amendment doc-only (ADR-032 §8.1→§3.2 본문 격상 + ADR-033 신규 + class taxonomy) | hub#382 (6582cc7, squash 1cde1ff, MERGED 2026-05-17T02:29:47Z) + hub post-merge cleanup PR |
-| 2 | **MCT-192** | RESERVED | cross-repo telemetry counter emit (data collector/api + engine data_client/realtime/cold reader) + counter-emit triad v1 reapply (Q5=C meta-recursion 1단) + Q8=C scope_manifest verify_evidence.telemetry_counter field 적용 | — |
+| 2 | **MCT-192** | **COMPLETED 2026-05-17** | cross-repo telemetry counter emit — ADR-029/030 기존 counter 재사용 (신규 emit 0) + ADR-031 data realtime_stream 신규 emit + counter-emit triad v1 reapply (Q5=C meta-recursion 1단) + Q8=C scope_manifest verify_evidence.telemetry_counter field 적용. engine DROP (pure consumer, hub+data 2-repo) | hub#384 (c9b9f2c PR-1 docs) + data#79 (58d99ad PR-2 code) + hub#TBD (PR-3 박제) |
 | 3 | **MCT-193** | RESERVED | post-LAND verify gate 운영 (Prometheus alert `increase(counter[Nd])==0` → critical + GitHub issue 자동 발의 + monthly PMO audit cron, Q7=C) + Q4+Q10=C traffic class 차등 window | — |
 
 ## §3 §Story-1 (MCT-191) — Evidence quad governance amendment (doc-only)
@@ -116,6 +116,65 @@ verify gate) consumer reapply 로 사전 차단 (risk 0). `feedback_brainstorm_c
 lesson 9회째 사전 차단 2번째 — MCT-186 IN_PROGRESS working tree share contamination 회피, 정정
 비용 0) 결합 = doc-only Story fast-path 효율 실증 (codeforge:story-cutoff-classification
 classification=doc-only-fast-path 정합).
+
+## §3.5 §Story-2 (MCT-192) — Cross-repo telemetry counter emit
+
+### 결과
+
+- **AC 5/5 PASS / INV 3/3 PASS** (ADR-031 신규 emit 1곳 code wiring, ADR-029/030 기존 counter 재사용)
+- **milestone 2/3** (MCT-191 + MCT-192 COMPLETED 2026-05-17)
+- ADR-033 §9.1 sub-2 **VERIFIED 2026-05-17** (Status frontmatter = Proposed 유지, Accepted =
+  sub-3 MCT-193 LAND 후)
+- **FIX 통계**: design lane (PR-1 #384) iter1 PASS FIX 0회 + code lane (PR-2 data#79) iter1
+  ruff SIM105 1회 (fee6186 → squash 58d99ad LAND, mechanical)
+
+### 3 PR cross-repo sequential LAND timeline
+
+| land_order | repo | PR | commit | 박제 내용 |
+|-----------|------|----|--------|----------|
+| 1 | mctrader-hub PR-1 docs | **#384** | c9b9f2c | Story 376L + ADR-033 §3.2 per-ADR counter mapping table + §9.1 sub-2 draft + scope_manifest sub-2 + verify_evidence_telemetry_counter_schema 3 ADR + counters IN_PROGRESS (MERGED 2026-05-17) |
+| 2 | mctrader-data PR-2 code | **#79** | 58d99ad (squash; 2a42918 emit + fee6186 ruff fix) | realtime_stream.py `_emit_failure_counter()` no-op stub 해소 + metrics.py `mctrader_data_redis_stream_publish_failures_total` Counter + test PASS. ubuntu CI SUCCESS / windows pre-existing baseline FAILURE (testcontainers MinIO 미구성 MCT-192 무관, admin merge 우회) |
+| 3 | mctrader-hub PR-3 박제 | **#TBD** | TBD | 본 PR — Story §8.5/§11 + counters COMPLETED + ADR-033 §9.1 sub-2 VERIFIED + CLAUDE.md §EPIC 2/3 + RETRO + PMO-AUDIT + EPIC-RESULTS §Story-2 |
+
+### 9 design decisions (Codex 9 결정점 일괄 dispatch + Claude 채택, deviation 0건)
+
+Q1=A ADR-029 기존 counter 재사용 / Q2=A ADR 전체 1 counter (cardinality 폭발 차단) / Q3=C
+engine telemetry zero 정상 (pure consumer, 변경 0) / Q4=A hub→data→hub land_order / Q5=C
+scope_manifest verify_evidence SSOT + ADR-033 §본문 reference / Q6=C ADR-029 기존 counter +
+quad query filter / Q7=B 기존 재사용 = MCT-189/179 재인용, 신규 emit (ADR-031) 만 새 triad v1
+/ Q8=C MCT-192=emit+단발성 test / MCT-193=over N days rolling / Q9=A realtime_stream no-op
+stub 해소.
+
+→ Codex 권고 deviation 0건 (9/9 채택 일치). MCT-191 (10/10) → MCT-192 (9/9) **full alignment
+연속 2회** (PMO KPI 입력).
+
+### 핵심 패턴 — 기존 counter 재사용 + dead-in-data 정직 박제
+
+- **ADR-029/030 = 기존 counter 재사용** (`mctrader_dual_write_result_total{status,tier}`
+  runner.py:285 MCT-189 LAND / `mctrader_collector_ticks_total{exchange,symbol}` collector.py:189
+  MCT-180/179 LAND) — 신규 emit code 0 (INV-1 production runtime untouched). triad v1 = 기존
+  evidence 재인용 (Q7=B).
+- **ADR-031 = data realtime_stream 신규 emit** (data#79 58d99ad — metrics.py:230 Counter 정의
+  + realtime_stream.py:147 `_emit_failure_counter()` `.inc()` + tests/api/test_realtime_stream_counter.py
+  PASS). counter-emit triad v1 reapply (Q5=C meta-recursion 1단).
+- **dead-in-data 정직 박제**: ADR-031 `publish_tick` producer caller=0 (src grep verified) →
+  scope_manifest `traffic_class: "test-injected only"` + caveat 명시. **R2 MCT-179 §D8 가공
+  metric 7회째 사전 차단** (가공 metric LAND 후 발견 패턴 → Phase 0 verify gate 사전 차단).
+  production caller-wired = MCT-186 engine cutover 후 또는 MCT-193 rolling gate prerequisite.
+- **engine DROP**: MCT-185 LAND engine pure consumer cutover → ADR-031 quad = data
+  realtime_stream producer counter (engine subscriber = consumer telemetry zero 정상, ED
+  ResearcherAgent verified). cross-repo 축소 = hub + data 2-repo (MCT-185 류 동형, INV-3).
+
+### trust-but-verify 동형 재발 3회째 (PMOAgent R1 false premise)
+
+PMOAgent 2nd pass 가 R1 CRITICAL BLOCKER (ADR-033/scope_manifest/Story 부재, Case A/B 분기
+강제) 보고 — 실제로는 worktree 에 전부 존재 (잘못된 path verify 추정, main repo stale 혼동).
+Orchestrator 직접 `ls`/`grep` verify 로 false premise 기각. **plugin-codeforge#822
+self-discipline gate v1 (subagent verify report 의무) 적용에도 PMOAgent path 오류 발생 →
+escalate evidence row 추가 후보** (subagent path 오류 = self-report verify gate 범위 확장
+후보). MCT-190 Lesson 5 (#1) → MCT-191 F-0a~F-0e (#2) → MCT-192 PMOAgent R1 (#3) 누적
+forcing function. 단 D3/D4/D5/D6 + engine drop 은 valid (실 code 실측 기반, Orchestrator
+재verify confirmed) → false premise 만 기각, anchor 정정은 채택.
 
 ## §4 ADR 산출물 (Epic 전체)
 

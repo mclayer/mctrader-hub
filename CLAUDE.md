@@ -1218,7 +1218,7 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 - **MCT-186 IN_PROGRESS 복귀** (현 hub working tree branch mct-186-phase2-pr2-hub Phase 2 PR2 박제 continuation, ExitWorktree 후 본 working dir 복귀)
 - **MCT-191 reservation 후보** — ADR-032 §7 future-work 1건 owner (triad → quad telemetry counter / CI mechanical gate consumer / process/cross-story-pr-contamination.md governance entry)
 
-## EPIC-evidence-quad-runtime-telemetry (MCT-191 COMPLETED 2026-05-17, milestone 1/3)
+## EPIC-evidence-quad-runtime-telemetry (MCT-191 + MCT-192 COMPLETED 2026-05-17, milestone 2/3)
 
 > ADR-032 evidence triad v1 → quad v2 확장 (4번째 게이트 runtime telemetry counter ≥1 over N days,
 > Hyrum's Law 역방향 dead-in-prod false-negative 차단). cross-Epic governance singleton extension.
@@ -1229,8 +1229,23 @@ WAL 30G production measurement = paper mode synthetic baseline 만 측정 (15G ~
 | seq | Story | 상태 | scope |
 |---|-------|------|-------|
 | 1 | **MCT-191** | **COMPLETED 2026-05-17** | governance amendment doc-only (ADR-032 §8.1→§3.2 본문 격상 + ADR-033 신규 + class taxonomy) |
-| 2 | MCT-192 | RESERVED | cross-repo telemetry counter emit (data+engine) + counter-emit triad v1 reapply |
+| 2 | **MCT-192** | **COMPLETED 2026-05-17** | cross-repo telemetry counter emit (ADR-029/030 재사용 + ADR-031 realtime_stream 신규 emit, engine DROP) |
 | 3 | MCT-193 | RESERVED | post-LAND verify gate (Prometheus alert counter==0 over Nd + monthly PMO audit cron) |
+
+### MCT-192 결과 (sub-2, COMPLETED 2026-05-17)
+
+cross-repo 3 PR sequential LAND (mctrader-hub#384 c9b9f2c PR-1 docs → mctrader-data#79 58d99ad
+PR-2 code → mctrader-hub#TBD PR-3 박제). **ADR-029/030 = 기존 counter 재사용** (신규 emit code
+0, MCT-189/179 triad 재인용) / **ADR-031 = data realtime_stream.py 신규 emit** (`_emit_failure_counter()`
+no-op stub 해소 + metrics.py `mctrader_data_redis_stream_publish_failures_total` Counter +
+counter-emit triad v1 reapply). **engine DROP** (pure consumer telemetry zero 정상 — cross-repo
+축소 hub+data 2-repo). dead-in-data 정직 박제 (publish_tick producer caller=0, R2 MCT-179 §D8
+가공 metric 7회째 차단). **trust-but-verify 동형 재발 3회째** (PMOAgent 2nd pass R1 'ADR-033/scope_manifest
+부재 BLOCKER' = false premise → Orchestrator 직접 `ls`/`grep` verify 기각, plugin-codeforge#822
+self-discipline gate v1 적용에도 PMOAgent path 오류 = escalate evidence row 추가 후보). Codex
+9/9 deviation 0 (MCT-191 10/10 동형 full alignment 연속 2회). ADR-033 §9.1 sub-2 VERIFIED.
+
+→ 다음 = **MCT-193** (sub-3, post-LAND verify gate 운영 — Prometheus alert + monthly PMO audit cron).
 
 ### MCT-191 결과 (10 결정점 Q1-Q10, Codex 일괄 dispatch + Claude 합성 + Q1 사용자 confirm)
 
@@ -1259,7 +1274,9 @@ quad 확장 = ADR-032 §8.1 future-work 본문 격상 (신규 발명 아님) →
 
 ### 다음 Story 진입 권고
 
-**MCT-192** (sub-2 cross-repo telemetry counter emit) — MCT-191 Phase 1 PR MERGED ✓ 후 진입.
+**MCT-193** (sub-3 post-LAND verify gate 운영 — Prometheus alert `increase(counter[Nd])==0`
+→ critical + GitHub issue 자동 발의 + monthly PMO audit cron, Q7=C) — MCT-192 LAND ✓ 후 진입.
+ADR-033 Status = Proposed 유지 (Accepted = sub-3 MCT-193 LAND 후 → POLICY_FINALIZED Epic 3/3).
 
 ## Key References
 

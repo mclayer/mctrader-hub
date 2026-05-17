@@ -202,11 +202,16 @@ production code path 에 telemetry counter emit 신규. counter-emit code path =
 meta-recursion 1단 triad v1 reapply 의무 (counter 정의 file:line + caller grep ≥1 +
 integration test PASS).
 
-- **§9.1 sub-2 (MCT-192)**: PR-1 docs LAND (본 §본문 counter mapping table + scope_manifest
-  verify_evidence_telemetry_counter_schema). PR-2 mctrader-data realtime_stream.py emit
-  (no-op stub 해소) + PR-3 박제 후 **VERIFIED** (PR-3 amend). ADR-029/030 = 기존 counter
-  재사용 (신규 emit 0, MCT-189/179 triad 재인용), ADR-031 = realtime_stream 신규 emit +
-  counter-emit triad v1 reapply.
+- **§9.1 sub-2 (MCT-192) — VERIFIED 2026-05-17**: MCT-192 PR-1 docs (hub#384 c9b9f2c LAND —
+  본 §3.2 per-ADR counter mapping table + scope_manifest verify_evidence_telemetry_counter_schema)
+  + PR-2 mctrader-data realtime_stream emit (data#79 58d99ad LAND — `_emit_failure_counter()`
+  no-op stub 해소 + metrics.py `mctrader_data_redis_stream_publish_failures_total` Counter
+  정의) + PR-3 박제 LAND. ADR-029/030 = 기존 counter 재사용 (신규 emit 0, MCT-189/179 triad
+  재인용), ADR-031 = realtime_stream 신규 emit + counter-emit triad v1 reapply (metrics.py:230
+  Counter 정의 + realtime_stream.py:147 caller grep ≥1 + tests/api/test_realtime_stream_counter.py
+  integration test PASS) + dead-in-data 정직 박제 (publish_tick producer caller=0, engine DROP
+  pure consumer telemetry zero 정상, MCT-186 cutover 후/MCT-193 rolling gate prerequisite).
+  **§9.1 sub-2 VERIFIED 2026-05-17**.
 
 ### §9.2 sub-3 MCT-193 — post-LAND verify gate 운영 method
 
@@ -224,9 +229,11 @@ telemetry_counter` field 분산 (ADR-N별 SSOT, 중앙 registry 미도입 — ad
 
 **Proposed** (2026-05-17, MCT-191 Phase 1 publish)
 
-상태 transition: **Proposed (MCT-191 LAND)** → Accepted (sub-2 MCT-192 + sub-3 MCT-193
-LAND 후, telemetry counter emit + verify gate 운영 검증 완결 시점) → POLICY_FINALIZED
-(EPIC-evidence-quad-runtime-telemetry 3/3 milestone COMPLETED).
+상태 transition: **Proposed (MCT-191 LAND)** → **sub-2 MCT-192 LAND** (§9.1 sub-2 VERIFIED
+2026-05-17, telemetry counter emit 완결 — hub#384 + data#79) → Accepted (sub-3 MCT-193 LAND
+후, verify gate 운영 검증 완결 시점) → POLICY_FINALIZED (EPIC-evidence-quad-runtime-telemetry
+3/3 milestone COMPLETED). status frontmatter = Proposed 유지 (Accepted = sub-3 MCT-193 LAND
+후, sub-2 LAND 만으로 transition 미발생).
 
 - **owner_story**: MCT-191 (EPIC-evidence-quad-runtime-telemetry sub-1, doc-only,
   PMO+Codex 권고 small Epic 3 sub-Story 분해)
