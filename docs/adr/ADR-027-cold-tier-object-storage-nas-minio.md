@@ -353,6 +353,21 @@ NAS unreachable 시:
 
 cross-ref: ADR-029 D1 (L1 NAS PUT timing) + D2 (DualWriter retry_queue 재사용) + D5 (capacity-bounded ingest block) + D11 (4 layer capacity 제한 정책).
 
+**MCT-202 amendment 박제 (2026-05-18, EPIC-tier-promotion-single-source, 3-tier eager cleanup cascade)** — D5 의 두 amendment.
+
+1. **eager unlink ↔ `scan_and_cleanup_legacy` sweep 공존 박제** — MCT-202 가 L1→L2 + L2→L3 cascade 의 caller-wired eager unlink (`DualWriter.write(source_to_delete=parquet_path)` 명시 전달) 를 LAND. eager unlink 와 sweep cycle (6-min cadence) 의 race window 처리:
+   - sweep 진입 직전에 eager cascade 가 이미 unlink 한 source path → `runner.py:394 scan_and_cleanup_legacy` 의 `except (OSError, RuntimeError)` 가 `FileNotFoundError` 를 `errors` 로 오분류 risk → MCT-202 가 **`FileNotFoundError` 별 분기** 신설 + `mctrader_legacy_cleanup_race_noop_total` Counter emit (graceful no-op, race 가시화).
+   - eager 와 sweep 양쪽 모두 동일 4중 HEAD verify 사용 (ETag + VersionId + sha256 Metadata + ContentLength) → 실제 unlink 결정 단일 SSOT, 양 path 간 inconsistency 0.
+
+2. **NAS PUT 4xx fail-fast `_historical_dual_write` propagation 정합** — INCIDENT-2026-05-17 amendment (`_dispatch_dual_write` 의 `NASOperationalAlert` re-raise) 가 MCT-202 동시 LAND 시점에 `_historical_dual_write` (`runner.py:447-487`) 에도 동형 propagation 박제. drift 차단 의무. silent skip 0.
+
+신규 Counter 3종 (D6 cardinality invariant ≤ 50 정합):
+- `compactor_local_self_delete_total{tier, outcome}` — 3 tier × 5 outcome (`committed_unlinked` / `committed_unlink_failed` / `local_only_retained` / `hard_floor_retained` / `already_promoted`) = 15 series
+- `mctrader_retry_orphan_total{tier}` — 3 series (`PromotionVerifyError` → `enqueue_retry` 시 source 보존 orphan 가시화)
+- `mctrader_legacy_cleanup_race_noop_total` — 1 series (sweep race graceful no-op)
+
+cross-ref: MCT-202 Change Plan §3.3 + §3.9, ADR-029 §D11 (3-tier eager unlink invariant 신설).
+
 ### D6. 이관 검증 invariant — 7종 ALL PASS (MCT-151 + MCT-155 amend, S5 박제)
 
 **Amendment trail (2026-05-13, MCT-151 trigger / MCT-155 land)**: 본 D6 wording = 3종 → **7종** 으로 명시화. scope_manifest design_decisions S5 박제 정합 (`Codex review + Sonnet decider 합성, addressed_in: [MCT-151, MCT-153], triggers_adr_amendment.mandatory=true.trigger_story=MCT-151`).
@@ -434,6 +449,23 @@ cutover 후 local volume 의 L2/L3 cold tier 자산 삭제 절차:
 - **dry-run 의무 (L1)**: L1 grace 0 정책에도 production deploy 의 production evidence gate 의무 (ADR-029 D10 + codeforge-plugin#620 Fix-1) — 1h production 측정 0 ambiguity violation evidence 박제 의무.
 
 cross-ref: ADR-029 D3 (L1 immediate delete) + D10 (ambiguity invariant) + D11 (L1 hard limit 20 GiB).
+
+**MCT-202 amendment 박제 (2026-05-18, EPIC-tier-promotion-single-source, 3-tier eager cleanup cascade)** — D7 의 WAL 24h grace 폐기 + NAS-SoT 격상 흡수 amendment.
+
+본 D7 원안의 "24h/7d grace period" wording 은 **NAS object storage 의 안전망 (forward-only invariant 격상 이전)** 의 의미. MCT-202 LAND 후 본 grace motivation 은 다음 3종 안전망의 합성으로 완전 흡수:
+
+1. **bucket versioning=Enabled** (MCT-161 LAND) — PITR/operational recovery 단일 보증. NoncurrentVersionExpiration 30d → 의도치 않은 delete/overwrite 30d window 내 복원 가능.
+2. **retry_queue carrier** (MCT-156 LAND, MCT-202 D-5 amendment) — `PromotionVerifyError` → `nas_uploader.enqueue_retry` 시 source 보존 (path snapshot) + `mctrader_retry_orphan_total{tier}` Counter 가시화. sweep cycle (6-min) 자연 회수.
+3. **MCT-173 backfill mode** — frozen `.sealed` WAL → L1 parquet 일괄 generate (disaster recovery). WAL 24h grace 폐기 시점에 disaster scenario 발생 시 backfill CLI (`mctrader-data compact --backfill`) 가 정합 복원 보장.
+
+**Amended D7 wording (L1 / L2 / L3 동형)**:
+- **L1 tier (MCT-189 LAND + MCT-202 cascade)**: grace 0 unconditional. `DualWriter.write(source_to_delete=parquet_path)` committed 분기 진입 시 4-HEAD verify pass 후 즉시 unlink. **WAL `.sealed` segment** 도 동형 (compactor 가 L1 derive 완료 + L1 NAS PUT commit 후 즉시 unlink, 24h grace 폐기).
+- **L2 tier (MCT-202 cascade)**: grace 0 unconditional. L1 source parquet → L2 compaction 완료 + L2 NAS PUT commit 후 즉시 L1 unlink. 7-day grace 폐기.
+- **L3 tier (MCT-202 cascade)**: grace 0 unconditional. L2 source parquet → L3 compaction 완료 + L3 NAS PUT commit 후 즉시 L2 unlink. 7-day grace 폐기.
+
+**Legacy safety net 보존 (MCT-202 D-6)**: `gc.py::run_gc()` 의 7d FIFO grace + dry-run + 순차 GC 메커니즘 = **변경 0**. cascade post-LAND 14d production evidence gate 후 별 Story 폐기 검토 (`mctrader_retry_orphan_total` rate = 0 + `compactor_local_self_delete_total{outcome="committed_unlinked"}` 정상 ramp-up).
+
+cross-ref: MCT-189 (WAL→L1 grace-0 wiring) + MCT-202 (L1→L2 + L2→L3 cascade 완결) + ADR-029 §D11 (3-tier eager unlink invariant 신설) + MCT-202 Change Plan §3.6 + §7.4 INV-H.
 
 ### D8. Spike scope — 5 PoC (MCT-148 evidence 직접 인용)
 

@@ -355,6 +355,34 @@ Tier promotion 후 local file delete 정책 = **NAS HEAD verify + grace 0 (immed
 - **Alternative rejected** (A — 24h grace): ambiguity window 24h 잔존 → D10 invariant 약화 → 거부. (B — sha256 verify only without version): version 부재 시 race condition (overwrite 도중 verify) 발생 가능 → 거부.
 - **Consequence**: MCT-169 impl scope = `mctrader_data/compactor/promotion.py` 신규 module + `tests/integration/test_l1_local_delete.py` 신규.
 
+**MCT-202 amendment 박제 (2026-05-18, EPIC-tier-promotion-single-source, 3-tier eager cleanup cascade)** — D3 의 tier dimension 일반화 amendment.
+
+본 D3 원안은 "L1 → L2 / L2 → L3 promotion 후 source 삭제 정책" 을 정의했으나 production caller wiring 은 **L1 tier 단독** (MCT-189 LAND `dual_writer.py:246-250 _promote_after_nas_put`) 만 작동. L2/L3 cascade caller wiring 은 미작동 (production verified `0e244e9`, 2026-05-18 disk-full 빈발).
+
+**근본 원인** (Story §0 verified-via):
+- `runner.py:281-286 _dispatch_dual_write` 가 `local_path=parquet_path, data=parquet_path` 동일 Path 전달
+- `dual_writer.py:249` `isinstance(data, Path) and data != local_path` guard = False → `_promote_after_nas_put` 미실행
+- 결과: L1 source parquet (L2 cascade 진입 시) + L2 source parquet (L3 cascade 진입 시) eager unlink 0
+
+**Amended D3 wording** (3-tier dimension 일반화):
+
+caller-side **명시 cascade intent** 박제 (MCT-202 D-1 옵션 B 채택):
+```python
+# DualWriter.write() 시그니처 (MCT-202 LAND)
+def write(*, local_path, nas_key, data, sha256,
+          source_to_delete: Path | None = None) -> DualWriteResult:
+    ...
+```
+
+- **L1 → L2 promotion**: `_dispatch_dual_write(tier="L2", ...)` 가 `source_to_delete=parquet_path` (L1 parquet) 명시 전달 → L2 NAS PUT commit (4-HEAD verify pass) 후 L1 parquet 즉시 unlink.
+- **L2 → L3 promotion**: `_dispatch_dual_write(tier="L3", ...)` 동형. L3 NAS PUT commit 후 L2 parquet unlink.
+- **`_historical_dual_write` (WS-A)**: 동형 `source_to_delete=parquet_path` 전달 (MCT-202 D-3 채택, drift 차단). `NASOperationalAlert` re-raise wrap 도 동시 LAND (T-5 정합).
+- **WAL `.sealed` → L1**: MCT-189 LAND 분기 보존 (regression 차단). `source_to_delete=None` default → 기존 `_promote_after_nas_put` 분기 자연 진입.
+
+**`promote_l1` SSOT rename 미적용**: MCT-202 = `promote_l1` 함수 이름 보존 (tier param 추가까지만). 이름 변경 (`promote_l1` → `promote_tier`) 은 별 Story carry-over (MCT-203, EPIC 동일).
+
+cross-ref: MCT-202 Change Plan §3.1 + §3.3 + §4.1 (시그니처 변경) + §7.7 (NAS GET 모드 정합).
+
 ### D4. WAL sealed segment — local only 유지 (B 채택, 사용자 directive 3)
 
 WAL sealed segment 의 NAS PUT 정책 = **local only 유지** (사용자 directive 우선):
@@ -463,6 +491,67 @@ NAS+local 동시 존재 ambiguity 차단 = **invariant violation enforcement**:
 - **Rationale**: 사용자 directive 1번 (4 layer 임계) + D5 capacity-bounded ingest block 의 mitigation. 4 layer 분리가 layer 별 trigger 독립성 보장.
 - **Alternative rejected** (A — single global limit): layer 별 trigger 부재 → fail mode 분기 곤란 → 거부.
 - **Consequence**: MCT-171 impl scope = 4 layer capacity monitor + Grafana alert + WAL/L1 hard limit invariant.
+
+**MCT-202 amendment 박제 (2026-05-18, EPIC-tier-promotion-single-source, 3-tier eager cleanup cascade)** — D11 의 **3-tier eager unlink invariant 신설** (INV-A~D + INV-E~I + INV-SEC-1/6/7 박제).
+
+본 amendment 는 MCT-189 LAND (WAL→L1 단독) 의 grace-0 invariant 를 **3-tier dimension 일반화** 한다. caller-wired self-delete pattern 의 cascade 완결 (L1→L2 + L2→L3) 시점의 invariant 12종 박제.
+
+### 3-tier eager unlink invariant 12종
+
+#### A. Core invariant (Story §4 정합, 4종)
+
+- **INV-A**: eager unlink ↔ `scan_and_cleanup_legacy` sweep race → graceful no-op. `FileNotFoundError` 별 분기 + `mctrader_legacy_cleanup_race_noop_total` Counter (ADR-027 §D5 MCT-202 amendment 정합).
+- **INV-B**: pre-delete HEAD guard (`promote_l1` 의 기존 4중 HEAD verify) 재사용. caller 가 별 guard 추가 0. (MCT-189 INV-3 동형 = `grace-0-local-delete.md` SSOT)
+- **INV-C**: forward-only invariant 3-tier 확장 (ADR-009 §D12.2 annotation 정합). WAL→L1 단독 → 3-tier 일반화.
+- **INV-D**: `result.status == 'committed'` XOR `source exists`. mutually exclusive 보증 (status='local_only' / 'hard_floor_blocked' 시 source 보존).
+
+#### B. OperationalRisk invariant (5종, MCT-202 OpRiskArch 산출물)
+
+- **INV-E** (env isolation): `runner.py self._dual_writer is None` 분기에서 cascade 0. test/local dev 환경 (DualWriter 미주입) 자연 보존. verified-via `runner.py:281` guard.
+- **INV-F** (DR layer demotion): local volume DR (replica 책임 ↓) + NAS bucket versioning DR (PITR + Object Lock 30d ↑). MCT-161 LAND + ADR-027 §D6 prerequisite 정합.
+- **INV-G** (operator window 0): monitoring 강도 의존. alarm 임계치:
+  - P0 = `compactor_local_self_delete_total{outcome="committed_unlink_failed"}` rate
+  - P2 = `mctrader_retry_orphan_total` rate
+  - Grafana alert (운영 runbook 별 인계).
+- **INV-H** (gc.py 보존, D-6 채택): `run_gc()` 7d FIFO grace + dry-run + 순차 GC = **변경 0**. legacy safety net. 14d production evidence gate 후 별 Story 폐기 검토 (MCT-202 cascade post-LAND `mctrader_retry_orphan_total` rate = 0 + `committed_unlinked` 정상 ramp-up).
+- **INV-I** (gc_daemon `_archive_failed` 의미 변경 0, D-4 채택): status='local_only' / 'hard_floor_blocked' 7d extension 분기 자연 보존. docstring amendment only.
+
+#### C. Security invariant (3종, MCT-202 SecurityArch 산출물)
+
+- **INV-SEC-1** (4-tuple HEAD verify 3-tier 동형): `promote_l1` 의 4중 HEAD verify (ETag + VersionId + sha256 Metadata + ContentLength) cascade 3-tier 모두 동형 적용. callee 변경 0, caller 측 `source_to_delete=parquet_path` 명시만으로 자연 propagation.
+- **INV-SEC-6** (sha256 hex log only, Prom label 0): sha256 = log message 만, Counter labelnames 에 sha256 포함 금지 (cardinality 무한 폭증 risk 차단).
+- **INV-SEC-7** (`enqueue_retry` orphan Counter, D-5 채택): `PromotionVerifyError` → `nas_uploader.enqueue_retry` 시 source path 보존 (snapshot) + `mctrader_retry_orphan_total{tier}` Counter 가시화. INV-4 memory budget 보존, sweep cycle 자연 회수.
+
+### Counter cardinality 박제 (ADR-027 §D6 정합)
+
+| Counter | label | series 수 |
+|---|---|---|
+| `compactor_local_self_delete_total` | `{tier, outcome}` 3×5 | 15 |
+| `mctrader_retry_orphan_total` | `{tier}` 3 | 3 |
+| `mctrader_legacy_cleanup_race_noop_total` | — | 1 |
+
+**총 19 series** ≤ 50 (ADR-027 §D6 cardinality invariant 정합).
+
+### Counter outcome 5 enum (MCT-202 TestContract 의제 1 채택)
+
+| outcome | 진입 조건 | source 상태 |
+|---|---|---|
+| `committed_unlinked` | NAS commit + 4-HEAD pass + unlink success | unlinked |
+| `committed_unlink_failed` | NAS commit + 4-HEAD pass + unlink OSError | retained (sweep fallback) |
+| `local_only_retained` | NAS status='queued' (retry_queue enqueue) | retained |
+| `hard_floor_retained` | NAS status='hard_floor_blocked' | retained |
+| `already_promoted` | restart recovery / sweep cycle 시 source 부재 (concurrent unlink) | absent (idempotent no-op) |
+
+restart recovery + sweep cycle 빈번성 박제 → `already_promoted` 5번째 outcome 필수.
+
+### `_promote_after_nas_put` 반환 타입 확장
+
+before (MCT-189 LAND): `Literal["committed", "local_only"]`
+after (MCT-202 LAND): `Literal["committed", "local_only", "already_promoted"]`
+
+`already_promoted` = `FileNotFoundError` 분기 (concurrent unlink / idempotent re-entry). INV-1 XOR 만족 (NAS object 존재 + local source 부재) 동일.
+
+cross-ref: MCT-202 Change Plan §3.7 + §4.2 + §7.4 + §7.5 (위협↔완화 매트릭스) + §7.8 (INV 12종 종합) + §11.6 (idempotency replay 3 case).
 
 ## Migration
 

@@ -314,3 +314,74 @@ L2/L3 compactor input 파일 정렬 키 = **content-derived `ts_utc`** (`src/mct
 - ADR-027 INCIDENT-2026-05-17 amendment (이슈 A NAS 403 — sequencing only, code dependency 0)
 - `mctrader-data#96` (본 amendment 발의 + 구현 LAND Story)
 - Spec: `mctrader-data/docs/superpowers/specs/2026-05-17-compactor-sort-key-l1-naming.md`
+
+## §Amendment — Compactor cascade self-delete (caller-wiring SSOT) + DualWriter status XOR source invariant — Amendment 4 (NEW, MCT-202, 2026-05-18)
+
+본 amendment 는 MCT-189 LAND (WAL→L1 grace-0 wiring) 의 후속 cascade 완결 (L1→L2 + L2→L3) 시점의 compactor 측 architecture invariant 박제. ADR-029 §D11 의 3-tier eager unlink invariant 12종 (MCT-202 amendment) 의 compactor lifecycle 측면 sibling SSOT.
+
+### 근본 원인
+
+production verified `0e244e9` (2026-05-18 운영 진단):
+
+- `runner.py:281-286 _dispatch_dual_write` 가 `local_path=parquet_path, data=parquet_path` 동일 Path 전달 → `dual_writer.py:249` `isinstance(data, Path) and data != local_path` guard = False → `_promote_after_nas_put` 미실행 → L1 source parquet (L2 cascade 진입 시) + L2 source parquet (L3 cascade 진입 시) eager unlink 0.
+- `l2.py:149,303` + `l3.py:147,262` 검증 결과: **tempfile cleanup only** (`os.replace(str(tmp), str(out_path))` 직전 변수 `tmp` 의 exception-path unlink). **source input parquet unlink path 없음**. compactor callee 내부 cascade 진입 경로 자체가 부재.
+
+### 결정
+
+#### 1. Compactor cascade self-delete = **caller-wiring SSOT** (callee 내부 source unlink path 부재 박제)
+
+L2 / L3 compactor 의 `_compact_hour_local` / `_compact_day_local` / `_compact_hour_nas` / `_compact_day_nas` 는 input source parquet (L1 또는 L2) 측 unlink 책임 0 — temp file (`out.parquet.tmp`) cleanup 만 담당. cascade self-delete = **caller-wired** (`compactor/runner.py::_dispatch_dual_write` + `_historical_dual_write` 양쪽).
+
+**채택 이유** (MCT-202 D-1 옵션 B):
+- callee semantic 보존 (MCT-189 D-2 A 분기 유지)
+- MCT-160 D6 streaming guard 깨짐 0
+- caller 의 명시적 cascade intent 박제 (regression 차단 의무)
+
+caller-side 명시 박제:
+```python
+# DualWriter.write() 시그니처 (MCT-202 LAND)
+def write(*, local_path, nas_key, data, sha256,
+          source_to_delete: Path | None = None) -> DualWriteResult:
+    ...
+```
+
+`source_to_delete is None` default → MCT-189 LAND 동작 유지. `source_to_delete=parquet_path` 명시 → cascade intent. 
+
+caller 위치 박제:
+- `_dispatch_dual_write` (forward L2/L3 path) — line 281-286, `source_to_delete=parquet_path` 전달
+- `_historical_dual_write` (WS-A historical promotion path) — line 447-487, 동형 `source_to_delete=parquet_path` 전달
+
+#### 2. DualWriter `status='committed'` XOR `source exists` invariant 박제
+
+`DualWriteResult.status` 와 source local path 의 mutually exclusive 관계:
+
+| `result.status` | source 상태 |
+|---|---|
+| `committed` | unlinked (4-HEAD pass 후 즉시 unlink) OR already_promoted (concurrent unlink — idempotent no-op) |
+| `local_only` | retained (NAS status='queued' = retry_queue carrier) |
+| `hard_floor_blocked` | retained (NAS status='hard_floor_blocked' = SOP MANUAL_GATE) |
+
+XOR 보증의 enforcement = `_promote_after_nas_put` 함수 내부 분기 + `FileNotFoundError` graceful (D-7 A 정합). 본 invariant 위반 = NAS+local 동시 존재 ambiguity (ADR-029 §D10) violation.
+
+invariant test 박제 의무: `tests/unit/nas_storage/test_dual_writer_eager_l2_l3.py` (MCT-202 LAND).
+
+### 적용 의무
+
+- `src/mctrader_data/nas_storage/dual_writer.py` — `write()` 시그니처에 `source_to_delete: Path | None = None` keyword-only 파라미터 추가. `_promote_after_nas_put` 반환 enum 확장 (`Literal["committed", "local_only", "already_promoted"]`).
+- `src/mctrader_data/compactor/runner.py` — `_dispatch_dual_write` + `_historical_dual_write` 양쪽 `source_to_delete=parquet_path` 명시 전달. `_historical_dual_write` 의 `NASOperationalAlert` re-raise wrap 동시 LAND (MCT-202 D-3).
+- `src/mctrader_data/nas_metrics/prometheus_exporters.py` — `compactor_local_self_delete_total{tier, outcome}` (3 tier × 5 outcome) + `mctrader_retry_orphan_total{tier}` + `mctrader_legacy_cleanup_race_noop_total` 신규 (19 series 총, ≤ 50 ADR-027 §D6 정합).
+
+### 검증 의무
+
+- MCT-202 Phase 2 PR (mctrader-data) LAND 산출물 = unit tests (`tests/unit/nas_storage/test_dual_writer_eager_l2_l3.py` + `tests/unit/compactor/test_runner_dispatch_dual_write.py` + `tests/unit/compactor/test_runner_historical_dual_write.py` + `tests/unit/compactor/test_metrics_self_delete.py`) + integration (`tests/integration/test_eager_cleanup_cascade.py` testcontainers MinIO 3-tier E2E + §11.6 idempotency 3 case + sweep race FileNotFoundError 분기).
+- 운영 검증 (post-LAND 14d): `mctrader_retry_orphan_total` rate = 0 + `compactor_local_self_delete_total{outcome="committed_unlinked"}` 정상 ramp-up + local disk usage 117GB → 안정 수준 회수.
+
+### Cross-ref
+
+- ADR-029 §D11 (3-tier eager unlink invariant 신설, MCT-202 amendment) — 본 amendment 의 invariant SSOT
+- ADR-029 §D3 (grace-0 tier dimension 일반화, MCT-202 amendment) — caller-wiring sibling
+- ADR-027 §D5 (eager unlink ↔ sweep race + 4xx fail-fast 정합, MCT-202 amendment) — race window + propagation drift 차단
+- ADR-027 §D7 (WAL 24h grace 폐기 + NAS-SoT 격상, MCT-202 amendment) — grace motivation 흡수
+- ADR-009 §D12.2 annotation (forward-only invariant 3-tier 확장, MCT-202 amendment) — schema-level sibling
+- `docs/domain-knowledge/domain/tier-promotion/grace-0-local-delete.md` (MCT-202 3-tier amendment) — caller-wired vs decision-defined SSOT
+- MCT-202 Change Plan (`docs/change-plans/MCT-202-eager-cleanup-cascade.md`) — 본 amendment 발의 + 구현 LAND Story
