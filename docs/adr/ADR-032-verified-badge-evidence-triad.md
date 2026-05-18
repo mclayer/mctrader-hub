@@ -7,7 +7,12 @@ proposed_at: "2026-05-16"
 accepted_at: "2026-05-17"
 owner_story: MCT-190
 first_application: "MCT-189 §8.5 Impl Manifest (hub#363 ccacdce 2026-05-17)"
-amendments: []
+is_transitional: false  # governance ADR — ADR-058 §결정 7 classification presumption (permanent policy carrier)
+amendments:
+  - by: "CFP-992"
+    date: "2026-05-18"
+    scope: "§3.0 evidence (3) integration test PASS → review lane integration-dir 실 실행 evidence 강화 (pytest collection log + run log). §4.3 PMO audit gate row + §5 §8.5 template 동형 확장."
+    sunset_justification: "N/A — ADR-032 = governance ADR (is_transitional: false, ADR-058 §결정 7 presumption). 영구 정책 carrier 라 sunset 미충족 사유 부재 — 본 amendment 는 evidence triad (3)항 정의 강화로 정책 자체 범위 확장 (CFP-822 N=3 instance: MCT-189 + MCT-190 + MCT-202 review-pass-vs-actual-failure 누적)."
 cross_ref:
   - "ADR-029 §D3 (evidence triad 첫 적용 대상)"
   - "ADR-030 (MCT-179 reconcile 5회 사례)"
@@ -80,6 +85,7 @@ VERIFIED badge 박제 시 다음 **3 evidence 동시 박제 의무**:
 3. **integration test PASS** — 실 경로 evidence
    - 형식: `tests/integration/test_*.py N 시나리오 ALL PASS` (testcontainers 외부 의존 포함 시 더 강한 evidence)
    - 의의: unit test 만으로 미흡 — boundary 통과 evidence 의무. integration test = caller-wired evidence 와 함께 production wiring 완결 박제
+   - **review-lane execution evidence 강화 (CFP-992 amendment, §Amendment — Review Lane Integration-dir Execution Evidence 참조)**: "integration test PASS" 신호는 **review lane 이 `tests/integration/` dir 를 실제 실행한 evidence** (pytest collection log + run log) 동반 시에만 valid. review lane verify scope 가 integration dir 미포함 (unit-test-only) 인 채 PASS verdict 박제 시 = false PASS (MCT-202 3호 nuance). evidence 형식: pytest collection log (`collected N items` + integration test node id 포함) + run log (integration test 함수 PASS 라인). collection log 에 integration node id 0건 = evidence (3) 미충족 (false-positive 차단).
 
 ### §3.1 decision-defined ≠ caller-wired 분리 (Michael Nygard ADR 원본 정합)
 
@@ -145,6 +151,7 @@ PMO-AUDIT-*.md §lane gate 전수 검증 row — verify_evidence triad 의 3 evi
 | (1) file:line | `<path>:<line>` | ✅ / ❌ |
 | (2) production caller grep ≥1 | `git grep` = N caller | ✅ / ❌ |
 | (3) integration test PASS | `tests/integration/test_*.py` N 시나리오 PASS | ✅ / ❌ |
+| (3a) review-lane integration-dir 실 실행 (CFP-992) | pytest collection log integration node id ≥ 1 + run log integration 함수 PASS 라인 박제 | ✅ / ❌ |
 
 ## §5 Story §8.5 Impl Manifest 통합
 
@@ -239,3 +246,45 @@ verify_evidence:
 - `telemetry_counter_caveat`: governance ADR (class:governance) telemetry counter forever 0 정상 — ADR-033 §7 grandfathering (production-wired ADR만 quad 의무). false-positive fail 차단 INV (governance ADR singleton 의 quad verify gate 면제 = self-reference 첫 적용, MCT-191 본 Story). quad verify gate 가 governance ADR 자체를 telemetry 0 으로 fail 시키지 않음 (governance 시스템 자가붕괴 차단).
 
 **INV-1 forcing function**: false-positive fail 차단 의무. 향후 governance ADR 신규 author 시 동일 Caveat pattern reapply. quad 확장 시에도 governance ADR self-reference Caveat 적용 (telemetry_counter_caveat) — false-positive fail 차단.
+
+## Amendment History
+
+- 2026-05-18 — **Review Lane Integration-dir Execution Evidence 강화 — CFP-992** (`mctrader-hub#TBD` LAND, S1 carry-over from MCT-202 RETRO §11.12, CFP-822 N=3). evidence triad (3) "integration test PASS" 정의를 "review lane 이 `tests/integration/` dir 를 실제 실행한 evidence (pytest collection log + run log)" 로 강화. review lane verify scope 가 integration dir 미포함 (unit-test-only) 인 채 PASS verdict 박제 = false PASS root cause 영구 박제. §3.0 (3)항 본문 + §4.3 PMO audit gate (3a) row + §5 §8.5 template 동형 확장. is_transitional: false (governance ADR — ADR-058 §결정 7 presumption).
+
+## §Amendment — Review Lane Integration-dir Execution Evidence (NEW, CFP-992, 2026-05-18)
+
+본 amendment 는 ADR-032 evidence triad (3) "integration test PASS" 의 **review-lane execution evidence 강화**. 원안 본문 (§3.0 / §4.3 / §5) 보존 — append-only 확장. governance ADR (`is_transitional: false`, ADR-058 §결정 7 presumption).
+
+### §A.1 Trigger — MCT-202 review-pass-vs-actual-failure (CFP-822 N=3)
+
+| 단계 | 내용 |
+|------|------|
+| **가설** | MCT-202 CodeReviewPL iter2 verdict=PASS → `tests/integration/` 실 경로 정합 (evidence triad (3) 충족 신호) |
+| **실측** | CI iter3 에서 `_historical_dual_write` forward-only invariant 위반 catch (historical local-only path L2 eager unlink → L3 input 손실) + regression authoritative catch. review lane verify scope = unit-test-only (integration dir 미실행) — PASS verdict 가 false 신호 |
+| **영향** | review lane PASS 후 CI iter3 가 authoritative failure 발견 — review verdict ↔ 실제 동작 desync (MCT-189 + MCT-190 + MCT-202 = CFP-822 N=3 instance, root_cause_class `review_pass_vs_actual_failure`) |
+| **정정** | 본 amendment — evidence (3) 정의에 "review lane 이 integration dir 를 실 실행한 evidence (pytest collection log + run log) 동반" 의무 추가. collection log 에 integration node id 0건 = evidence (3) 미충족 (false-positive mechanical 차단) |
+
+**핵심**: "integration test PASS" 박제 ≠ "review lane 이 integration dir 를 실제 실행". review lane verify scope 가 integration dir 미포함 시 PASS 신호가 false (evidence triad (3) 정의가 실행 evidence 까지 demand 하지 않으면 silent review-pass-vs-actual-failure). MCT-202 = CFP-822 N=2 (MCT-189 + MCT-190) → N=3.
+
+### §A.2 강화된 evidence (3) 정의
+
+evidence (3) "integration test PASS" valid 조건 (AND):
+
+1. `tests/integration/test_*.py N 시나리오 ALL PASS` (원안 §3.0 (3) 형식 보존)
+2. **review lane 이 integration dir 를 실제 실행한 evidence 동반**:
+   - **pytest collection log**: `collected N items` + 1+ integration test node id (`tests/integration/...::test_*`) 포함. collection log 에 integration node id 0건 = unit-test-only scope = evidence (3) 미충족.
+   - **run log**: integration test 함수의 PASS 라인 (`PASSED tests/integration/...` 또는 `.` progress + summary `N passed`).
+
+review lane verdict packet 또는 Story §8.5 / §11 LAND timeline 에 위 2 log 박제 의무. log 부재 또는 collection log integration node id 0건 = evidence (3) ❌ (PMO-AUDIT §2.4 / §lane gate verify 시 fail).
+
+### §A.3 §4.3 / §5 동형 확장
+
+- **§4.3 PMO audit gate**: 검증 table 에 `(3a) review-lane integration-dir 실 실행 (CFP-992)` row 추가 — pytest collection log integration node id ≥ 1 + run log integration 함수 PASS 라인 박제 verify.
+- **§5 §8.5 Impl Manifest template**: 후속 Story §8.5 작성 시 evidence (3) row 에 collection log + run log cross-ref 동반 (review lane integration-dir 실 실행 evidence). PMO-AUDIT 가 §2.4 에 reapply 정합 verify.
+
+### §A.4 Cross-references (CFP-992 amendment)
+
+- **CFP-822** (OPEN HIGH, `review-lane-integration-dir-not-executed` cross_story_pattern, N=3 carrier — MCT-189 + MCT-190 + MCT-202) — issuecomment-4478612070 (사용자 Option A 결정 2026-05-18: S1 = ADR-032 + ADR-055 §7 amendment, CFP-822 흡수, 신규 ADR 아닌 amendment)
+- **MCT-202 RETRO §11.12** — cross_story_pattern `review-lane-integration-dir-not-executed` (root_cause_class `review_pass_vs_actual_failure`) carry-over 출처
+- **ADR-055 §7 importlib 명세 amendment** (plugin-codeforge, CFP-992 S1 sibling amendment) — IntegrationTestAgent baseline 자동승격 layout `--import-mode=importlib` 의존 명세 (basename collision 영구 해소). 본 ADR-032 amendment 와 동일 Story (CFP-992) 의 2-ADR amendment set
+- **ADR-058 §결정 7** (governance/security ADR classification presumption `is_transitional: false`) — 본 amendment 의 transitional 분류 근거 (permanent policy carrier, sunset 미적용)
