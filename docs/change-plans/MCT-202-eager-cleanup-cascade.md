@@ -125,6 +125,23 @@ cascade target = compactor **output** parquet (방금 `os.replace(tmp, out_path)
 - 현재 `_historical_dual_write` 는 `dual_writer.write()` 호출을 try/except 로 wrap 0 → `NASOperationalAlert` (4xx fail-fast) propagate 가 raw exception 으로 historical caller 까지 전파. `_dispatch_dual_write` 와 drift.
 - 본 Story 가 cascade wiring 동시 LAND 시점에 wrap 일관화 의무.
 
+#### 3.3.1 historical sequential local-only flow 순서 보존 명세 (CFP-992 S3 amendment, 2026-05-18)
+
+**carrier**: CFP-992 S3 (MCT-202 RETRO §11.12 carry-over CO-1 closure).
+
+**문제 재현 (verified-via mctrader-data 0e244e9..57cac07)**: `_historical_dual_write` 가 `source_to_delete=parquet_path` 고정 전달일 때, `run_historical_promotion` 의 sequential local-only flow (`l2 = L2Compactor(root=root, nas_uploader=None)` / `l3 = L3Compactor(root=root, nas_uploader=None)` — `runner.py:564,571`) 에서 순서 결함 발생: ① `l2.compact_hour()` → L2 output 생성 ② `_historical_dual_write(out, tier="L2", source_to_delete=out)` → committed → L2 local unlink ③ `l3.compact_day()` → `l2_dir.rglob("part-*.parquet")` = `[]` → `l3_compacted=0` (forward-only invariant 위반).
+
+`run_historical_promotion` 은 `nas_uploader=None` local-only 모드 → L3 가 L2 NAS GET fallback 불가 → L2 local 이 L3 유일 input source.
+
+**명세 (D-3 amendment)**: `_historical_dual_write` 에 `source_to_delete: Path | None = None` 파라미터화 (default=None). caller 가 flow 특성에 따라 명시 전달:
+
+- **L2 tier caller (`runner.py:589`)**: `source_to_delete=None` (보존) — L3 compact_day local input intact 보장
+- **L3 tier caller (`runner.py:608`)**: `source_to_delete=None` (보존) — L3=terminal tier, scan_and_cleanup_legacy carrier (C-12) 회수
+
+**forward path (`_dispatch_dual_write`) 와의 차이**: forward path 는 production NAS 모드 (`nas_uploader is not None`) 라 L3 가 NAS GET 으로 L2 읽음 → L2 output eager unlink 안전. historical path 는 `nas_uploader=None` local-only → L2 unlink 가 L3 input 손실. flow 특성 차이를 caller 명시(`source_to_delete=None`)로 해소 — D-2 옵션 C 철학 정합.
+
+**D-3 의도 충족 (escalate 0)**: D-3 본질 = drift 차단 + disk-full 방지 (사용자 가치 함수). historical L2 의 sweep carrier 회수 = disk-full 방지 ends 달성. 즉시 unlink 는 means. Phase 2 CI iter3 ArchitectPL 최종판정 = 구현 원인 확정 (D-3 wording = drift 차단 명확, "L2 즉시 unlink 의무" 미명시), 구현 57cac07 해소.
+
 ### 3.4 D-4 채택: `gc_daemon._archive_failed` docstring amendment only
 
 `gc_daemon.py` 의 `_archive_failed` (status='local_only' / 'hard_floor_blocked' 7d extension 처리) 는 의미 변경 0. 본 Story 가 source 보존 → eager cascade gate 통과 0 → 기존 `_archive_failed` 분기 자연 propagation.
