@@ -39,6 +39,7 @@ Accepted — 2026-05-12. MCT-149 (EPIC-cold-tier-nas-minio Stage 1 종료 govern
 - 2026-05-17 — **§D1 amendment box (U1-ADR, EPIC-nas-key-unification Phase 2, ADR-034 publish)**:
   - **§D1 cross-ref 박제** — ADR-034 §결정 1 채택. NAS object key 의 `l1/` sub-namespace 제거 (전 tier 단일 평면 layout). 단일 bucket `mctrader-market` + Hive prefix layout 정책 자체 무변경 — `l1/` prefix sub-namespace 만 제거 (tier 구분 = Hive partition `tier=L{1,2,3}/` 컴포넌트로 충분). ADR-027 §D1 의 Hive prefix layout (`schema_version/exchange/node/tier/date/`) invariant 보존.
   - **상세**: 본 amendment 는 ADR-034 § Context "Ground Truth — 4 SSOT 분산점" 표 + § Decision §결정 1 verbatim 박제. Phase 2 cutover sequence = U2-HELPER (단일 helper SSOT) → U3-MIGRATE (1회성 멱등 re-key 마이그레이션) → U5-VERIFY (Phase 1 helper 회수 + forward-only invariant 박제). dual-read 윈도우 = U2 land ~ U5 land. carrier ADR: `docs/adr/ADR-034-nas-key-unification.md`.
+- 2026-05-18 — **MCT-200 amendment (NAS-side LIST/HEAD silent-skip 차단, Proposed)**: `L2Compactor._compact_hour_nas` 등 NAS-side `_list_objects` / `head_object` 403/exception `except Exception: return None` silent-skip 차단. Counter `mctrader_data_compactor_nas_403_total{op,action}` + `RuntimeError` fail-fast + alert `NASCompactorListHead403` (for=0m) + idempotency Counter `mctrader_data_nas_uploader_idempotent_skip_total{tier,channel}` + Story 2 코드 fix Epic seed. INCIDENT-2026-05-17 amendment (NAS PUT *result* path) sibling — *NAS read path (LIST/HEAD)* 영역 확장. cross-Story pattern N=3 (MCT-160+164+200, ADR-045 Amendment 5 §D-9). carrier Story: `mclayer/mctrader-data#97`.
 
 ## 해소 기준
 
@@ -281,6 +282,47 @@ Cross-references: Story `docs/stories/MCT-160.md` §1-§11 + scope_manifest `EPI
 - ADR-027 Amendment 2 (MCT-164 — source channel silent-skip) sibling
 - ADR-027 §D6 7종 invariant (verify path) disjoint cross-link
 - ADR-009 §D12.2 forward-only invariant 강화
+
+**MCT-200 amendment 박제 (2026-05-18, Proposed)** — NAS-side LIST/HEAD silent-skip 차단 (NAS read path 영역 확장). MinIO bucket policy/IAM 회귀 (PUT 성공 / LIST·HEAD 403 비대칭) incident retro (`mctrader-data#97`) trigger. INCIDENT-2026-05-17 amendment (NAS PUT *result* path) sibling.
+
+**Background**: MCT-200 incident 실측: 운영 자격증명이 `read+write` 만 갖고 `list+admin` (`s3:ListBucket` / `s3:HeadObject`) 누락 = NAS PUT 성공 / LIST·HEAD 403 비대칭 (RC-1). `L2Compactor._compact_hour_nas` 등 NAS-side `_list_objects` / `head_object` 호출이 `ClientError` / 403 / 일반 예외를 `except Exception: log.warning(...); return None` 으로 흡수 (RC-2) → forward L1→L2 promotion 이 무한 silent failure 로 진입. ADR-027 Amendment 1 (MCT-160) `compactor_quarantine_total` + Amendment 2 (MCT-164) `compactor_unsupported_source_total` + INCIDENT-2026-05-17 amendment (NAS PUT result path) 와 동형 silent-skip pathology 가 *NAS read path (LIST/HEAD)* 차원에서 잔존 = 박제 누락. status=**Proposed** (본 MCT-200 Story = ADR carrier 단계, 코드 fix = downstream Story 2 별 Epic).
+
+증거 site (verified-via: MCT-200 CodebaseMapperAgent fact-only surface):
+
+- `src/mctrader_data/compactor/l2.py:162-173` `_compact_hour_nas` — `except Exception: log.warning(...); return None` (RC-2)
+- `src/mctrader_data/nas_storage/nas_uploader.py:571-593` `_list_objects` 자체는 raise 하지만 caller 가 catch
+- `src/mctrader_data/nas_storage/nas_uploader.py:396-418` `head_object` 4-tuple verify primitive (ETag/VersionId/Metadata['sha256']/ContentLength)
+
+**Decision (5종 — Refactor + OpRisk + Security + DataMigration 통합)**:
+
+1. **NAS-side LIST/HEAD 403/exception fail-fast 의무 (silent return None 금지)**:
+   - `Counter mctrader_data_compactor_nas_403_total{op, action}` +1. `op ∈ {"list", "head"}`, `action ∈ {"fail_fast", "silent_skip_legacy"}` bounded low cardinality. Amendment 1 (`validate_channel_exchange`) + Amendment 2 (`validate_compactor_source`) Counter emit 패턴 정합. transition 기간 동안 `action=silent_skip_legacy` 도 emit (current behavior visibility) → Story 2 LAND 후 `silent_skip_legacy` label = 0 검증.
+2. **raise 형식 = `RuntimeError`** (런타임 IAM 상태 회귀 drift):
+   - `raise RuntimeError(f"NAS 403 fail-fast: op={op} prefix={prefix} — ADR-027 Amendment 3")`. `ValueError` (설계 시점 입력 오류, Amendment 1+2 allowlist 패턴) / `NotImplementedError` (미구현 영역) 부적합. `boto3 ClientError` wrap → metadata (op, prefix, status_code) 보존.
+3. **Prometheus alert `NASCompactorListHead403`** (for=0m 즉시 critical):
+   - `expr: increase(mctrader_data_compactor_nas_403_total{action="fail_fast"}[5m]) >= 1`, `for: 0m`, `severity: critical`, `domain: cold-tier`. MinIO bucket policy/IAM 회귀 가능성 → `mc admin policy info` + `verify_minio_iam_restore.py` 4 action round-trip smoke. Runbook: `mctrader-data:docs/runbooks/minio-bucket-policy-iam-restore.md`. ADR-027 §D6 silent-skip 7-invariant 차단 sibling 정합.
+4. **Idempotency Counter `mctrader_data_nas_uploader_idempotent_skip_total{tier, channel}`**:
+   - WS-A operator 수동 백필 replay (SIGKILL → restart 재실행) 시 `.compacted` sentinel + HEAD sha256 match → silent overwrite 회피 증거 (Story §8.5.3). DataMigrationArch §11 INV-C (deterministic run_id + sha256 idempotency) 정합.
+5. **후속 코드 fix Epic Seed (Story 2 downstream)**:
+   - 본 amendment Accepted 후 별 Epic Story 2 진입. 대상: `src/mctrader_data/compactor/l2.py:162-173` `except Exception: return None` → `raise RuntimeError(...)` + Counter emit. 부가: `_compact_hour_nas` caller (`compactor/runner.py` `_run_l2_for_parquet` / `_run_l3_for_parquet` / `run_historical_promotion`) fail-fast propagation 검증. ADR-045 §결정 3 (Accepted ADR carrier 이후 별 Epic 위탁) 정합.
+
+**검증 의무 (post-Story-2 LAND 기준)**:
+
+- AC-1: silent-skip grep 가드 — `rg -n "except.*ClientError.*:\s*\n.*log.*warning.*\n.*return None" src/mctrader_data/` → Story 2 LAND 후 expected matches = 0 (본 MCT-200 Story = Proposed 단계, expected ≥ 1).
+- AC-2: `scripts/verify_minio_iam_restore.py` (Phase 2 Group A) 4 action allow round-trip (PUT+LIST+HEAD+GET → 200) + N action deny round-trip (`s3:DeleteObject` → 403, SecurityArch INV-S3 정합).
+- AC-3: `mc admin policy info` snapshot vs `scripts/minio-policies/admin.json` SSOT diff cron (OpRisk §7.4 협의) — diff ≠ 0 → Prometheus push gateway emit + Issue auto-open.
+
+**Cross-ref**:
+
+- ADR-008 §D10 (silent-skip 차단 원칙 모체)
+- ADR-017 §D2 (`.compacted` sentinel + already_promoted no-op)
+- ADR-027 Amendment 1 (MCT-160 — cadence path silent-skip) sibling
+- ADR-027 Amendment 2 (MCT-164 — source channel silent-skip) sibling
+- ADR-027 INCIDENT-2026-05-17 amendment (NAS PUT result path silent-skip) sibling — 본 amendment = *NAS read path (LIST/HEAD)* 영역 확장 (disjoint cross-link)
+- ADR-027 §D6 7종 invariant (verify path) disjoint cross-link
+- ADR-045 §결정 3 (Accepted ADR 후 별 Epic 위탁) + Amendment 5 §D-9 (cross-Story pattern N=3 forcing function)
+- MCT-200 Story (`mclayer/mctrader-data#97`) — 본 amendment carrier
+- `docs/domain-knowledge/domain/data-health/minio-bucket-policy-iam.md` (신규, 본 Story 동반)
 
 ### D5. Failure mode — compactor retry queue + alert, hot path 무영향 (MCT-167 amend: L1 NAS dual-write 도입 + capacity-bounded ingest block)
 
@@ -687,3 +729,4 @@ cross-ref: `docs/adr/ADR-031-data-domain-decoupling.md` §D7 VERIFIED (MCT-188 L
 - 2026-05-14 — **MCT-164 amendment** (multi-channel exchange silent-skip 차단). ADR-027 Amendment 1 (MCT-160 cadence path) sibling — multi-channel source 영역 확장. L1/L2/L3 compactor 의 미지원 source channel = fail-fast + `compactor_unsupported_source_total{tier,exchange,channel}` Counter emit + channel matrix SSOT dispatch 의무. MCT-165 V2 verify 잔존 YES (upbit L1 partition 0) trigger. ADR-017 Amendment (channel matrix SSOT) sibling.
 - 2026-05-14 — **MCT-161 amendment** (NAS bucket versioning + Object Lock governance 30d + Lifecycle ILM + DR runbook). EPIC-compactor-operations milestone 3/3 closure gate. MCT-153 4.2 GiB 손실 prevention + DR. Decision 8 (versioning Enable / Object Lock 30d / NoncurrentVersionExpiration 30d / DeleteMarker replication OFF / hot path 무영향 INV-1 / DR runbook 5-step / replication 후속 별 backlog Story D2=D / btrfs snapshot runbook 박제만 D6=B). EPIC-tier-promotion-single-source D9 prerequisite (MCT-161+163 sequential, MCT-167 governance prerequisite consumer).
 - 2026-05-18 — **INCIDENT-2026-05-17 amendment** (NAS PUT 4xx fail-fast — silent fallback 차단, §D5 amend). disk pressure 117GB incident retro (`mctrader-data#94`) §6 carry-over Action Item 1 + cross-repo PMO audit (`mctrader-hub#394`) ADR 후보 #1 trigger. 4xx (auth/policy/quota 영구 오류) vs 5xx (5XX server / EndpointConnectionError unreachable) 처리 분리 — 4xx = `NASOperationalAlert` raise + `mctrader_nas_put_operational_alert_total{tier,reason}` Counter emit (retry_queue 흡수 금지), 5xx = 현행 retry_queue queued 흡수 유지. ADR-027 Amendment 1 (MCT-160 cadence path) + Amendment 2 (MCT-164 source channel) sibling — *upload result path* 의 silent-skip 차단 (D6 verify path 와 disjoint). ADR-009 §D12.2 forward-only invariant 강화. 검증 의무 = `mctrader-data` 의 testcontainers MinIO 4xx mock + 5xx 회귀 + D6 7종 invariant 회귀 0.
+- 2026-05-18 — **MCT-200 amendment** (NAS-side LIST/HEAD silent-skip 차단, **Proposed**). MinIO bucket policy/IAM 회귀 (PUT 성공 / LIST·HEAD 403 비대칭, RC-1) incident retro (`mctrader-data#97`) trigger. INCIDENT-2026-05-17 amendment (NAS PUT result path) sibling — *NAS read path (LIST/HEAD)* 영역 확장 (disjoint). `L2Compactor._compact_hour_nas` `except Exception: return None` (RC-2) silent-skip 차단 — Counter `mctrader_data_compactor_nas_403_total{op,action}` + `RuntimeError` fail-fast + alert `NASCompactorListHead403` (for=0m) + idempotency Counter `mctrader_data_nas_uploader_idempotent_skip_total{tier,channel}` + Story 2 코드 fix Epic seed (ADR-045 §결정 3). cross-Story pattern N=3 (MCT-160+164+200, ADR-045 Amendment 5 §D-9). 동반 신규 domain-knowledge `docs/domain-knowledge/domain/data-health/minio-bucket-policy-iam.md` (IAM/bucket policy SSOT). status=Proposed (코드 fix = downstream Story 2). carrier Story `mclayer/mctrader-data#97`.
