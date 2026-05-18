@@ -27,6 +27,7 @@ Accepted — 2026-05-02. MCT-9 Phase 1 PR.
 - 2026-05-13 — **§D2.7 신규 (Schema nullability discipline)** (MCT-160, EPIC-compactor-operations Story-2). 3 schema (`_TRANSACTION_SCHEMA` + `_ORDERBOOKSNAPSHOT_SCHEMA` + `_ORDERBOOKDEPTH_SCHEMA`) 의 `pa.field(name, dtype, nullable=False/True)` 명시 의무 박제. `raw_json` 만 `nullable=True`, 나머지 essential column (`ts_utc` / `exchange` / `symbol` / `side` / `price` / `quantity`) 은 `nullable=False`. MCT-162 CodeReviewPL P1 finding (orderbookdepth schema nullable=False 명시 부재) 합병. InvariantHarness `dtype_identity` invariant 가 nullability 도 verify (ADR-027 §D6 정합). ADR-027 D4 amendment (MCT-160 silent-skip 차단 + post-write verify + quarantine) 와 sibling — Phase 1 ADR amendment 2건 박제.
 - 2026-05-14 — **§D2.7 spec-impl drift 해소 amendment** (MCT-163, EPIC-tier-promotion D9 last prerequisite, MCT-160 F7 carry). MCT-160 Story §6 D7 wording = "raw_json/node_id/collector_run_id nullable=True" 였으나 impl narrower (raw_json only nullable=True, node_id/collector_run_id nullable=False) 채택 (impl 우선, narrower = stricter = forward-only 정합). 본 amendment = MCT-160 §6 D7 wording 을 impl 답습 narrower 로 정정 + §D2.7 본문 line 1061 의 "Metadata column (`node_id` / `collector_run_id` / ...) = nullable=False" 가 SSOT 임을 history 명시. D7=A 채택 (Codex + Sonnet 합성).
 - 2026-05-14 — **§D12.2 forward-only invariant NAS object SoT 격상 amendment** (MCT-167, EPIC-tier-promotion-single-source, ADR-029 publish). §D12.2 의 forward-only invariant enforcement layer = **local file system → NAS object SoT (versioning 기반)** 격상. tier promotion 후 local delete (L1 → L2 promote 시 L1 local 즉시 삭제, L2 → L3 promote 시 L2 local 즉시 삭제) = forward-only 위반 0 (ADR-029 D3=C ambiguity 차단). NAS = single source of truth, local = ephemeral cache only. MCT-161 LAND (NAS bucket versioning Enabled + Object Lock governance 30d + NoncurrentVersionExpiration 30d) 가 enforcement layer 격상 prerequisite — versioning history 가 의도치 않은 delete/overwrite 의 복원 source 역할 (DR runbook 박제). ADR-029 D1 (L1 NAS PUT 의무) + D3 (NAS HEAD verify + grace 0) + D10 (ambiguity invariant violation enforcement) 와 dual-binding.
+- 2026-05-18 — **§D2.8 신규 (L1 filename convention dual pattern — sha-only legacy + ts-prefix new)** (`mctrader-data#96` LAND, WS-A 117GB unblock). L1 Parquet 파일명 두 패턴 양립: legacy `part-<sha[:16]>.parquet` + forward-only new `part-<YYYYMMDDTHHMMSSZ>-<sha[:16]>.parquet`. **schema 미변경 — file naming convention 만 변경** (forward-only invariant §D12.2 정합, `schema_version` 변경 0, `_derive_run_id` sha256 idempotency 불변). reader `rglob("part-*.parquet")` 양쪽 match + content-derived sort key (ADR-017 Amendment 3 sibling). byte-sort = time-sort 회복 (root cause 영구 해소).
 
 ## Context
 
@@ -102,6 +103,33 @@ market/ohlcv/schema_version=ohlcv.v1/exchange=.../symbol=.../timeframe=.../
 References:
 - Spec: [collector-ha-active-active-design.md](../superpowers/specs/2026-05-05-collector-ha-active-active-design.md)
 - Heartbeat contract: [heartbeat-schema.v1.md](../domain-knowledge/contracts/heartbeat-schema.v1.md)
+
+#### D2.8 L1 filename convention — dual pattern (sha-only legacy + ts-prefix new) (NEW, mctrader-data#96, 2026-05-18 amendment)
+
+L1 Parquet 파일명 두 패턴 양립 허용 (WS-A 117GB unblock — `mctrader-data#96` LAND):
+
+- **legacy**: `part-<sha[:16]>.parquet` (sealed segment path sha256, `_derive_run_id` 결과)
+- **new (forward-only)**: `part-<YYYYMMDDTHHMMSSZ>-<sha[:16]>.parquet` (sealed WAL segment epoch ts prefix + 기존 sha 보존)
+
+**핵심 invariant — schema 미변경, file naming convention 만 변경**:
+
+- `schema_version` 변경 0 (column / dtype / order 불변). forward-only invariant (§D12.2) 형식상·실질상 정합 — naming convention 은 schema 의 일부가 아님.
+- `_derive_run_id = sha256(sealed_path)[:16]` **불변** — NAS PUT HEAD-then-PUT sha256 idempotency 보존, `.compacted` sentinel mapping 보존, 재upload 0.
+- byte-sort = time-sort 효과 회복 (`YYYYMMDDTHHMMSSZ` 사전 정렬 가능 ISO 형식). L1 파일명 시간정보 0 (sha-only) 가 `sorted(rglob)` quarantine 유발한 root cause 영구 해소.
+
+**Reader 의무**: `rglob("part-*.parquet")` 가 양쪽 패턴 모두 match. 정렬은 content-derived `ts_utc` (ADR-017 Amendment 3 — `_extract_min_ts`) 사용 — 파일명 untrusted 원칙이라 dual pattern 혼재해도 정렬 정확.
+
+**Writer 의무 (forward-only)**: 신규 sealed segment 부터 new 패턴 출력 (`L1Compactor._derive_parquet_path`). 기존 117GB sha-only L1 (`mctrader-data#85` WS-A `f2e2bc9` 산출물) rewrite 0 — eventually 자연 rotation 으로 통일.
+
+**영향**:
+- `mctrader-data/src/mctrader_data/compactor/l1.py` `_derive_parquet_path` filename pattern
+- `mctrader-data/src/mctrader_data/wal/segment.py` `parse_ts_from_segment` 신규 helper (`parse_node_id_from_segment` 와 symmetric)
+
+**Cross-ref**:
+- ADR-017 Amendment 3 (compactor sort key 규약 — content-derived, 파일명 untrusted) sibling
+- §D12.2 forward-only invariant (schema 미변경 정합 근거)
+- `mctrader-data#96` (본 amendment 발의 + 구현 LAND Story)
+- Spec: `mctrader-data/docs/superpowers/specs/2026-05-17-compactor-sort-key-l1-naming.md`
 
 ### D3. 거래소 normalization
 
