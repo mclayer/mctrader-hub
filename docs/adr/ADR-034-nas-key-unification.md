@@ -24,9 +24,9 @@ references:
   - ADR-031 (Data domain decoupling — Layer 2 mctrader-data SSOT)
 related_stories:
   - U1-ADR (mctrader-data #87 — 본 ADR 본문 publish, Phase 2 Epic 진입 게이트)
-  - U2-HELPER (mctrader-data #88 — 단일 helper SSOT impl, forward-fix)
-  - U3-MIGRATE (mctrader-data #89 — 기존 l1/ 객체 1회성 멱등 re-key 마이그레이션)
-  - U4-XREPO (mctrader-data #90 — close 후보, §결정 5 verbatim 박제)
+  - U2-HELPER (mctrader-data #88 — 단일 helper SSOT impl, forward-fix, LAND 2026-05-18 + Amendment 1-4 carrier)
+  - U3-MIGRATE (mctrader-data #89 — 기존 l1/ 객체 1회성 멱등 re-key 마이그레이션 + Amendment 5 carrier)
+  - U4-XREPO (mctrader-data #90 — closed not_planned, §결정 5 verbatim 박제)
   - U5-VERIFY (mctrader-data #91 — 통합 검증 + Phase 1 helper dead-code 회수 + forward-only invariant 박제)
 prerequisite_stories:
   - WS-B (mctrader-data #84 — Phase 1 tactical helper `_resolve_legacy_nas_key` LAND 후 본 Epic 진입; U5 가 dead-code 회수)
@@ -65,6 +65,31 @@ amendment_history:
     convergence: "4 deputy unanimous (CodebaseMapper + Refactor + SecurityArch + OpRiskArch + TestContractArch + DataMigrationArch) + chief author Verify-via (l3.py production active runner.py:54+521, minio_uploader deprecated 활성 caller 0) + Codex consult no_findings"
     phase_3_verdict: "PASS — mechanical/boundary/dimensional 3 boolean self-check 모두 PASS, findings=[]"
     design_review_verdict: "PASS (FIX iteration 1 RESOLVED, 14 of 14 findings inline 해소, DesignReviewPL lighter re-verify confirmed)"
+  - date: 2026-05-18
+    author: ArchitectAgent (U3-MIGRATE chief author, mctrader-data#89)
+    amended_adr: ADR-034 (mctrader-hub:docs/adr/ADR-034-nas-key-unification.md, Accepted PR #393 sha 8dbae415 + Amendment 1-4 LAND PR #395 sha 4c973849)
+    scope:
+      - "§결정 4 #4 Manifest YAML filename wording 정정 (rekey-manifest- → rekey-l1-manifest-, tier scope clarity 박제)"
+    reason: |
+      U3-MIGRATE Story §3.4 + DataMigrationArchitectAgent §wording drift primary advocacy + chief
+      author 결정 결과 박제:
+      (1) ADR-034 §결정 4 #4 current wording `<root>/audit/rekey-manifest-<exchange>-<channel>.yaml`
+          (tier 미명시) = scope 모호. 본 Epic scope = L1 객체만 (Story §1 verbatim "기존 117 GB
+          `l1/` 잔존 객체"). L2/L3 객체 = 이미 평면 (SSOT-2/SSOT-5 박제) → re-key 대상 아님.
+      (2) Story §3.4 wording `<root>/audit/rekey-l1-manifest-<exchange>-<channel>.yaml` (tier 명시)
+          = scope clarity 박제 — 향후 L2/L3 re-key 등 별 Story 시 file name 분리 가능
+          (rekey-l2-manifest-* / rekey-l3-manifest-* 패턴 확장 박제).
+      (3) MCT-173 BackfillManifest 패턴 = `backfill-manifest-<exchange>-<channel>.yaml` (tier
+          미명시) — backfill 자체가 L1 scope only 이라 모호성 0. U3 는 future-proofing 의무
+          (L2/L3 re-key 별 Story 가능성 박제).
+      (4) DataMigrationArch §11.5 advocacy 채택 + chief author 결정 = Story §3.4 wording 유지 +
+          ADR-034 본문 wording 정정 (본 Amendment 5 carrier).
+      Codex consult result: codex_check_no_findings (P0/P1 0, debate-protocol-v1 v1.2 Round 0 미발동, Phase 0.5 Touchpoint #2 carry-over 미트리거).
+    related_story: U3-MIGRATE (mctrader-data#89)
+    related_change_plan: mctrader-data:docs/change-plans/U3-MIGRATE.md
+    convergence: "DataMigrationArchitectAgent §wording drift primary advocacy + chief author 채택 결정 (Story §3.4 verbatim 채택 + ADR 본문 정정) + 6 deputy 통합 정합 + Codex consult no_findings"
+    phase_3_verdict: "PASS — mechanical/boundary/dimensional 3 boolean self-check 모두 PASS (10 param: 6 VERIFIED + 4 PROVISIONAL [empirical-source: TBD]), findings=[], marketplace_sync_declared=false"
+    design_review_verdict: "TBD (Phase 2 sibling docs PR LAND 후 DesignReview lane Codex consult)"
 ---
 
 # ADR-034: NAS Object Key Unification — 4-way split SSOT → single flat layout collapse
@@ -74,6 +99,8 @@ amendment_history:
 Accepted — 2026-05-17. U1-ADR Story (`mctrader-data#87`, Phase 2 EPIC-nas-key-unification 전체 설계 SSOT) 가 본 ADR 본문을 publish. 본 ADR Accepted 시점 = Phase 2 Epic 의 후속 Story (U2-HELPER / U3-MIGRATE / U4-XREPO / U5-VERIFY) 진입 게이트.
 
 **Amendment (2026-05-17)**: U2-HELPER chief author synthesis 결과 amendment_history 박제 — 본문 §결정 2 / §결정 3 / §Monitoring 영역의 현행 운영 wording 은 **본 ADR 말미 `## Amendments — U2-HELPER chief author (2026-05-17)` 섹션** 우선 인용 (Amendment 1-4 verbatim).
+
+**Amendment (2026-05-18)**: U3-MIGRATE chief author synthesis 결과 amendment_history 박제 — 본문 §결정 4 #4 Manifest YAML filename wording 의 현행 운영 wording 은 **본 ADR 말미 `## Amendments — U3-MIGRATE chief author (2026-05-18)` 섹션** 우선 인용 (Amendment 5 verbatim).
 
 **Stage 1 (사전 박제)**: Phase 1 WS-B (`mctrader-data#84` open, `_resolve_legacy_nas_key` helper 임시 도입) = 본 Epic 의 stepping stone. WS-B LAND 후 본 Epic 진입 → U5 가 WS-B helper dead-code 회수.
 
@@ -250,6 +277,8 @@ forward-only 위반 — U2 평면 cutover 시 마이그레이션 미완 객체 `
 
 ### §결정 4 — 마이그레이션 안전 게이트 (4-HEAD verify)
 
+> **AMENDED (2026-05-18, U3-MIGRATE chief author)**: §결정 4 #4 Manifest YAML filename wording 정정 — `rekey-manifest-` → `rekey-l1-manifest-` (tier scope clarity 박제). 현행 운영 wording 은 본 ADR 말미 `## Amendments — Amendment 5` 우선 인용.
+
 U3-MIGRATE 의 `l1/` → 평면 1회성 re-key 마이그레이션 안전 정책:
 
 1. **대상 = `.compacted` sentinel 완료 객체만** (active compactor 제외, MCT-173 INV-1/2 패턴 재사용 — source immutable 보장).
@@ -262,7 +291,7 @@ U3-MIGRATE 의 `l1/` → 평면 1회성 re-key 마이그레이션 안전 정책:
      - HEAD-4: ContentLength exact match
    - **Step C delete**: 4-HEAD ALL PASS 후에만 boto3 `delete_object(Bucket: mctrader-market, Key: l1/<old>)`. 1-HEAD fail 시 delete 0 (source 보존, retry 가능).
 3. **per-partition `.rekey-completed` sentinel**: `<root>/audit/rekey-sentinels/<exchange>/<channel>/<partition_id>.completed` — 재실행 시 sentinel 발견 → skip + `mctrader_l1_rekey_skipped_already_migrated_total{exchange,channel}` Counter +1.
-4. **BackfillManifest YAML 재사용** (MCT-173 INV-4 패턴): `<root>/audit/rekey-manifest-<exchange>-<channel>.yaml` — per-partition status + ETag/sha256/VersionId/ContentLength 4-tuple 박제.
+4. **BackfillManifest YAML 재사용** (MCT-173 INV-4 패턴): `<root>/audit/rekey-l1-manifest-<exchange>-<channel>.yaml` — per-partition status + ETag/sha256/VersionId/ContentLength 4-tuple 박제. (tier 명시 — 본 ADR scope = L1 객체만, 향후 L2/L3 re-key 별 Story 시 `rekey-l2-manifest-*` / `rekey-l3-manifest-*` 패턴 확장 박제)
 5. **batch self-pacing**: `runner.py:347-348` 패턴 재사용 (batch_limit=500 / sweep). SLO: per-batch p99 < 60s, total cutover < 72h.
 
 **Rollback 안전망** (bucket versioning + Phase 1 helper):
@@ -428,10 +457,6 @@ def build_legacy_l1_prefix(*, channel: str, schema_ver: str, exchange: str, symb
 
 **keyword-only 의무** (Refactor §2 advocacy): `build_l1_prefix` / `build_nas_prefix` / `build_legacy_l1_prefix` = 5 동형 `str` 인자 → positional 순서 오류 silent wrong key 차단.
 
-**Rationale (Public API 확장)**:
-- `build_nas_prefix(tier=...)` 일반화: SSOT-4 (L1 GET) + SSOT-6 (L2 GET) 구조 동형 — 단일 tier-agnostic helper 가 cohesion 최대. `build_l1_prefix` 는 caller 친화 별 entry 보존 (`build_nas_prefix(tier="L1", ...)` 등가).
-- `build_legacy_l1_prefix` (§11.2-A Option A carrier): dual-read 윈도우 시점 L2 compactor 가 평면 prefix 만 `_list_objects` → 117 GB 기존 `l1/` L1 객체 미발견 silent skip 위험. legacy prefix 추가 helper 가 reader fallback 역할.
-
 ### Amendment 2 — §결정 3 wording 정정
 
 **Trigger**: ADR-034 §결정 3 wording "reader fallback" 의 실질 의미 ambiguity. 3 source 검증 (CodebaseMapper §4 + TestContractArch §6 + chief author Verify-via) 결과 `src/mctrader_data/io/` 영역 `"l1/"` literal 0 hits — reader-side 변경 영역 자체가 부재.
@@ -482,14 +507,38 @@ def build_legacy_l1_prefix(*, channel: str, schema_ver: str, exchange: str, symb
 
 **active cardinality = 10** (max 6 × 3 = 18). Prometheus best practice (<100 per metric) 안전.
 
-**Current Counter cardinality 박제**:
+## Amendments — U3-MIGRATE chief author (2026-05-18)
 
-```
-- mctrader_nas_key_helper_call_total{caller, tier} Counter — helper 호출 횟수 (U2).
-  cardinality = 10 active (6 caller × 3 tier max 18). U2-HELPER chief author amendment 정합:
-  caller ∈ {dual_writer_put_l1, runner_dispatch_dual_write, runner_cleanup, runner_historical_dual_write,
-            l2_compactor_get_source, l3_compactor_get_source}
-```
+> U3-MIGRATE (mctrader-data#89) Phase 2 chief author synthesis 결과 박제. 본문 §결정 4 #4 Manifest YAML filename wording 의 현행 운영 wording = 본 섹션 우선 인용.
+> Convergence: DataMigrationArchitectAgent §wording drift primary advocacy + chief author 채택 결정 (Story §3.4 verbatim 채택 + ADR 본문 정정) + 6 deputy 통합 정합 (CodebaseMapper + Refactor + SecurityArch + OpRiskArch + TestContractArch + DataMigrationArch) + Codex consult `codex_check_no_findings` (debate-protocol-v1 v1.2 Round 0 미발동, Phase 0.5 blanket debate Touchpoint #2 carry-over 미트리거).
+
+### Amendment 5 — §결정 4 #4 Manifest YAML filename wording 정정
+
+**Trigger**: U3-MIGRATE Story §3.4 + DataMigrationArchitectAgent §wording drift primary advocacy + chief author 결정.
+
+**Rationale**:
+- ADR-034 §결정 4 #4 current wording `rekey-manifest-<exchange>-<channel>.yaml` = tier 미명시 → scope 모호 ("rekey-manifest-" = 어느 tier?).
+- 본 Epic scope = L1 객체만 (Story §1 verbatim "기존 117 GB `l1/` 잔존 객체"). L2/L3 객체 = 이미 평면 (SSOT-2/SSOT-5 박제) → re-key 대상 아님.
+- Story §3.4 wording `rekey-l1-manifest-` = scope clarity (tier 명시) + future-proofing (L2/L3 re-key 별 Story 가능성 박제 — `rekey-l2-manifest-` / `rekey-l3-manifest-` 패턴 확장).
+- MCT-173 BackfillManifest 패턴 = `backfill-manifest-<exchange>-<channel>.yaml` (tier 미명시) — backfill 자체가 L1 scope only 이라 모호성 0. U3 는 future-proofing 의무.
+
+**Current Manifest YAML filename wording 박제 (실질 영역)**:
+
+본 ADR §결정 4 #4 Manifest YAML filename = **`<root>/audit/rekey-l1-manifest-<exchange>-<channel>.yaml`** (tier 명시 — 본 ADR scope = L1 객체만).
+
+- 활성 시점: U3-MIGRATE (#89) Phase 2 cutover step 4 진입 시점
+- 종료 시점: U5-VERIFY (#91) LAND + 30일 cool-down 종료 (script 자체 회수 시점)
+- 확장 규약 (future-proofing): L2/L3 re-key 별 Story 발생 시 `rekey-l2-manifest-*` / `rekey-l3-manifest-*` 패턴 신설 박제
+
+**Cross-Story carrier**:
+- **U5-VERIFY (#91)**: grep gate `rekey-l1-manifest-` 단일 wording 박제 의무 (U5 lane verify)
+- **future L2/L3 re-key 별 Story**: `rekey-l2-manifest-` / `rekey-l3-manifest-` 패턴 확장 박제
+
+**convergence**: DataMigrationArchitectAgent §wording drift primary advocacy + chief author 채택 결정 (Story §3.4 verbatim 채택 + ADR 본문 정정 by Amendment 5).
+
+**related_story**: U3-MIGRATE (mctrader-data#89)
+**related_change_plan**: mctrader-data:docs/change-plans/U3-MIGRATE.md
+**design_review_verdict**: TBD (Phase 2 sibling docs PR LAND 후 DesignReview lane Codex consult)
 
 ## References (cross-link)
 
@@ -502,20 +551,23 @@ def build_legacy_l1_prefix(*, channel: str, schema_ver: str, exchange: str, symb
 - ADR-031 (Data domain decoupling — Layer 2 scope 박제)
 - ADR-045 Amend5 §D-9 (Mandatory ADR trigger)
 - ADR-054 (doc-only Story fast-path — 본 U1-ADR Story 적용 후보)
+- ADR-052 Amendment 4 (mandatory Codex proactive check — U2 + U3 chief author §3 통합 직후 발동)
+- ADR-068 Amendment 1 (dimensional empirical annotation — U3 PROVISIONAL [empirical-source: TBD] 4 row)
 
 ### Story SSOT
 
 - U1-ADR `mctrader-data#87` — 본 ADR 본문 publish
-- U2-HELPER `mctrader-data#88` — 단일 helper SSOT impl + Amendment 1-4 carrier (chief author) + FIX iteration 1 RESOLVED
-- U3-MIGRATE `mctrader-data#89` — 1회성 멱등 re-key 마이그레이션
-- U4-XREPO `mctrader-data#90` — close (§결정 5)
+- U2-HELPER `mctrader-data#88` — 단일 helper SSOT impl + Amendment 1-4 carrier (chief author) + FIX iteration 1 RESOLVED + LAND 2026-05-18 (PR #95 sha 4aa5483a)
+- **U3-MIGRATE `mctrader-data#89`** — 1회성 멱등 re-key 마이그레이션 + **Amendment 5 carrier (chief author)** + Phase 2 cutover step 4 진입
+- U4-XREPO `mctrader-data#90` — closed not_planned (§결정 5 cross-repo isolation 박제)
 - U5-VERIFY `mctrader-data#91` — 통합 검증 + Phase 1 helper 회수
 - EPIC `mctrader-data#86` — Phase 2 Epic 전체 SSOT
 
-### Spec
+### Spec + Change Plan
 
 - `mctrader-data:docs/superpowers/specs/2026-05-17-nas-key-unification-design.md` — brainstorm-complete spec, 본 ADR 의 출처 (§1-§7 verbatim 인용)
 - `mctrader-data:docs/change-plans/U2-HELPER.md` — Amendment 1-4 evidence trail + FIX iteration 1 박제 (chief author author)
+- **`mctrader-data:docs/change-plans/U3-MIGRATE.md`** — **Amendment 5 evidence trail (chief author)** + 4-HEAD verify impl + Manifest YAML schema + IAM Option B + Container Option B
 
 ### 기존 ADR cross-ref (본 ADR 박제 후 추가 의무 — 별 amendment scope)
 
