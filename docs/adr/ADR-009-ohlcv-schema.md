@@ -567,6 +567,28 @@ ADR-009 §D12.2 원안 = forward-only invariant 의 enforcement layer = **local 
 
 cross-ref: ADR-029 D1+D3+D4+D10 + ADR-027 §D5+D7+D9 MCT-167 amendment + ADR-017 §3 D3 MCT-167 amendment.
 
+**MCT-202 amendment 박제 (2026-05-18, EPIC-tier-promotion-single-source, 3-tier eager cleanup cascade)** — forward-only invariant 의 **3-tier dimension 확장 annotation**.
+
+MCT-167 amendment 가 enforcement layer 격상 (local → NAS object SoT) + ambiguity 차단 invariant (ADR-029 §D10) 를 박제했으나, production caller wiring 은 **L1 tier 단독** (MCT-189 LAND `dual_writer.py:246-250 _promote_after_nas_put`) 만 작동. L2/L3 cascade caller wiring 부재 → 동일 logical entity (L1 / L2 source parquet) 가 NAS + local 양쪽 동시 존재하는 ambiguity violation 누적 (production verified `0e244e9`, 2026-05-18 117GB).
+
+본 amendment 가 forward-only invariant 의 3-tier dimension 확장 annotation 박제:
+
+- **WAL → L1 (MCT-189 LAND)**: `_dispatch_dual_write` 가 WAL `.sealed` segment 와 L1 parquet 의 caller-wired self-delete (grace 0 unconditional) 박제. ambiguity 0.
+- **L1 → L2 (MCT-202 LAND)**: `_dispatch_dual_write(tier="L2", source_to_delete=l1_parquet)` 명시 cascade intent → L2 NAS PUT commit 후 L1 parquet 즉시 unlink. ambiguity 0.
+- **L2 → L3 (MCT-202 LAND)**: 동형 `_dispatch_dual_write(tier="L3", source_to_delete=l2_parquet)` → L3 NAS PUT commit 후 L2 parquet 즉시 unlink. ambiguity 0.
+- **`_historical_dual_write` (WS-A, MCT-202 D-3 LAND)**: forward path 와 동형 cascade. drift 차단 의무.
+
+**enforcement layer 3-tier 균질화**:
+- 모든 tier 의 NAS object = single source of truth (versioning Enabled prerequisite)
+- 모든 tier 의 local file = ephemeral cache only (write authority 0)
+- tier 별 local delete trigger = NAS HEAD verify (4중: ETag + VersionId + sha256 Metadata + ContentLength) pass + pre-delete HEAD guard 후 즉시 unlink — **grace 0 unconditional** (`gc.py::run_gc()` 7d FIFO grace = legacy safety net 보존, D-6).
+
+**backfill carrier 보존** (MCT-173 LAND, MCT-202 §11.6 idempotency):
+- frozen `.sealed` WAL → L1 parquet 일괄 generate (disaster recovery) — forward-only 의 강한 invariant 와 정합.
+- replay (restart recovery / sweep cycle) 시점에 동일 (tier, parquet_path, sha256) 입력 idempotent (NAS HEAD-then-PUT idempotency + `_promote_after_nas_put` `FileNotFoundError` graceful = `already_promoted` outcome).
+
+cross-ref: ADR-029 §D11 (3-tier eager unlink invariant 12종, MCT-202 amendment) + ADR-027 §D5 + §D7 (MCT-202 amendment) + ADR-017 §Amendment 4 (Compactor cascade self-delete + status XOR invariant, MCT-202 amendment) + `docs/domain-knowledge/domain/tier-promotion/grace-0-local-delete.md` (MCT-202 3-tier amendment).
+
 #### D12.3 DR backup recipe (volume snapshot)
 
 표준 backup 명령 (PowerShell, mctrader-data Pilot reference):
