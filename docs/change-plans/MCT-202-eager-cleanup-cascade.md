@@ -20,8 +20,7 @@ related_adrs:
   - ADR-027 §D7 (WAL grace 폐기 + NAS-SoT 격상)
   - ADR-029 §D3 (3-tier dimension 일반화)
   - ADR-029 §D11 (3-tier eager unlink invariant 신설)
-  - ADR-017 §D2 (compactor cascade self-delete = caller-wiring SSOT)
-  - ADR-017 §D5 (DualWriter status='committed' XOR source exists invariant)
+  - ADR-017 §Amendment 4 (신설 — compactor cascade self-delete = caller-wiring SSOT + DualWriter status='committed' XOR source exists invariant)
   - ADR-009 §D12.2 (forward-only invariant 3-tier 확장)
 verified_via_ref: "0e244e9 (mctrader-data origin/main HEAD, 2026-05-18)"
 ---
@@ -62,9 +61,9 @@ verified_via_ref: "0e244e9 (mctrader-data origin/main HEAD, 2026-05-18)"
 - `src/mctrader_data/compactor/l3.py` — 변경 0 (동일)
 - `src/mctrader_data/compactor/gc_daemon.py` — docstring amendment only (D-4, 의미 변경 0)
 - `src/mctrader_data/compactor/gc.py` — 변경 0 (D-6 legacy safety net 보존)
-- `src/mctrader_data/nas_storage/dual_writer.py` — `write()` 시그니처에 `source_to_delete: Path | None = None` keyword-only 파라미터 추가 + 신규 분기 + `_promote_after_nas_put` 5 outcome 반환
+- `src/mctrader_data/nas_storage/dual_writer.py` — `write()` 시그니처에 `source_to_delete: Path | None = None` keyword-only 파라미터 추가 + 신규 분기 + `_promote_after_nas_put` 반환 enum 확장 (`Literal["committed","local_only","already_promoted"]`). **2 callsite 영향** (`write():250` + `put_l1():401-402`) — 양쪽 `already_promoted` → `committed` normalize (§3.10). Counter 5 outcome = `_promote_after_nas_put` 내부 직접 emit
 - `src/mctrader_data/nas_storage/nas_uploader.py` — `enqueue_retry` race-C 신호 Counter (`mctrader_retry_orphan_total`) emit (D-5)
-- `src/mctrader_data/nas_metrics/prometheus_exporters.py` — `compactor_local_self_delete_total{tier,outcome}` (5 outcome) + `mctrader_retry_orphan_total{tier}` 신규 (12 + 3 = 15 series, ≤ 50)
+- `src/mctrader_data/nas_metrics/prometheus_exporters.py` — `compactor_local_self_delete_total{tier,outcome}` (3 tier × 5 outcome = 15 series) + `mctrader_retry_orphan_total{tier}` (3 series) + `mctrader_legacy_cleanup_race_noop_total` (1 series) 신규 = **19 series 총** (≤ 50)
 - `tests/unit/nas_storage/test_dual_writer_eager_l2_l3.py` — D-1 옵션 B 신규 분기 (TestContract 의제 2)
 - `tests/integration/test_eager_cleanup_cascade.py` — 3-tier × 5 outcome E2E + sweep race + §11.6 replay
 - `tests/unit/compactor/test_runner_dispatch_dual_write.py` — `source_to_delete` 전달 박제 + `NASOperationalAlert` re-raise
@@ -77,7 +76,7 @@ verified_via_ref: "0e244e9 (mctrader-data origin/main HEAD, 2026-05-18)"
 - `docs/change-plans/MCT-202-eager-cleanup-cascade.md` — **본 문서** (신규)
 - `docs/adr/ADR-027-cold-tier-object-storage-nas-minio.md` — §D5 + §D7 amendment box
 - `docs/adr/ADR-029-tier-promotion-single-source.md` — §D3 + §D11 amendment box (§D11 신설)
-- `docs/adr/ADR-017-zero-loss-ingestion-wal-tiered-compaction.md` — §D2 + §D5 amendment box
+- `docs/adr/ADR-017-zero-loss-ingestion-wal-tiered-compaction.md` — §Amendment 4 (신설, compactor cascade self-delete = caller-wiring SSOT + DualWriter status XOR source invariant)
 - `docs/adr/ADR-009-ohlcv-schema.md` — §D12.2 annotation amendment
 - `docs/domain-knowledge/domain/tier-promotion/grace-0-local-delete.md` — 3-tier 확장 amendment
 
@@ -178,7 +177,7 @@ except PromotionVerifyError as e:
 | `hard_floor_retained` | NAS status='hard_floor_blocked' | retained |
 | **`already_promoted`** (NEW) | restart recovery / sweep cycle 진입 시 source 부재 (concurrent unlink) | absent (idempotent no-op) |
 
-3 tier × 5 outcome = 15 series + `mctrader_retry_orphan_total{tier}` 3 series = **18 series 총** (≤ 50 ADR-027 §D6 invariant 정합).
+3 tier × 5 outcome = 15 series + `mctrader_retry_orphan_total{tier}` 3 series + `mctrader_legacy_cleanup_race_noop_total` 1 series = **19 series 총** (15 + 3 + 1, ≤ 50 ADR-027 §D6 invariant 정합. §4.3 / §7.5 / §13 정합).
 
 ### 3.8 §11.6 idempotency replay 활성화
 
@@ -205,6 +204,46 @@ except (OSError, RuntimeError):
 ```
 
 `mctrader_legacy_cleanup_race_noop_total` 신규 Counter (1 series, label 0 — sweep cycle 자체가 race 만 보고).
+
+### 3.10 `_promote_after_nas_put` 2 callsite caller inventory + `already_promoted` normalize (P1-1)
+
+verified-via `0e244e9`: `_promote_after_nas_put` 는 **2 callsite** 에서 호출:
+
+| # | callsite | verified-via | source 인자 | 비고 |
+|---|---|---|---|---|
+| 1 | `dual_writer.py:250` `write()` `_COMMITTED_STATUSES` branch | `0e244e9` | `data` (MCT-189) / `source_to_delete` (MCT-202 신규) | cascade 주 경로 |
+| 2 | `dual_writer.py:401-402` `put_l1()` `_COMMITTED_STATUSES` branch | `0e244e9` | `path` (L1 self-source) | WAL→L1 L1 PUT 경로 |
+
+`_promote_after_nas_put` 반환 enum 확장 (`Literal["committed", "local_only", "already_promoted"]`) 시 **2 callsite 양쪽** `DualWriteResult.status` 매핑 명시 의무.
+
+**채택 = `already_promoted` → `committed` normalize** (P1-1 ArchitectPL 권고 채택):
+
+```python
+# callsite 1: dual_writer.py:250 write()
+if source_to_delete is not None:
+    _promote_status = self._promote_after_nas_put(source_to_delete, nas_key, sha256)
+    dwr_status = "committed" if _promote_status == "already_promoted" else _promote_status
+elif isinstance(data, Path) and data != local_path:
+    _promote_status = self._promote_after_nas_put(data, nas_key, sha256)
+    dwr_status = "committed" if _promote_status == "already_promoted" else _promote_status
+else:
+    dwr_status = "committed"
+
+# callsite 2: dual_writer.py:401-402 put_l1()
+_promote_status = self._promote_after_nas_put(path, nas_key, sha256)
+dwr_status = "committed" if _promote_status == "already_promoted" else _promote_status
+```
+
+**normalize 근거 (type-sound)**:
+- `DualWriteResult.status` = `Literal["committed", "local_only", "hard_floor_blocked"]` (3-enum, `dual_writer.py:89` SSOT, **변경 0** — wording SSOT 보존).
+- `already_promoted` semantic = NAS object 존재 + local source 부재 (concurrent unlink / idempotent re-entry) = **INV-1 XOR 만족 동일** (committed semantic 과 동치: 양쪽 영속화 보장 + source 부재).
+- 따라서 `already_promoted` → `committed` normalize = type-sound (caller 가 `DualWriteResult.status` 3-enum 만 switch, MCT-189 caller contract 보존).
+
+**Counter outcome 5종 emit = `_promote_after_nas_put` 내부 직접 emit** (DualWriteResult.status propagation 과 분리):
+- `compactor_local_self_delete_total{tier, outcome}` 5종 = `_promote_after_nas_put` 내부에서 직접 `.labels(...).inc()` (callsite 별 outcome 정확 분류).
+- caller (`write()` / `put_l1()`) 는 `DualWriteResult.status` 3-enum 만 normalize. Counter 5 outcome 과 status 3-enum 은 **독립 channel** (Counter = 관측, status = caller contract).
+
+→ 2 callsite (`write():250` + `put_l1():402`) 양쪽 `already_promoted` → `committed` normalize 명시. drift 0.
 
 ## §4 인터페이스 변경
 
@@ -252,6 +291,18 @@ def _promote_after_nas_put(...) -> Literal["committed", "local_only", "already_p
 `already_promoted` = `FileNotFoundError` 분기 (concurrent unlink / idempotent re-entry). 기존 `return "committed"` (D-7 A) → `return "already_promoted"` 로 분화 (Counter outcome 5종 정합).
 
 INV-1 XOR 만족 (NAS object 존재 + local source 부재) 동일.
+
+**2 callsite caller propagation 명시** (P1-1, §3.10 SSOT):
+
+| callsite | verified-via | `DualWriteResult.status` 매핑 |
+|---|---|---|
+| `dual_writer.py:250` `write()` | `0e244e9` | `already_promoted` → `committed` normalize |
+| `dual_writer.py:401-402` `put_l1()` | `0e244e9` | `already_promoted` → `committed` normalize |
+
+- `DualWriteResult.status` = `Literal["committed","local_only","hard_floor_blocked"]` (3-enum, `dual_writer.py:89` SSOT, **변경 0**).
+- `_promote_after_nas_put` 반환 = `Literal["committed","local_only","already_promoted"]` (확장 enum, MCT-202 신규).
+- normalize: 두 callsite 모두 `"committed" if _promote_status == "already_promoted" else _promote_status` (type-sound — `already_promoted` semantic = committed XOR 동치, §3.10 근거).
+- Counter outcome 5종 = `_promote_after_nas_put` **내부 직접 emit** (status propagation 과 독립 channel).
 
 ### 4.3 신규 Prometheus metric
 
@@ -335,6 +386,54 @@ mutually exclusive (XOR) 보증. invariant test 박제 의무 (§8.1).
 | **INV-H** | gc.py 보존 (D-6) | `run_gc()` 7d FIFO grace = legacy safety net. 14d production evidence gate 후 별 Story 폐기 검토 | grep `def run_gc` 1 hit 유지 |
 | **INV-I** | gc_daemon `_archive_failed` 의미 변경 0 (D-4) | status='local_only' / 'hard_floor_blocked' 7d extension 분기 자연 보존 | docstring amendment only, 코드 변경 0 |
 
+#### §7.4.1 Clock-skew N/A 사유 (OpRiskArch)
+
+eager unlink = **wall-clock 무관**:
+- unlink trigger = NAS HEAD verify 4-tuple (ETag + VersionId + sha256 Metadata + ContentLength) = sole gate. 시간 비교 0.
+- `.compacted` sentinel = atomic file presence (시간 무관, ADR-017 §D2).
+- S3 v4 signing = boto3 자동 clock sync (`botocore` 내부 SigV4 timestamp 자동 처리, MCT-202 신규 의존 0).
+- **WAL grace 폐기 (사용자 결정 #3) = 24h timer 제거** → 기존 clock-dependent 24h grace window 소멸 → MCT-202 가 clock dependency 를 오히려 **제거**.
+
+→ Clock-skew 시나리오 = **N/A** (시간 의존 sub-system 부재).
+
+#### §7.4.2 L3-tier DR-layer 영구 부재 명시 수용 박제 (OpRiskArch DR-3)
+
+WAL `.sealed` + L1/L2 source 즉시 unlink → **local volume = ephemeral cache only (DR-layer 0)**. tier promotion chain 의 terminal = L3 → NAS bucket. **L3-tier 영구 DR-layer = NAS bucket 단독** 명시 수용.
+
+흡수 안전망 3종 (한계 명시):
+
+| 안전망 | 능력 | 한계 |
+|---|---|---|
+| ① MCT-161 bucket versioning=Enabled + NoncurrentVersionExpiration 30d | 의도치 않은 overwrite/delete 30d window PITR 복원 | NAS bucket 전체 손실 시 복원 0 |
+| ② retry_queue carrier (C-6, status=local_only) | NAS PUT 일시 실패 시 source 보존 + 재시도 | committed 후 source unlink → carrier 흡수 종료 |
+| ③ MCT-173 backfill | frozen WAL → L1 재생성 (disaster recovery) | **WAL grace 폐기 후 source = NAS object 한정 → OpRiskArch DR-3 박제: "audit trail only, NAS object 복구 능력 0"**. WAL 부재 = backfill source 부재 |
+
+**NAS bucket 전체 손실 = DR-layer L3 영구 부재 수용** 명시. 본 Story 의 사용자 결정 #3 (WAL grace 폐기) 의 trade-off 로서 **명시 수용** (사용자 가치 함수 = disk-full 빈발 차단 우선). cross-NAS replication (ADR-027 §D6 MCT-174) 이 NAS bucket 전체 손실 mitigation 후보이나 본 Story 범위 외 (mcnas02 물리 부재, 별 Story).
+
+#### §7.4.3 Disconnect mid-cascade (OpRiskArch)
+
+NAS 단절 시점 별 처리:
+
+| 단절 시점 | 처리 |
+|---|---|
+| 4-HEAD verify HEAD 호출 중 단절 | `EndpointConnectionError` / `PromotionVerifyError` → `_promote_after_nas_put` `except PromotionVerifyError` 분기 → `nas_uploader.enqueue_retry(key, data=source, sha256)` + status='local_only' 반환 → **source unlink 0** (source 보존). `mctrader_retry_orphan_total{tier}` (D-5) 가시화 |
+| `put_streaming` NAS PUT 중 단절 | `nas_put_result.status` ∉ `_COMMITTED_STATUSES` (queued) → status='local_only' → source 보존 |
+| pre-delete HEAD guard 중 단절 | guard HEAD 실패 → `PromotionVerifyError` → unlink 미실행 + source 보존 (INV-B 정합) |
+
+공통: disconnect = source unlink 0 (committed gate 미통과 → INV-D XOR 보증). retry_queue carrier 가 NAS 복구 시 자연 회수.
+
+#### §7.4.4 Rate-limit N/A 사유 (OpRiskArch)
+
+MCT-202 cascade 의 NAS API 호출량:
+- unlink = **local syscall** (NAS API 0)
+- pre-delete HEAD = ~2 HEAD/source (4-HEAD verify 1회 + pre-delete guard 1회)
+- cascade cadence = L2 ~300s / L3 ~3600s interval per partition
+- sweep = `scan_and_cleanup_legacy` 6-min cadence × batch_limit=500
+
+예상 NAS HEAD rate ≈ 500 source / 6-min × 2 HEAD = ~2.8 HEAD/s peak (sweep) + cascade ~negligible. MinIO 자가호스팅 한도 (수천 req/s) 대비 무시 가능.
+
+→ Rate-limit 시나리오 = **N/A** (NAS API 호출량 << MinIO 한도, throttle 도달 0).
+
 ### §7.5 SecurityArch — 위협 ↔ 완화 매트릭스 (T-1~T-10)
 
 | T-# | 위협 | 완화 |
@@ -353,6 +452,32 @@ mutually exclusive (XOR) 보증. invariant test 박제 의무 (§8.1).
 ### §7.6 SecurityArch — sha256 hex log only, Prom label 0 (INV-SEC-6)
 
 sha256 = log message 만 (`log.info("...sha256=%r")`). Prometheus Counter labelnames 에 sha256 포함 금지 (cardinality 무한 폭증 risk).
+
+### §7.6.1 Trust boundary (SecurityArch)
+
+신뢰 경계 = **local FS (ephemeral cache) ↔ NAS object (SoT)**:
+
+- **경계 정의**: local parquet = ephemeral cache (write authority 0, MCT-167 amendment 정합). NAS object = single source of truth (versioning Enabled). cascade 가 이 경계를 넘어 source unlink 결정.
+- **boundary 통과 gate**: NAS HEAD verify 4-tuple (ETag + VersionId + sha256 Metadata + ContentLength) + pre-delete HEAD guard. boundary 양측 동일 sha256 (caller-side single computation, multipart ETag ≠ sha256).
+- **multi-node compactor cross-node race guard**: `.compacted` sentinel atomic (ADR-017 §D2) + NAS HEAD-then-PUT idempotency (T-10). 동일 logical entity 를 2 node 가 동시 cascade → sentinel atomic presence + HEAD-then-PUT `skipped_idempotent` 가 double-PUT 차단.
+- **신규 trust boundary 추가 0**: MCT-189 LAND 의 local↔NAS 경계 답습. MCT-202 = 동일 경계의 3-tier 일반화 (새 boundary surface 0).
+
+### §7.6.2 Auth (SecurityArch)
+
+- **NAS IAM credential scope**: 기존 `DualWriter._uploader` (NASUploader) IAM credential 재사용. `put_streaming` (PUT) + `head_object` (HEAD) action.
+- **MCT-202 신규 IAM action 0 박제**: cascade 는 기존 DualWriter PUT + HEAD action 만 사용. DELETE action 미사용 (local unlink = filesystem syscall, NAS object DELETE 0 — D-2 옵션 C 정합, NAS object 회수 = MCT-204 carry-over 시점에 별 IAM 검토).
+- **4xx fail-fast 정합**: ADR-027 §D5 INCIDENT amendment (`NASOperationalAlert` re-raise) — IAM auth 실패 (401/403) = `auth_failed` / `policy_denied` 분류 → retry_queue 흡수 금지 + operator alarm. MCT-202 cascade 가 이 분류 propagation 답습 (D-3 `_historical_dual_write` wrap 동시 LAND).
+
+### §7.6.3 Sensitive-data 분류 (SecurityArch)
+
+| 데이터 | 분류 | 처리 |
+|---|---|---|
+| sha256 hex | **non-PII** (content digest) | INV-SEC-6: log message only, Prometheus label 0 |
+| parquet path | **non-PII** (Hive partition key — `market/<channel>/schema_version=*/tier=*/exchange=*/symbol=*/date=*`) | credential 0, log only. Counter label = tier (path 미포함) |
+| raw_json (parquet 내부) | **public market data** (거래소 공개 orderbook/transaction) | PII 0 (ADR-009 §D10 정합). cascade 는 parquet 내부 미접근 (file-level lifecycle only) |
+| NAS object metadata | sha256 + ContentLength only | credential 0, PII 0. HEAD verify 4-tuple 비교용 |
+
+cascade 는 file-level lifecycle (unlink) 만 — parquet 내부 row 미접근 → sensitive-data 노출 surface 0.
 
 ### §7.7 NAS GET 모드 cascade 정합 (chief author 신규 sub-section)
 
@@ -501,6 +626,47 @@ def test_idempotent_replay_case_3_nas_put_skipped_idempotent():
 
 **N/A 명시**: 성능 회귀 risk 0 (callee 변경 0, caller 측 명시 파라미터만 추가).
 
+### §8.5 Stateful / restart invariant (active=true)
+
+**§8.5 active 판정 = `active=true`** (4-조건 평가):
+
+| 조건 | 평가 | 근거 (verified-via `0e244e9`) |
+|---|---|---|
+| 조건 1: 영속 상태 mutate | 부분 (local FS lifecycle) | source parquet unlink = filesystem state mutate |
+| 조건 2: 외부 시스템 트랜잭션 | yes (NAS object PUT) | `put_streaming` multipart upload |
+| 조건 3: background worker / long-lived daemon | **yes** | `runner.py:72-82 CompactorRunner.run()` = `while True` asyncio loop + `asyncio.sleep(SCAN_INTERVAL_SECONDS)` (verified-via `0e244e9`). compactor `_tick` (`runner.py:84`) 주기 dispatch |
+| 조건 4: restart-aware (멱등 / resume) | **yes** | §11.6 idempotency replay (K8s OOMKilled / pod restart 명시) + sweep cursor-free full glob 재실행 |
+
+조건 3 (background daemon) + 조건 4 (restart-aware) 충족 → **active=true**. §8.5.1~§8.5.3 박제 의무.
+
+#### §8.5.1 Sustained-workload 시나리오
+
+compactor `_tick` = `SCAN_INTERVAL_SECONDS` interval 주기 dispatch (`runner.py:82 asyncio.sleep`, verified-via `0e244e9`). cascade dispatch (`_dispatch_dual_write` tier=L2/L3 + `_historical_dual_write`) 가 매 tick 마다 지속 부하. sustained workload:
+- L2 cascade: ~300s interval per partition (forward `_run_l2` 윈도우)
+- L3 cascade: ~3600s interval per partition (forward `_run_l3` 윈도우)
+- sweep: `scan_and_cleanup_legacy` 6-min cadence × batch_limit=500 (`runner.py:316 _LEGACY_BATCH_DEFAULT=500`, verified-via `0e244e9`)
+
+지속 부하 invariant: `_promote_after_nas_put` 4-HEAD verify (~2 HEAD/source) + unlink (local syscall) per cascade. memory budget = path snapshot 1 Path object per orphan (D-5 INV-SEC-7, INV-4 정합). 누적 leak 0 (Counter += O(1) per dispatch).
+
+#### §8.5.2 SIGTERM 3 시나리오 (graceful shutdown / restart-resumable)
+
+| 시나리오 | SIGTERM 시점 | 처리 | restart 후 |
+|---|---|---|---|
+| ① cascade 중간 | `_promote_after_nas_put` 4-HEAD verify 진행 중 SIGTERM | source unlink 미실행 (verify 미완료) → source 보존 | restart 후 재진입: NAS object 이미 commit (HEAD-then-PUT skipped_idempotent) + source 존재 → `committed_unlinked` OR source 부재 (이전 partial unlink) → `already_promoted`. 멱등 (§11.6 Case 1/2) |
+| ② sweep 중간 | `scan_and_cleanup_legacy` batch=500 처리 중 SIGTERM | 부분 batch 처리 후 중단. cursor 별도 부재 (`runner.py:334` docstring "full glob 재실행 시 이미 unlink된 file은 자연 사라져", verified-via `0e244e9`) | restart 후 full glob 재실행 → 다음 batch 가 다음 500개 picks up. **cursor-free restart-resumable** (state 부재 = resume state 0) |
+| ③ NAS PUT in-flight | `put_streaming` multipart upload 중 SIGTERM | multipart abort (incomplete upload) → `nas_put_result.status` ∉ `_COMMITTED_STATUSES` → status='local_only' (retry_queue carrier enqueue) → source 보존 | restart 후 retry_queue drain (C-6 carrier) → NAS PUT 재시도 → committed 시 cascade 정상. source unlink 0 보장 (committed gate 미통과 시) |
+
+3 시나리오 공통 invariant: **INV-D (status='committed' XOR source exists)** — SIGTERM 어느 시점이든 source unlink 는 NAS commit + 4-HEAD verify pass 후에만. partial state = source 보존 (fail-safe).
+
+#### §8.5.3 Idempotency replay invariant
+
+§11.6 cross-ref (3 case):
+- **Case 1** (source 존재 + NAS commit): restart 후 재진입 → 4-HEAD verify pass + unlink → `committed_unlinked`
+- **Case 2** (source 부재 + NAS commit): 이전 cascade 부분 완료 후 restart → `_promote_after_nas_put` `FileNotFoundError` graceful → `already_promoted` (idempotent no-op)
+- **Case 3** (NAS HEAD-then-PUT match): `nas_uploader.put_streaming` HEAD-then-PUT idempotency (sha256 metadata match → `skipped_idempotent`) → `_COMMITTED_STATUSES` 진입 → cascade 정상
+
+replay 빈도 박제 = §11.6 표 (restart recovery 빈번 / sweep cycle 빈번 / manual replay 드물). integration test `test_idempotent_replay_case_1/2/3` (§8.2) 가 3 case 전부 박제.
+
 ## §9 분기 선택 (D-1~D-6 결정 요약 + 별 Story carry-over)
 
 ### 채택안 종합
@@ -524,8 +690,7 @@ amendment 박제 위치:
 - **ADR-027 §D7** — WAL 24h grace 폐기 + NAS-SoT 격상 + retry_queue + MCT-173 backfill 3종 흡수 amendment box
 - **ADR-029 §D3** — grace-0 tier dimension 일반화 (L1 단독 → 3-tier cascade) amendment box (본 Plan §3.1)
 - **ADR-029 §D11** (신설) — 3-tier eager unlink invariant (INV-A~D 4종 + INV-E~I 5종 + INV-SEC-1/6/7) amendment box
-- **ADR-017 §D2** — compactor cascade self-delete = caller-wiring SSOT (callee 내부 source unlink path 부재 박제) amendment box
-- **ADR-017 §D5** — DualWriter status='committed' XOR source exists invariant 박제 amendment box
+- **ADR-017 §Amendment 4 (신설)** — compactor cascade self-delete = caller-wiring SSOT (callee 내부 source unlink path 부재 박제) + DualWriter status='committed' XOR source exists invariant 박제. (실제 artifact = ADR-017 §Amendment 4 단일 신설 box, Story §11 정합. ADR-017 본문은 amendment-style structure — §D2/§D5 명시 섹션 부재이므로 §Amendment 4 신설이 정확)
 - **ADR-009 §D12.2** — forward-only invariant 3-tier 확장 annotation
 
 ## §11 데이터 마이그레이션
@@ -593,6 +758,8 @@ N/A — 본 Story 는 NAS object storage + local filesystem lifecycle 만 영향
 
 ## §13 Phase 1 산출물 self-check 결과
 
+> **FIX 1/3 재산출 반영 (2026-05-18, DesignReviewPL verdict=FIX)**: P0×3 (§8.5 신설 / §7.4 보강 / §7.6.1~3 trust-boundary·auth·sensitive-data) + P1×2 (§3.10 put_l1 2-callsite propagation / §13 I-1·I-2 2-enum 명시) + P2×2 (§3.7 19 series / ADR-017 §Amendment 4 wording) 정정 완료. immutable 보존: 사용자 결정 3종 / Story §0-§6 / §10 FIX Ledger / 8 핵심 결정 / ADR amendment 4종 본문.
+
 ### A. Mechanical 7-item (ADR-065 / CFP-438) — non-marketplace 영역
 
 | # | item | status | rationale |
@@ -611,9 +778,9 @@ N/A — 본 Story 는 NAS object storage + local filesystem lifecycle 만 영향
 
 | Invariant | 영역 | status | verification format |
 |---|---|---|---|
-| I-1 | API contract semantic completeness | PASS | §4.1 `DualWriter.write()` 시그니처 + §4.2 `_promote_after_nas_put` 반환 enum (committed/local_only/already_promoted) docstring + enum × 의미 매핑표 (§3.7 Counter 5 outcome 표) |
-| I-2 | Cross-module propagation completeness | PASS | §3.7 Counter outcome × caller 처리 매핑표 (5 outcome × 3 caller: `_dispatch_dual_write` / `_historical_dual_write` / sweep `scan_and_cleanup_legacy`) |
-| I-3 | Guard placement intent | PASS | §3.1 `source_to_delete is None` guard = 함수 진입 직후 (callee `dual_writer.py:239` `nas_put_result.status in _COMMITTED_STATUSES` 분기 내 추가 guard 도식) |
+| I-1 | API contract semantic completeness | PASS | **2 enum 명시 구분**: ① `DualWriteResult.status` = `Literal["committed","local_only","hard_floor_blocked"]` (3-enum, `dual_writer.py:89` SSOT, **변경 0**) ② `_promote_after_nas_put` 반환 = `Literal["committed","local_only","already_promoted"]` (확장 enum, MCT-202 신규). §4.1 `write()` 시그니처 + §4.2 반환 enum docstring + §3.10 2-callsite normalize 표 + enum × 의미 매핑 (§3.7 Counter 5 outcome 표) |
+| I-2 | Cross-module propagation completeness | PASS | **확장 enum 2 caller propagation** (`_promote_after_nas_put` callsite = `write():250` + `put_l1():401-402`, verified-via `0e244e9`) → 양쪽 `already_promoted` → `committed` normalize (§3.10 SSOT). **Counter 5 outcome** = `_promote_after_nas_put` 내부 직접 emit (status propagation 과 독립 channel). cascade caller (`_dispatch_dual_write` / `_historical_dual_write` / sweep `scan_and_cleanup_legacy`) 는 `DualWriteResult.status` 3-enum 만 switch (MCT-189 caller contract 보존) |
+| I-3 | Guard placement intent | PASS | §3.1 `source_to_delete is None` guard = `dual_writer.py:239` `nas_put_result.status in _COMMITTED_STATUSES` 분기 내부 (verified-via `0e244e9`, line 239 = committed gate). guard 위치 = "committed gate 통과 후 source 구분" (cascade vs MCT-189 vs no-op 3-way). §8.5.2 SIGTERM 3 시나리오 = guard 가 partial state 시 source 보존 (fail-safe) 보증. INV-D XOR enforcement 도식 = §7.3 표 |
 | I-4 | Wording SSOT | PASS | Story §3/§7 ↔ ADR-029 §D11 (신설) ↔ impl identifier (`source_to_delete`, `already_promoted`) 3-column 대조 — wording SSOT `DualWriteResult.status` enum + `compactor_local_self_delete_total` outcome enum 정합 |
 
 **boundary_completeness_self_check_passed: true** (PASS 4, FAIL 0).
